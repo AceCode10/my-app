@@ -1,0 +1,144 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 142.1 76.2% 36.3%;
+    --primary-foreground: 355.7 100% 97.3%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 215.4 16.3% 46.9%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 98%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 142.1 76.2% 36.3%;
+    --radius: 0.5rem;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --sidebar-background: 220 13% 18%; /* Dark Blueish-Gray */
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 0 0% 98%;
+    --sidebar-primary-foreground: 220 13% 18%;
+    --sidebar-accent: 220 13% 23%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 220 13% 23%;
+    --sidebar-ring: 142.1 76.2% 36.3%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 142.1 76.2% 36.3%;
+    --primary-foreground: 355.7 100% 97.3%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 142.1 76.2% 36.3%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --sidebar-background: 222.2 84% 4.9%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 210 40% 98%;
+    --sidebar-primary-foreground: 222.2 84% 4.9%;
+    --sidebar-accent: 217.2 32.6% 17.5%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217.2 32.6% 17.5%;
+    --sidebar-ring: 142.1 76.2% 36.3%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  
+  [data-sidebar] {
+    --tw-bg-opacity: 1;
+    background-color: hsl(var(--sidebar-background) / var(--tw-bg-opacity));
+    --tw-text-opacity: 1;
+    color: hsl(var(--sidebar-foreground) / var(--tw-text-opacity));
+  }
+  
+  [data-sidebar="menu-button"] {
+    &[data-active="true"] {
+      --tw-bg-opacity: 1;
+      background-color: hsl(var(--sidebar-accent) / var(--tw-bg-opacity));
+      --tw-text-opacity: 1;
+      color: hsl(var(--sidebar-accent-foreground) / var(--tw-text-opacity));
+    }
+  }
+
+  .prose {
+    .worked-example, .exam-tip {
+      @apply p-4 my-6 rounded-lg border;
+    }
+
+    .worked-example {
+      @apply bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800;
+    }
+    
+    .exam-tip {
+       @apply bg-amber-50 border-amber-200 dark:bg-amber-950 dark:border-amber-800;
+    }
+
+    .worked-example > h3:first-child::before,
+    .exam-tip > h3:first-child::before {
+      @apply w-6 h-6 mr-2 inline-block content-[''] bg-contain bg-no-repeat bg-center;
+    }
+    
+    .worked-example > h3:first-child::before {
+       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' class='lucide lucide-pencil-ruler'%3E%3Cpath d='m15 5 4 4'%3E%3C/path%3E%3Cpath d='M13 7.35a2 2 0 0 0-2.5-2.5L2 14v6h6l8.65-8.65a2 2 0 0 0-2.5-2.5z'%3E%3C/path%3E%3Cpath d='M20 16c.6.6 1.4 1 2 1s1.4-.4 2-1c.6-.6 1-1.4 1-2s-.4-1.4-1-2c-.6-.6-1.4-1-2-1s-1.4.4-2 1'%3E%3C/path%3E%3C/svg%3E");
+    }
+
+    .exam-tip > h3:first-child::before {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23f59e0b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' class='lucide lucide-lightbulb'%3E%3Cpath d='M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5'%3E%3C/path%3E%3Cpath d='M9 18h6'%3E%3C/path%E3Cpath d='M10 22h4'%3E%3C/path%3E%3C/svg%3E");
+    }
+  }
+}
+
+@layer utilities {
+    .gradient-text {
+        @apply bg-gradient-to-r from-primary via-green-500 to-emerald-400;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    .bg-hero-pattern {
+        background-color: transparent;
+        background-image: radial-gradient(hsl(var(--primary) / 0.1) 1px, transparent 1px);
+        background-size: 20px 20px;
+    }
+}
+
+    

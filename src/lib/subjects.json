@@ -1,0 +1,363 @@
+
+[
+  {
+    "name": "Accounting",
+    "code": "0452",
+    "slug": "accounting",
+    "icon": "Calculator",
+    "color": "text-cyan-500",
+    "papers": [
+      { "year": 2023, "session": "May/June", "papers": [
+          { "name": "Question Paper 11", "type": "qp", "link": "#" },
+          { "name": "Mark Scheme 11", "type": "ms", "link": "#" }
+      ]},
+      { "year": 2022, "session": "Oct/Nov", "papers": [
+        { "name": "Question Paper 12", "type": "qp", "link": "#" },
+        { "name": "Mark Scheme 12", "type": "ms", "link": "#" }
+      ]}
+    ],
+    "topics": [
+        { "name": "Double-entry bookkeeping", "description": "The foundation of accounting systems." },
+        { "name": "Accounting procedures", "description": "Day books, ledgers, and journals." },
+        { "name": "Control systems", "description": "Bank reconciliation and trial balances." },
+        { "name": "Financial statements", "description": "For sole traders and partnerships." },
+        { "name": "Capital and revenue expenditure", "description": "Distinguishing between asset and expense." },
+        { "name": "Errors and corrections", "description": "Identifying and rectifying mistakes." },
+        { "name": "Accounting for depreciation", "description": "Methods and calculations." },
+        { "name": "Interpretation and analysis", "description": "Using ratios to assess performance." }
+    ]
+  },
+  {
+    "name": "Biology",
+    "code": "0610",
+    "slug": "biology",
+    "icon": "FlaskConical",
+    "color": "text-emerald-500",
+    "practicals": true,
+    "papers": [],
+    "topics": [
+        { "name": "Cells and microscopy", "description": "Structure of plant and animal cells." },
+        { "name": "Biological molecules", "description": "Carbohydrates, proteins, and fats." },
+        { "name": "Enzymes", "description": "Function and factors affecting activity." },
+        { "name": "Plant and animal nutrition", "description": "Photosynthesis and digestive systems." },
+        { "name": "Transport in organisms", "description": "Circulatory and vascular systems." },
+        { "name": "Respiration & gas exchange", "description": "Aerobic and anaerobic processes." },
+        { "name": "Homeostasis & coordination", "description": "Nervous and endocrine systems." },
+        { "name": "Reproduction", "description": "Asexual and sexual reproduction." },
+        { "name": "Genetics & variation", "description": "Inheritance and DNA." },
+        { "name": "Ecology", "description": "Ecosystems and human influences." }
+    ]
+  },
+  {
+    "name": "Business Studies",
+    "code": "0450",
+    "slug": "business-studies",
+    "icon": "BookOpen",
+    "color": "text-sky-500",
+    "papers": [],
+    "topics": [
+        { "name": "Business activity & enterprise", "description": "Needs, wants, and scarcity." },
+        { "name": "Types of business organizations", "description": "Sole traders, partnerships, etc." },
+        { "name": "Business objectives", "description": "Profit, growth, and survival." },
+        { "name": "People in business", "description": "Motivation and organization." },
+        { "name": "Marketing and research", "description": "The four Ps and market analysis." },
+        { "name": "Production & operations", "description": "Methods of production." },
+        { "name": "Finance and accounting", "description": "Cash flow and financial statements." },
+        { "name": "External influences", "description": "Economic, legal, and social factors." }
+    ]
+  },
+  {
+    "name": "Chemistry",
+    "code": "0620",
+    "slug": "chemistry",
+    "icon": "TestTube",
+    "color": "text-red-500",
+    "practicals": true,
+    "papers": [],
+    "topics": [
+        { "name": "States of matter", "description": "Solid, liquid, gas, and diffusion." },
+        { "name": "Atomic structure", "description": "Protons, neutrons, and electrons." },
+        { "name": "Chemical bonding", "description": "Ionic, covalent, and metallic bonds." },
+        { "name": "Periodic table", "description": "Trends and properties of elements." },
+        { "name": "Acids, bases, salts", "description": "Reactions and pH scale." },
+        { "name": "Rates of reaction", "description": "Factors affecting reaction speed." },
+        { "name": "Electrochemistry", "description": "Electrolysis and cells." },
+        { "name": "Organic chemistry", "description": "Alkanes, alkenes, and alcohols." }
+    ]
+  },
+  {
+    "name": "Computer Science",
+    "code": "0478",
+    "slug": "computer-science",
+    "icon": "BrainCircuit",
+    "color": "text-green-500",
+    "papers": [],
+    "topics": [
+        { "name": "Data representation", "description": "Binary, hexadecimal, and data types." },
+        { "name": "Communication and Internet", "description": "Networks, TCP/IP, and security." },
+        { "name": "Hardware and software", "description": "CPU, memory, and system software." },
+        { "name": "Operating systems", "description": "Functions and types of OS." },
+        { "name": "Algorithms & pseudocode", "description": "Designing and representing solutions." },
+        { "name": "Programming concepts", "description": "Variables, loops, and selection." },
+        { "name": "Databases", "description": "Data models, SQL, and normalization." },
+        { "name": "Ethical issues in computing", "description": "Security, privacy, and AI ethics." }
+    ]
+  },
+  {
+    "name": "Economics",
+    "code": "0455",
+    "slug": "economics",
+    "icon": "BarChart3",
+    "color": "text-blue-500",
+    "papers": [],
+    "topics": [
+        { "name": "Basic economic problem", "description": "Scarcity, choice, and opportunity cost." },
+        { "name": "Demand & supply", "description": "Market forces and equilibrium." },
+        { "name": "Price determination", "description": "Elasticity and market changes." },
+        { "name": "Government intervention", "description": "Taxes, subsidies, and regulation." },
+        { "name": "International trade", "description": "Exchange rates and protectionism." },
+        { "name": "Economic growth", "description": "GDP, inflation, and employment." },
+        { "name": "Market structures", "description": "Competition and monopoly." }
+    ]
+ },
+  {
+    "name": "English Language",
+    "code": "0500",
+    "slug": "english-language",
+    "icon": "PenSquare",
+    "color": "text-rose-500",
+    "papers": [],
+    "topics": [
+        { "name": "Reading comprehension", "description": "Analyzing explicit and implicit meanings." },
+        { "name": "Summarising and inference", "description": "Identifying key points and ideas." },
+        { "name": "Extended writing", "description": "Structuring compelling narratives." },
+        { "name": "Argumentative writing", "description": "Developing persuasive arguments." },
+        { "name": "Descriptive writing", "description": "Creating vivid imagery and atmosphere." },
+        { "name": "Language and audience", "description": "Adapting tone, style, and register." }
+    ]
+  },
+  {
+    "name": "English Literature",
+    "code": "0475",
+    "slug": "english-literature",
+    "icon": "BookMarked",
+    "color": "text-indigo-500",
+    "papers": [],
+    "topics": [
+        { "name": "Analysis of prose", "description": "Character, setting, and narrative voice." },
+        { "name": "Analysis of poetry", "description": "Form, structure, and poetic devices." },
+        { "name": "Analysis of drama", "description": "Dialogue, stagecraft, and dramatic irony." },
+        { "name": "Literary techniques", "description": "Symbolism, imagery, and theme." },
+        { "name": "Context and themes", "description": "Historical and social context." },
+        { "name": "Critical response", "description": "Formulating analytical essays." }
+    ]
+  },
+  {
+    "name": "French",
+    "code": "0520",
+    "slug": "french",
+    "icon": "Languages",
+    "color": "text-yellow-500",
+    "papers": [],
+    "topics": [
+        { "name": "Everyday life", "description": "Social interactions and daily routines." },
+        { "name": "Education and work", "description": "School life and future careers." },
+        { "name": "Leisure and travel", "description": "Hobbies, tourism, and holidays." },
+        { "name": "Personal relationships", "description": "Family and friends." },
+        { "name": "Culture and society", "description": "Festivals, traditions, and media." }
+    ]
+  },
+  {
+    "name": "Geography",
+    "code": "0460",
+    "slug": "geography",
+    "icon": "Globe",
+    "color": "text-teal-500",
+    "papers": [],
+    "topics": [
+        { "name": "Population and migration", "description": "Population dynamics and movement." },
+        { "name": "Settlements", "description": "Urban and rural settlement patterns." },
+        { "name": "Natural environments", "description": "Weather, climate, and ecosystems." },
+        { "name": "Economic development", "description": "Industry, agriculture, and tourism." },
+        { "name": "Resource management", "description": "Water, energy, and conservation." },
+        { "name": "Hazards", "description": "Earthquakes, volcanoes, and floods." },
+        { "name": "Map skills and fieldwork", "description": "Interpreting maps and data." }
+    ]
+  },
+  {
+    "name": "German",
+    "code": "0525",
+    "slug": "german",
+    "icon": "Languages",
+    "color": "text-amber-500",
+    "papers": [],
+    "topics": [
+        { "name": "Social relationships", "description": "Family, friends, and community." },
+        { "name": "Travel and tourism", "description": "Holidays and cultural experiences." },
+        { "name": "Home and lifestyle", "description": "Daily routines and local area." },
+        { "name": "School and education", "description": "Subjects, rules, and future plans." },
+        { "name": "Media and technology", "description": "The role of technology in daily life." }
+    ]
+  },
+  {
+    "name": "History",
+    "code": "0470",
+    "slug": "history",
+    "icon": "Landmark",
+    "color": "text-orange-500",
+    "papers": [],
+    "topics": [
+        { "name": "International relations (19th-20th C)", "description": "Causes of major conflicts." },
+        { "name": "World wars", "description": "Key events, figures, and consequences." },
+        { "name": "Cold War", "description": "Ideological conflict and global tensions." },
+        { "name": "League of Nations & UN", "description": "International cooperation and peace." },
+        { "name": "National revolutions", "description": "Case studies of major revolutions." },
+        { "name": "Source evaluation", "description": "Analyzing historical documents." }
+    ]
+  },
+  {
+    "name": "ICT",
+    "code": "0417",
+    "slug": "ict",
+    "icon": "BrainCircuit",
+    "color": "text-green-600",
+    "papers": [
+      { "year": 2023, "session": "March", "papers": [
+          { "name": "Question Paper 12", "type": "qp", "link": "#" },
+          { "name": "Mark Scheme 12", "type": "ms", "link": "#" }
+      ]},
+      { "year": 2022, "session": "May/June", "papers": [
+          { "name": "Question Paper 21", "type": "qp", "link": "#" },
+          { "name": "Mark Scheme 21", "type": "ms", "link": "#" },
+          { "name": "Source Files 21", "type": "sf", "link": "#" }
+      ]},
+      { "year": 2022, "session": "Oct/Nov", "papers": [
+          { "name": "Question Paper 22", "type": "qp", "link": "#" },
+          { "name": "Mark Scheme 22", "type": "ms", "link": "#" },
+          { "name": "Source Files 22", "type": "sf", "link": "#" }
+      ]}
+    ],
+    "topics": [
+      { "name": "Types and Components of Computer Systems", "description": "Hardware, software, and peripheral devices." },
+      { "name": "Input and Output Devices", "description": "Understanding different types of I/O devices." },
+      { "name": "Storage Devices and Media", "description": "Primary, secondary, and off-line storage." },
+      { "name": "Networks and the Effects of Using them", "description": "LAN, WAN, and network security." },
+      { "name": "The Effects of Using IT", "description": "Impact on society and individuals." },
+      { "name": "ICT Applications", "description": "Communication, modeling, and data handling." },
+      { "name": "The Systems Life Cycle", "description": "Analysis, design, and implementation." },
+      { "name": "Safety and Security", "description": "Physical safety and e-safety." },
+      { "name": "Audience", "description": "Adapting communication for different audiences." },
+      { "name": "Communication", "description": "Effective use of IT for communication." },
+      { "name": "File Management", "description": "Organizing and managing files." },
+      { "name": "Document Production", "description": "Word processing skills." },
+      { "name": "Databases", "description": "Creating and using databases." },
+      { "name": "Presentations", "description": "Creating effective presentations." },
+      { "name": "Spreadsheets", "description": "Formulas, functions, and data analysis." },
+      { "name": "Web Authoring", "description": "Creating and editing web pages." }
+    ]
+  },
+  {
+    "name": "Mathematics",
+    "code": "0580",
+    "slug": "mathematics",
+    "icon": "Calculator",
+    "color": "text-purple-500",
+    "papers": [
+      { "year": 2023, "session": "May/June", "papers": [
+          { "name": "Question Paper 22", "type": "qp", "link": "#" },
+          { "name": "Mark Scheme 22", "type": "ms", "link": "#" },
+          { "name": "Question Paper 42", "type": "qp", "link": "#" },
+          { "name": "Mark Scheme 42", "type": "ms", "link": "#" }
+      ]}
+    ],
+    "topics": [
+        { "name": "Numbers & operations", "description": "Fractions, decimals, and percentages." },
+        { "name": "Algebra", "description": "Equations, inequalities, and graphs." },
+        { "name": "Geometry", "description": "Angles, shapes, and transformations." },
+        { "name": "Trigonometry", "description": "SOH CAH TOA, sine and cosine rules." },
+        { "name": "Statistics", "description": "Averages, charts, and probability." },
+        { "name": "Mensuration", "description": "Area, volume, and surface area." },
+        { "name": "Vectors and transformations", "description": "Column vectors and matrix transformations." }
+    ]
+  },
+  {
+    "name": "Physics",
+    "code": "0625",
+    "slug": "physics",
+    "icon": "Target",
+    "color": "text-purple-600",
+    "practicals": true,
+    "papers": [],
+    "topics": [
+        { "name": "Measurement", "description": "Physical quantities and units." },
+        { "name": "Forces & motion", "description": "Speed, velocity, and acceleration." },
+        { "name": "Energy", "description": "Work, power, and conservation of energy." },
+        { "name": "Waves", "description": "Properties of waves, light, and sound." },
+        { "name": "Electricity & magnetism", "description": "Circuits, current, and fields." },
+        { "name": "Atomic structure", "description": "Protons, neutrons, and radioactivity." },
+        { "name": "Electromagnetic spectrum", "description": "Properties and uses of EM waves." }
+    ]
+  },
+  {
+    "name": "Religious Studies",
+    "code": "0490",
+    "slug": "religious-studies",
+    "icon": "BookOpen",
+    "color": "text-lime-500",
+    "papers": [],
+    "topics": [
+        { "name": "Christianity", "description": "Beliefs, practices, and history." },
+        { "name": "Islam", "description": "Beliefs, practices, and history." },
+        { "name": "Judaism", "description": "Beliefs, practices, and history." },
+        { "name": "Worship & festivals", "description": "Key celebrations and rituals." },
+        { "name": "Ethics and philosophy", "description": "Moral issues and religious perspectives." },
+        { "name": "Sacred texts", "description": "The Bible, Qur'an, and Torah." }
+    ]
+  },
+  {
+    "name": "Combined Science",
+    "code": "0653",
+    "slug": "combined-science",
+    "icon": "Palette",
+    "color": "text-fuchsia-500",
+    "papers": [],
+    "topics": [
+        { "name": "Biology topics", "description": "Cells, reproduction, and ecology." },
+        { "name": "Chemistry topics", "description": "Atomic structure, bonding, acids/bases." },
+        { "name": "Physics topics", "description": "Energy, forces, electricity, waves." },
+        { "name": "Scientific method", "description": "Investigation and experimentation." },
+        { "name": "Data analysis", "description": "Presenting and interpreting results." }
+    ]
+  },
+  {
+    "name": "Spanish",
+    "code": "0530",
+    "slug": "spanish",
+    "icon": "Languages",
+    "color": "text-red-600",
+    "papers": [],
+    "topics": [
+        { "name": "Social interaction", "description": "Greetings, introductions, and daily life." },
+        { "name": "Home and abroad", "description": "Travel, accommodation, and food." },
+        { "name": "School and future plans", "description": "Education system and career choices." },
+        { "name": "Leisure activities", "description": "Hobbies, sports, and entertainment." },
+        { "name": "Culture and society", "description": "Festivals, traditions, and media." }
+    ]
+  },
+  {
+    "name": "Sociology",
+    "code": "0495",
+    "slug": "sociology",
+    "icon": "Users",
+    "color": "text-pink-500",
+    "papers": [],
+    "topics": [
+        { "name": "Socialization", "description": "Culture, identity, and social norms." },
+        { "name": "Family and education", "description": "Social institutions and their roles." },
+        { "name": "Crime and deviance", "description": "Social control and explanations of crime." },
+        { "name": "Media and society", "description": "Influence and representation." },
+        { "name": "Social inequality", "description": "Class, gender, ethnicity, and age." },
+        { "name": "Sociological research methods", "description": "Surveys, interviews, and data." }
+    ]
+  }
+]
