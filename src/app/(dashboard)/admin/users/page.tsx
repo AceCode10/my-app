@@ -13,7 +13,9 @@ import {
   Edit,
   Shield,
   UserPlus,
-  MoreVertical
+  MoreVertical,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import {
   Dialog,
@@ -47,6 +49,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import { logCreate, logUpdate, logDelete, logPromote, logDemote } from '@/lib/audit';
 
 interface User {
   id: string;
@@ -59,6 +62,7 @@ interface User {
   streak_days: number;
   created_at: string;
   last_activity_at: string | null;
+  status?: 'active' | 'suspended' | 'archived';
 }
 
 const ROLES = [
@@ -82,11 +86,22 @@ export default function UsersPage() {
 
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deleteAction, setDeleteAction] = useState<'suspend' | 'archive' | 'delete'>('archive');
   const [editFormData, setEditFormData] = useState({
     role: 'student',
     subscription_tier: 'basic'
   });
+  const [createFormData, setCreateFormData] = useState({
+    email: '',
+    display_name: '',
+    role: 'student' as User['role'],
+    subscription_tier: 'basic'
+  });
   const [updating, setUpdating] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -113,21 +128,124 @@ export default function UsersPage() {
     }
   }
 
+  async function handleCreateUser() {
+    setCreating(true);
+
+    try {
+      // Call Supabase Auth Admin API to create user
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: createFormData.email,
+        email_confirm: true,
+        user_metadata: {
+          display_name: createFormData.display_name
+        }
+      });
+
+      if (authError) throw authError;
+
+      // Update user profile with role and subscription
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({
+          display_name: createFormData.display_name,
+          role: createFormData.role,
+          subscription_tier: createFormData.subscription_tier
+        })
+        .eq('id', authData.user.id);
+
+      if (updateError) throw updateError;
+
+      // Log the creation in audit logs
+      await logCreate(
+        'user',
+        authData.user.id,
+        createFormData.email,
+        {
+          role: createFormData.role,
+          subscription_tier: createFormData.subscription_tier
+        }
+      );
+
+      toast({
+        title: 'Success',
+        description: 'User created successfully'
+      });
+
+      setIsCreateDialogOpen(false);
+      setCreateFormData({
+        email: '',
+        display_name: '',
+        role: 'student',
+        subscription_tier: 'basic'
+      });
+      fetchUsers();
+    } catch (error: any) {
+      console.error('Error creating user:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'Failed to create user'
+      });
+    } finally {
+      setCreating(false);
+    }
+  }
+
   async function handleUpdateUser() {
     if (!selectedUser) return;
 
     setUpdating(true);
 
     try {
+      const oldRole = selectedUser.role;
+      const newRole = editFormData.role;
+
       const { error } = await supabase
         .from('users')
         .update({
-          role: editFormData.role,
+          role: newRole,
           subscription_tier: editFormData.subscription_tier
         })
         .eq('id', selectedUser.id);
 
       if (error) throw error;
+
+      // Log role change if it happened
+      if (oldRole !== newRole) {
+        const isPromotion = ['content_moderator', 'super_admin'].includes(newRole) && 
+                           !['content_moderator', 'super_admin'].includes(oldRole);
+        const isDemotion = !['content_moderator', 'super_admin'].includes(newRole) && 
+                          ['content_moderator', 'super_admin'].includes(oldRole);
+
+        if (isPromotion) {
+          await logPromote(
+            selectedUser.id,
+            selectedUser.email,
+            newRole
+          );
+        } else if (isDemotion) {
+          await logDemote(
+            selectedUser.id,
+            selectedUser.email,
+            oldRole
+          );
+        } else {
+          await logUpdate(
+            'user',
+            selectedUser.id,
+            selectedUser.email,
+            { old_role: oldRole, new_role: newRole }
+          );
+        }
+      } else {
+        // Just log the update
+        await logUpdate(
+          'user',
+          selectedUser.id,
+          selectedUser.email,
+          { subscription_tier: editFormData.subscription_tier }
+        );
+      }
 
       toast({
         title: 'Success',
@@ -149,6 +267,80 @@ export default function UsersPage() {
     }
   }
 
+  async function handleDeleteUser() {
+    if (!selectedUser) return;
+
+    setDeleting(true);
+
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      
+      // Prevent self-deletion
+      if (currentUser?.id === selectedUser.id) {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'You cannot delete your own account'
+        });
+        return;
+      }
+
+      if (deleteAction === 'delete') {
+        // Hard delete - remove from auth and database
+        const { error: authError } = await supabase.auth.admin.deleteUser(selectedUser.id);
+        if (authError) throw authError;
+
+        // Log the deletion
+        await logDelete(
+          'user',
+          selectedUser.id,
+          selectedUser.email
+        );
+
+        toast({
+          title: 'Success',
+          description: 'User permanently deleted'
+        });
+      } else {
+        // Soft delete - update status
+        const newStatus = deleteAction === 'archive' ? 'archived' : 'suspended';
+        
+        const { error } = await supabase
+          .from('users')
+          .update({ status: newStatus })
+          .eq('id', selectedUser.id);
+
+        if (error) throw error;
+
+        // Log the action
+        await logUpdate(
+          'user',
+          selectedUser.id,
+          selectedUser.email,
+          { status: `active → ${newStatus}` }
+        );
+
+        toast({
+          title: 'Success',
+          description: `User ${deleteAction === 'archive' ? 'archived' : 'suspended'} successfully`
+        });
+      }
+
+      setIsDeleteDialogOpen(false);
+      setSelectedUser(null);
+      fetchUsers();
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'Failed to delete user'
+      });
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   function openEditDialog(user: User) {
     setSelectedUser(user);
     setEditFormData({
@@ -156,6 +348,12 @@ export default function UsersPage() {
       subscription_tier: user.subscription_tier
     });
     setIsEditDialogOpen(true);
+  }
+
+  function openDeleteDialog(user: User) {
+    setSelectedUser(user);
+    setDeleteAction('archive');
+    setIsDeleteDialogOpen(true);
   }
 
   const filteredUsers = users.filter(user => {
@@ -189,6 +387,10 @@ export default function UsersPage() {
             Manage user accounts, roles, and permissions
           </p>
         </div>
+        <Button onClick={() => setIsCreateDialogOpen(true)}>
+          <UserPlus className="mr-2 h-4 w-4" />
+          Create User
+        </Button>
       </div>
 
       {/* Stats */}
@@ -364,6 +566,13 @@ export default function UsersPage() {
                               <Shield className="mr-2 h-4 w-4" />
                               View Activity
                             </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => openDeleteDialog(user)}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete/Archive
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -375,6 +584,95 @@ export default function UsersPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Create User Dialog */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New User</DialogTitle>
+            <DialogDescription>
+              Create a new user account with specified role and permissions
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="create-email">Email *</Label>
+              <Input
+                id="create-email"
+                type="email"
+                placeholder="user@example.com"
+                value={createFormData.email}
+                onChange={(e) => setCreateFormData({ ...createFormData, email: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="create-display-name">Display Name</Label>
+              <Input
+                id="create-display-name"
+                placeholder="John Doe"
+                value={createFormData.display_name}
+                onChange={(e) => setCreateFormData({ ...createFormData, display_name: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="create-role">Role *</Label>
+              <Select
+                value={createFormData.role}
+                onValueChange={(value) => setCreateFormData({ ...createFormData, role: value as User['role'] })}
+              >
+                <SelectTrigger id="create-role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ROLES.map(role => (
+                    <SelectItem key={role.value} value={role.value}>
+                      {role.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="create-tier">Subscription Tier</Label>
+              <Select
+                value={createFormData.subscription_tier}
+                onValueChange={(value) => setCreateFormData({ ...createFormData, subscription_tier: value })}
+              >
+                <SelectTrigger id="create-tier">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SUBSCRIPTION_TIERS.map(tier => (
+                    <SelectItem key={tier} value={tier}>
+                      {tier.charAt(0).toUpperCase() + tier.slice(1)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsCreateDialogOpen(false)}
+              disabled={creating}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCreateUser} 
+              disabled={creating || !createFormData.email}
+            >
+              {creating ? 'Creating...' : 'Create User'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit User Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
@@ -455,6 +753,103 @@ export default function UsersPage() {
             </Button>
             <Button onClick={handleUpdateUser} disabled={updating}>
               {updating ? 'Updating...' : 'Update User'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete/Archive User Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              Delete or Archive User
+            </DialogTitle>
+            <DialogDescription>
+              Choose how to remove this user. This action affects: {selectedUser?.email}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-3">
+              <label className="flex items-start space-x-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="deleteAction"
+                  value="archive"
+                  checked={deleteAction === 'archive'}
+                  onChange={(e) => setDeleteAction(e.target.value as any)}
+                  className="mt-1"
+                />
+                <div>
+                  <div className="font-medium">Archive (Recommended)</div>
+                  <div className="text-sm text-muted-foreground">
+                    User cannot log in, but data is preserved. Can be restored later.
+                  </div>
+                </div>
+              </label>
+
+              <label className="flex items-start space-x-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="deleteAction"
+                  value="suspend"
+                  checked={deleteAction === 'suspend'}
+                  onChange={(e) => setDeleteAction(e.target.value as any)}
+                  className="mt-1"
+                />
+                <div>
+                  <div className="font-medium">Suspend</div>
+                  <div className="text-sm text-muted-foreground">
+                    Temporarily disable account. Can be reactivated anytime.
+                  </div>
+                </div>
+              </label>
+
+              <label className="flex items-start space-x-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="deleteAction"
+                  value="delete"
+                  checked={deleteAction === 'delete'}
+                  onChange={(e) => setDeleteAction(e.target.value as any)}
+                  className="mt-1"
+                />
+                <div>
+                  <div className="font-medium text-red-600">Permanent Delete</div>
+                  <div className="text-sm text-muted-foreground">
+                    Completely remove user from authentication. User's content is preserved.
+                  </div>
+                </div>
+              </label>
+            </div>
+
+            {deleteAction === 'delete' && (
+              <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-md p-3">
+                <p className="text-sm text-red-800 dark:text-red-200">
+                  <strong>Warning:</strong> This action cannot be undone. The user will be permanently removed from authentication.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteDialogOpen(false)}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant={deleteAction === 'delete' ? 'destructive' : 'default'}
+              onClick={handleDeleteUser} 
+              disabled={deleting}
+            >
+              {deleting ? 'Processing...' : 
+                deleteAction === 'delete' ? 'Permanently Delete' :
+                deleteAction === 'suspend' ? 'Suspend User' : 'Archive User'}
             </Button>
           </DialogFooter>
         </DialogContent>

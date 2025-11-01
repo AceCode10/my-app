@@ -28,6 +28,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useNotes } from '@/hooks/use-notes';
 import { createClient } from '@/lib/supabase/client';
+import { logDelete } from '@/lib/audit';
 
 const AdminNotesPage = () => {
     const supabase = createClient();
@@ -96,12 +97,24 @@ const AdminNotesPage = () => {
         if (!selectedNoteId) return;
 
         try {
+            // Get note details before deleting for audit log
+            const noteToDelete = notes?.find(n => n.id === selectedNoteId);
+            
             const { error } = await supabase
                 .from('notes')
                 .delete()
                 .eq('id', selectedNoteId);
 
             if (error) throw error;
+
+            // Log the deletion in audit logs
+            if (noteToDelete) {
+                await logDelete(
+                    'note',
+                    selectedNoteId,
+                    noteToDelete.title || 'Untitled Note'
+                );
+            }
 
             toast({
                 title: "Note Deleted",

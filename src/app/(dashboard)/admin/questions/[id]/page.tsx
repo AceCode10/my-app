@@ -18,6 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Plus, X, Save, Loader2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
+import { logUpdate, logPublish } from '@/lib/audit';
 
 interface MCQOption {
   label: string;
@@ -48,6 +49,7 @@ export default function EditQuestionPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [subjects, setSubjects] = useState<any[]>([]);
+  const [originalQuestion, setOriginalQuestion] = useState<any>(null);
   const [topics, setTopics] = useState<any[]>([]);
   const [subtopics, setSubtopics] = useState<any[]>([]);
 
@@ -101,6 +103,9 @@ export default function EditQuestionPage() {
       if (error) throw error;
 
       if (data) {
+        // Store original question for audit logging
+        setOriginalQuestion(data);
+        
         setFormData({
           stem_markdown: data.stem_markdown || '',
           question_type: data.question_type || 'multiple_choice',
@@ -204,6 +209,36 @@ export default function EditQuestionPage() {
         .eq('id', questionId);
 
       if (error) throw error;
+
+      // Log the update in audit logs
+      const changes: any = {};
+      if (originalQuestion) {
+        if (originalQuestion.difficulty !== formData.difficulty) {
+          changes.difficulty = `${originalQuestion.difficulty} → ${formData.difficulty}`;
+        }
+        if (originalQuestion.status !== formData.status) {
+          changes.status = `${originalQuestion.status} → ${formData.status}`;
+          
+          // Log publish action separately if status changed to published
+          if (formData.status === 'published' && originalQuestion.status !== 'published') {
+            await logPublish(
+              'question',
+              questionId,
+              formData.stem_markdown.substring(0, 50) + '...'
+            );
+          }
+        }
+        if (originalQuestion.marks !== formData.marks) {
+          changes.marks = `${originalQuestion.marks} → ${formData.marks}`;
+        }
+      }
+
+      await logUpdate(
+        'question',
+        questionId,
+        formData.stem_markdown.substring(0, 50) + '...',
+        changes
+      );
 
       toast({
         title: 'Success',

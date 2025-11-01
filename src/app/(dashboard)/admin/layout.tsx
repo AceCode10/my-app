@@ -20,7 +20,8 @@ import {
   BarChart3,
   ClipboardList,
   Upload,
-  Shield
+  Shield,
+  BookMarked
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -42,6 +43,12 @@ const navigation: NavItem[] = [
     label: 'Subjects & Topics',
     href: '/admin/subjects',
     icon: BookOpen,
+    roles: ['super_admin', 'content_moderator']
+  },
+  {
+    label: 'Lesson Notes',
+    href: '/admin/dashboard/notes',
+    icon: BookMarked,
     roles: ['super_admin', 'content_moderator']
   },
   {

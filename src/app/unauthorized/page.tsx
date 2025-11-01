@@ -13,14 +13,14 @@ export default function UnauthorizedPage() {
   const dashboardUrl = useMemo(() => {
     if (loading) return '/'; // Default fallback while loading
     const role = user?.role;
-    // Check for super_admin or teacher roles
-    if (role === 'super_admin') {
+    // Check for super_admin, content_moderator, or teacher roles
+    if (role === 'super_admin' || role === 'content_moderator') {
       return '/admin/dashboard';
     }
     if (role === 'teacher') {
-      return '/teacher/dashboard';
+      return '/teacher';
     }
-    return '/dashboard';
+    return '/student';
   }, [user, loading]);
 
   return (

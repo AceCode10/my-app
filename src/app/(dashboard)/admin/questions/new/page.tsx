@@ -18,6 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, X, Save } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
+import { logCreate } from '@/lib/audit';
 
 interface MCQOption {
   label: string;
@@ -150,11 +151,28 @@ export default function NewQuestionPage() {
         questionData.correct_answer = formData.correct_answer;
       }
 
-      const { error } = await supabase
+      const { data: newQuestion, error } = await supabase
         .from('questions')
-        .insert(questionData);
+        .insert(questionData)
+        .select()
+        .single();
 
       if (error) throw error;
+
+      // Log the creation in audit logs
+      if (newQuestion) {
+        await logCreate(
+          'question',
+          newQuestion.id,
+          formData.stem_markdown.substring(0, 50) + '...',
+          {
+            question_type: formData.question_type,
+            difficulty: formData.difficulty,
+            status: formData.status,
+            exam_board: formData.exam_board
+          }
+        );
+      }
 
       toast({
         title: 'Success',

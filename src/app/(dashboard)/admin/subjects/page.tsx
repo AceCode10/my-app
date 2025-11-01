@@ -37,6 +37,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { logCreate, logUpdate, logDelete } from '@/lib/audit';
 
 interface Subject {
   id: string;
@@ -108,21 +109,21 @@ export default function SubjectsPage() {
         .from('subjects')
         .select(`
           *,
-          topics:topics(
-            *,
-            subtopics:subtopics(*)
-          )
+          topics:topics(*)
         `)
         .order('display_order', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
       setSubjects(data || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching subjects:', error);
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to load subjects'
+        description: error.message || 'Failed to load subjects'
       });
     } finally {
       setLoading(false);
@@ -134,7 +135,6 @@ export default function SubjectsPage() {
       const slug = formData.name?.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || '';
       
       if (editingSubject) {
-        // Update existing
         const { error } = await supabase
           .from('subjects')
           .update({
@@ -148,6 +148,14 @@ export default function SubjectsPage() {
           .eq('id', editingSubject.id);
 
         if (error) throw error;
+
+        // Log the update
+        await logUpdate(
+          'subject',
+          editingSubject.id,
+          formData.name || editingSubject.name,
+          { exam_board: formData.exam_board }
+        );
         
         toast({
           title: 'Success',
@@ -155,7 +163,7 @@ export default function SubjectsPage() {
         });
       } else {
         // Create new
-        const { error } = await supabase
+        const { data: newSubject, error } = await supabase
           .from('subjects')
           .insert({
             name: formData.name,
@@ -164,9 +172,21 @@ export default function SubjectsPage() {
             exam_board: formData.exam_board,
             status: formData.status || 'draft',
             display_order: formData.display_order || 0
-          });
+          })
+          .select()
+          .single();
 
         if (error) throw error;
+
+        // Log the creation
+        if (newSubject) {
+          await logCreate(
+            'subject',
+            newSubject.id,
+            formData.name || '',
+            { exam_board: formData.exam_board }
+          );
+        }
         
         toast({
           title: 'Success',
@@ -206,13 +226,21 @@ export default function SubjectsPage() {
           .eq('id', editingTopic.id);
 
         if (error) throw error;
+
+        // Log the update
+        await logUpdate(
+          'topic',
+          editingTopic.id,
+          formData.name || editingTopic.name,
+          { subject: selectedSubject.name }
+        );
         
         toast({
           title: 'Success',
           description: 'Topic updated successfully'
         });
       } else {
-        const { error } = await supabase
+        const { data: newTopic, error } = await supabase
           .from('topics')
           .insert({
             subject_id: selectedSubject.id,
@@ -221,9 +249,21 @@ export default function SubjectsPage() {
             description: formData.description,
             status: formData.status || 'draft',
             display_order: formData.display_order || 0
-          });
+          })
+          .select()
+          .single();
 
         if (error) throw error;
+
+        // Log the creation
+        if (newTopic) {
+          await logCreate(
+            'topic',
+            newTopic.id,
+            formData.name || '',
+            { subject: selectedSubject.name }
+          );
+        }
         
         toast({
           title: 'Success',
@@ -254,6 +294,13 @@ export default function SubjectsPage() {
         .eq('id', deleteTarget.id);
 
       if (error) throw error;
+
+      // Log the deletion
+      await logDelete(
+        deleteTarget.type as 'subject' | 'topic',
+        deleteTarget.id,
+        deleteTarget.name
+      );
 
       toast({
         title: 'Success',
@@ -309,8 +356,10 @@ export default function SubjectsPage() {
           </p>
         </div>
         <Button onClick={() => {
+          console.log('Add Subject button clicked');
           setEditingSubject(null);
           setIsSubjectDialogOpen(true);
+          console.log('Dialog state set to true');
         }}>
           <Plus className="mr-2 h-4 w-4" />
           Add Subject
@@ -555,6 +604,7 @@ function SubjectDialog({
   });
 
   useEffect(() => {
+    console.log('SubjectDialog open state changed:', open);
     if (subject) {
       setFormData(subject);
     } else {

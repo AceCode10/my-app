@@ -34,6 +34,7 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import { logDelete } from '@/lib/audit';
 
 interface PastPaper {
   id: string;
@@ -101,12 +102,24 @@ export default function PastPapersPage() {
     if (!confirm('Are you sure you want to delete this past paper?')) return;
 
     try {
+      // Get paper details before deleting for audit log
+      const paperToDelete = papers.find(p => p.id === id);
+      
       const { error } = await supabase
         .from('past_papers')
         .delete()
         .eq('id', id);
 
       if (error) throw error;
+
+      // Log the deletion in audit logs
+      if (paperToDelete) {
+        await logDelete(
+          'past_paper',
+          id,
+          paperToDelete.title
+        );
+      }
 
       toast({
         title: 'Success',
@@ -115,7 +128,7 @@ export default function PastPapersPage() {
 
       fetchPapers();
     } catch (error: any) {
-      console.error('Error deleting paper:', error);
+      console.error('Error deleting past paper:', error);
       toast({
         variant: 'destructive',
         title: 'Error',

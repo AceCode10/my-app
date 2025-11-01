@@ -33,14 +33,19 @@ import { format } from 'date-fns';
 
 interface AuditLog {
   id: string;
-  actor_id: string;
+  user_id: string | null;
   action: string;
-  target_table: string;
-  target_id: string | null;
-  details: any;
+  resource_type: string;
+  resource_id: string | null;
+  description: string;
+  metadata: any;
   ip_address: string | null;
   user_agent: string | null;
   created_at: string;
+  users?: {
+    email: string;
+    display_name: string | null;
+  };
 }
 
 const ACTIONS = ['create', 'update', 'delete', 'publish', 'unpublish', 'approve', 'reject', 'login', 'logout'];
@@ -66,7 +71,13 @@ export default function AuditLogsPage() {
     try {
       let query = supabase
         .from('audit_logs')
-        .select('*')
+        .select(`
+          *,
+          users:user_id (
+            email,
+            display_name
+          )
+        `)
         .order('created_at', { ascending: false })
         .range((page - 1) * pageSize, page * pageSize - 1);
 
@@ -98,13 +109,14 @@ export default function AuditLogsPage() {
 
       // Convert to CSV
       const csv = [
-        ['Timestamp', 'Actor ID', 'Action', 'Table', 'Target ID', 'IP Address'].join(','),
+        ['Timestamp', 'User ID', 'Action', 'Resource Type', 'Resource ID', 'Description', 'IP Address'].join(','),
         ...(data || []).map(log => [
           log.created_at,
-          log.actor_id,
+          log.user_id || '',
           log.action,
-          log.target_table,
-          log.target_id || '',
+          log.resource_type,
+          log.resource_id || '',
+          `"${log.description.replace(/"/g, '""')}"`, // Escape quotes in description
           log.ip_address || ''
         ].join(','))
       ].join('\n');
@@ -134,11 +146,13 @@ export default function AuditLogsPage() {
 
   const filteredLogs = logs.filter(log => {
     const matchesSearch = 
-      log.actor_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (log.users?.email || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (log.users?.display_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       log.action.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.target_table.toLowerCase().includes(searchQuery.toLowerCase());
+      log.resource_type.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      log.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesAction = filterAction === 'all' || log.action === filterAction;
-    const matchesTable = filterTable === 'all' || log.target_table === filterTable;
+    const matchesTable = filterTable === 'all' || log.resource_type === filterTable;
     
     return matchesSearch && matchesAction && matchesTable;
   });
@@ -241,10 +255,10 @@ export default function AuditLogsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Timestamp</TableHead>
-                    <TableHead>Actor</TableHead>
+                    <TableHead>User</TableHead>
                     <TableHead>Action</TableHead>
-                    <TableHead>Table</TableHead>
-                    <TableHead>Target ID</TableHead>
+                    <TableHead>Resource</TableHead>
+                    <TableHead>Description</TableHead>
                     <TableHead>IP Address</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -254,8 +268,8 @@ export default function AuditLogsPage() {
                       <TableCell className="font-mono text-sm">
                         {format(new Date(log.created_at), 'PPpp')}
                       </TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {log.actor_id.substring(0, 8)}...
+                      <TableCell className="text-sm">
+                        {log.users?.display_name || log.users?.email || 'System'}
                       </TableCell>
                       <TableCell>
                         <Badge className={getActionColor(log.action)}>
@@ -264,11 +278,11 @@ export default function AuditLogsPage() {
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline">
-                          {log.target_table}
+                          {log.resource_type}
                         </Badge>
                       </TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {log.target_id ? `${log.target_id.substring(0, 8)}...` : '-'}
+                      <TableCell className="text-sm">
+                        {log.description}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {log.ip_address || '-'}

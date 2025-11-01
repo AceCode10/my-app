@@ -18,6 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Upload, Save, FileText, CheckCircle } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
+import { logCreate } from '@/lib/audit';
 
 const EXAM_BOARDS = ['IGCSE', 'Edexcel', 'Cambridge', 'IB', 'AQA', 'OCR'];
 const STATUSES = ['draft', 'pending', 'published', 'archived'];
@@ -188,11 +189,28 @@ export default function NewPastPaperPage() {
         status: formData.status
       };
 
-      const { error } = await supabase
+      const { data: newPaper, error } = await supabase
         .from('past_papers')
-        .insert(paperData);
+        .insert(paperData)
+        .select()
+        .single();
 
       if (error) throw error;
+
+      // Log the creation in audit logs
+      if (newPaper) {
+        await logCreate(
+          'past_paper',
+          newPaper.id,
+          formData.title,
+          {
+            exam_board: formData.exam_board,
+            year: formData.year,
+            paper_number: formData.paper_number,
+            status: formData.status
+          }
+        );
+      }
 
       toast({
         title: 'Success',

@@ -1,30 +1,84 @@
 'use client';
 
 import { SubjectCard } from './subject-card';
-import { type Subject, allSubjects as localSubjects } from '@/lib/subjects.tsx';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
 import { Skeleton } from './ui/skeleton';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+
+interface Subject {
+  id: string;
+  name: string;
+  slug: string;
+  code?: string;
+  icon_url?: string;
+  color?: string;
+  exam_board: string;
+  status: string;
+  display_order: number;
+}
 
 interface SubjectsGridProps {
     basePath?: string;
     pathSuffix?: string;
+    showAll?: boolean; // For admin view
 }
 
-export function SubjectsGrid({ basePath = '/subjects', pathSuffix = '' }: SubjectsGridProps) {
-  const [subjectsWithIcons, setSubjectsWithIcons] = useState<Subject[]>([]);
+export function SubjectsGrid({ basePath = '/subjects', pathSuffix = '', showAll = false }: SubjectsGridProps) {
+  const supabase = createClient();
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // This is a temporary solution to handle the fact that subjects are loaded from JSON
-  // but we want to simulate a loading state. In a real app with Firestore as SoT,
-  // the useCollection hook would handle this naturally.
   useEffect(() => {
-    setTimeout(() => {
-        setSubjectsWithIcons(localSubjects);
-        setIsLoading(false);
-    }, 500); // simulate network delay
-  }, []);
+    fetchSubjects();
+  }, [showAll]);
+
+  async function fetchSubjects() {
+    try {
+      setIsLoading(true);
+      let query = supabase
+        .from('subjects')
+        .select('*')
+        .order('display_order', { ascending: true });
+
+      // Only show published subjects for public view
+      if (!showAll) {
+        query = query.eq('status', 'published');
+      }
+
+      const { data, error: fetchError } = await query;
+
+      if (fetchError) {
+        console.error('Error fetching subjects:', fetchError);
+        throw fetchError;
+      }
+
+      console.log('Subjects loaded:', data?.length || 0);
+      setSubjects(data || []);
+      setError(null);
+    } catch (err: any) {
+      console.error('Failed to load subjects:', err);
+      setError(err.message || 'Failed to load subjects');
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-6xl mx-auto">
+        <div className="text-center py-10">
+          <p className="text-destructive mb-4">Error loading subjects: {error}</p>
+          <button 
+            onClick={fetchSubjects}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -42,24 +96,25 @@ export function SubjectsGrid({ basePath = '/subjects', pathSuffix = '' }: Subjec
                        </div>
                     </div>
                 ))
+            ) : subjects.length === 0 ? (
+                <div className="col-span-full text-center py-10">
+                    <p className="text-muted-foreground">
+                      {showAll ? 'No subjects created yet.' : 'No published subjects available.'}
+                    </p>
+                </div>
             ) : (
-                subjectsWithIcons.map((subject) => {
+                subjects.map((subject) => {
                     return (
                         <SubjectCard 
-                            key={subject.slug}
+                            key={subject.id}
                             name={subject.name}
-                            code={subject.code}
-                            icon={subject.icon}
+                            code={subject.code || subject.exam_board}
+                            icon={subject.icon_url}
                             path={`${basePath}/${subject.slug}${pathSuffix}`}
-                            color={subject.color}
+                            color={subject.color || '#3b82f6'}
                         />
                     )
                 })
-            )}
-             {!isLoading && subjectsWithIcons.length === 0 && (
-                <div className="col-span-full text-center py-10">
-                    <p className="text-muted-foreground">No subjects found.</p>
-                </div>
             )}
         </div>
     </div>

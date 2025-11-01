@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import { logDelete } from '@/lib/audit';
 
 interface Question {
   id: string;
@@ -116,12 +117,24 @@ export default function QuestionsPage() {
     if (!confirm('Are you sure you want to delete this question?')) return;
 
     try {
+      // Get question details before deleting for audit log
+      const questionToDelete = questions.find(q => q.id === id);
+      
       const { error } = await supabase
         .from('questions')
         .delete()
         .eq('id', id);
 
       if (error) throw error;
+
+      // Log the deletion in audit logs
+      if (questionToDelete) {
+        await logDelete(
+          'question',
+          id,
+          questionToDelete.stem_markdown.substring(0, 50) + '...'
+        );
+      }
 
       toast({
         title: 'Success',

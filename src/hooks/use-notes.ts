@@ -66,6 +66,7 @@ export function useNotes({ searchTerm, subjectId, topicId, authorId, visibility 
 
     async function fetchNotes() {
         try {
+            setIsLoading(true);
             let query = supabase.from('notes').select('*');
 
             // Add filters
@@ -87,8 +88,14 @@ export function useNotes({ searchTerm, subjectId, topicId, authorId, visibility 
 
             const { data: notesData, error: fetchError } = await query.order('title');
 
-            if (fetchError) throw fetchError;
+            if (fetchError) {
+                console.error('Supabase error fetching notes:', fetchError);
+                throw fetchError;
+            }
+            
+            console.log('Notes fetched successfully:', notesData?.length || 0, 'notes');
             setData(notesData || []);
+            setError(null);
         } catch (err) {
             console.error('Error fetching notes:', err);
             setError(err as Error);
