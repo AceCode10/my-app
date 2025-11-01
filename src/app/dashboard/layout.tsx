@@ -20,7 +20,8 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
-import { useUser, useAuth, useSidebar } from '@/firebase';
+import { useUser } from '@/hooks/use-user';
+import { createClient } from '@/lib/supabase/client';
 import { NotificationBell, Notification } from '@/components/notification-bell';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
@@ -55,13 +56,13 @@ const searchItems = [
 
 const AppSidebar = () => {
     const pathname = usePathname();
-    const { isSubscribed } = useUser();
-    const { state } = useSidebar();
+    const { user } = useUser();
+    const isSubscribed = user?.subscription_tier === 'pro' || user?.subscription_tier === 'essential';
 
     return (
         <Sidebar collapsible="icon">
             <SidebarHeader className="flex items-center justify-between">
-                 <div className={cn("text-2xl font-bold", state === 'collapsed' && 'hidden')}>
+                 <div className="text-2xl font-bold">
                     IGCSE <span className="text-primary">Simplified</span>
                 </div>
                  <SidebarTrigger>
@@ -105,10 +106,11 @@ const AppSidebar = () => {
 };
 
 const AppHeader = () => {
-  const { user, profile, isSubscribed } = useUser();
-  const auth = useAuth();
+  const { user, loading } = useUser();
+  const supabase = createClient();
   const router = useRouter();
-  const username = profile?.displayName || user?.displayName || 'Learner';
+  const username = user?.display_name || user?.email || 'Learner';
+  const isSubscribed = user?.subscription_tier === 'pro' || user?.subscription_tier === 'essential';
   const [filter, setFilter] = React.useState('all');
   const [searchQuery, setSearchQuery] = React.useState('');
   const [filteredItems, setFilteredItems] = React.useState(searchItems);
@@ -123,8 +125,7 @@ const AppHeader = () => {
   }, [searchQuery, filter]);
 
   const handleLogout = async () => {
-      if (!auth) return;
-      await auth.signOut();
+      await supabase.auth.signOut();
       router.push('/');
   };
 
@@ -193,7 +194,7 @@ const AppHeader = () => {
           <DropdownMenu>
               <DropdownMenuTrigger asChild>
                   <div className="flex items-center space-x-3 cursor-pointer">
-                      <img className="h-10 w-10 rounded-full object-cover" data-ai-hint="avatar" src={profile?.photoURL || `https://placehold.co/100x100/00bf8f/ffffff?text=${username.charAt(0)}`} alt="User avatar" />
+                      <img className="h-10 w-10 rounded-full object-cover" data-ai-hint="avatar" src={user?.avatar_url || `https://placehold.co/100x100/00bf8f/ffffff?text=${username.charAt(0)}`} alt="User avatar" />
                       <div className="hidden sm:block">
                           <p className="text-sm font-semibold text-foreground">{username}</p>
                           <p className="text-xs text-muted-foreground">{isSubscribed ? 'Pro Plan' : 'Basic Plan'}</p>

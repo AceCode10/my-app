@@ -1,9 +1,8 @@
 
 'use client';
 import { useState } from 'react';
-import { useFirestore, useUser } from '@/firebase';
-import { doc, deleteDoc } from 'firebase/firestore';
-import type { Note } from '@/types';
+import { useUser } from '@/hooks/use-user';
+import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -35,7 +34,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const TeacherNotesPage = () => {
-    const firestore = useFirestore();
+    const supabase = createClient();
     const { user } = useUser();
     const { toast } = useToast();
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -46,7 +45,7 @@ const TeacherNotesPage = () => {
     const { notes, isLoading, error } = useNotes({
         searchTerm,
         subjectId: selectedSubject,
-        authorId: user?.uid, // Fetch only notes by the current teacher
+        authorId: user?.id, // Fetch only notes by the current teacher
     });
 
     const getBadgeVariant = (visibility: string | undefined) => {
@@ -63,10 +62,16 @@ const TeacherNotesPage = () => {
     };
     
     const handleDeleteConfirm = async () => {
-        if (!firestore || !selectedNoteId) return;
+        if (!selectedNoteId) return;
 
         try {
-            await deleteDoc(doc(firestore, "notes", selectedNoteId));
+            const { error } = await supabase
+                .from('notes')
+                .delete()
+                .eq('id', selectedNoteId);
+
+            if (error) throw error;
+
             toast({
                 title: "Note Deleted",
                 description: "The note has been successfully deleted.",
@@ -167,14 +172,14 @@ const TeacherNotesPage = () => {
                                 notes.map(note => (
                                     <TableRow key={note.id}>
                                         <TableCell className="font-medium">{note.title}</TableCell>
-                                        <TableCell className="capitalize">{note.subjectId?.replace(/-/g, ' ')}</TableCell>
-                                        <TableCell className="capitalize">{note.topicId?.split('-').slice(1).join(' ')}</TableCell>
+                                        <TableCell className="capitalize">{note.subject_id?.replace(/-/g, ' ')}</TableCell>
+                                        <TableCell className="capitalize">{note.topic_id?.split('-').slice(1).join(' ')}</TableCell>
                                         <TableCell>
                                             <Badge variant={getBadgeVariant(note.visibility)}>{note.visibility || 'public'}</Badge>
                                         </TableCell>
-                                        <TableCell className="text-center font-medium">{note.viewCount || 0}</TableCell>
+                                        <TableCell className="text-center font-medium">{note.view_count || 0}</TableCell>
                                         <TableCell>
-                                            {note.updatedAt ? format(note.updatedAt.toDate(), 'PPP') : 'N/A'}
+                                            {note.updated_at ? format(new Date(note.updated_at), 'PPP') : 'N/A'}
                                         </TableCell>
                                         <TableCell>
                                             <DropdownMenu>

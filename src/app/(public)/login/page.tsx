@@ -4,25 +4,20 @@ import { useState, useEffect } from 'react';
 import { Mail, KeyRound } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { GoogleAuthProvider, signInWithRedirect, signInWithEmailAndPassword, getRedirectResult } from 'firebase/auth';
-import { useAuth, useFirestore, useUser } from '@/firebase';
+import { useUser } from '@/hooks/use-user';
 import { useToast } from "@/hooks/use-toast";
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-
-const GOOGLE_SIGN_IN_REDIRECT_KEY = 'isGoogleSignInRedirect';
+import { createClient } from '@/lib/supabase/client';
 
 export default function LoginPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const auth = useAuth();
-    const firestore = useFirestore();
-    const { user, isUserLoading, roles } = useUser();
+    const { user, loading } = useUser();
     const { toast } = useToast();
+    const supabase = createClient();
     
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isProcessingRedirect, setIsProcessingRedirect] = useState(false);
     const [isTeacher, setIsTeacher] = useState(false);
 
     useEffect(() => {
@@ -30,129 +25,88 @@ export default function LoginPage() {
     }, [searchParams]);
     
     useEffect(() => {
-        if (!isUserLoading && user) {
-            // Wait until roles are loaded before redirecting
-            if (roles.length > 0) {
-                 if (roles.includes('admin')) {
-                    router.push('/admin/dashboard');
-                } else if (roles.includes('teacher')) {
-                    router.push('/teacher/dashboard');
-                } else {
-                    router.push('/dashboard');
-                }
+        if (!loading && user) {
+            // Redirect based on role
+            if (user.role === 'super_admin' || user.role === 'content_moderator') {
+                router.push('/admin/dashboard');
+            } else if (user.role === 'teacher') {
+                router.push('/teacher/dashboard');
+            } else {
+                router.push('/dashboard');
             }
         }
-    }, [user, isUserLoading, roles, router]);
+    }, [user, loading, router]);
 
-    useEffect(() => {
-        const isGoogleRedirect = sessionStorage.getItem(GOOGLE_SIGN_IN_REDIRECT_KEY) === 'true';
-        if (!auth || !firestore || !isGoogleRedirect) {
-            return;
-        }
-
-        setIsProcessingRedirect(true);
-        getRedirectResult(auth)
-            .then(async (result) => {
-                if (result) {
-                    const user = result.user;
-                    const userRef = doc(firestore, 'users', user.uid);
-                    const userSnap = await getDoc(userRef);
-
-                    if (!userSnap.exists()) {
-                        const plan = searchParams.get('plan');
-                        let finalRole: string | string[] = plan === 'teacher' ? 'teacher' : 'student';
-
-                        const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
-                        if (user.email === adminEmail) {
-                            finalRole = ['admin', 'teacher'];
-                        }
-                        
-                        await setDoc(userRef, {
-                            uid: user.uid,
-                            email: user.email,
-                            displayName: user.displayName,
-                            photoURL: user.photoURL,
-                            role: finalRole,
-                            xp: 0,
-                            streak: 0,
-                            activeSubjects: [],
-                            createdAt: serverTimestamp(),
-                            updatedAt: serverTimestamp(),
-                        });
-                    }
-                }
-            })
-            .catch((error) => {
-                console.error("Error handling redirect result:", error);
-                toast({
-                    variant: "destructive",
-                    title: "Sign-In Failed",
-                    description: "Could not complete sign-in with Google. Please try again.",
-                });
-            })
-            .finally(() => {
-                sessionStorage.removeItem(GOOGLE_SIGN_IN_REDIRECT_KEY);
-                setIsProcessingRedirect(false);
-            });
-    // The dependency array is intentionally kept lean to only run once on redirect.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [auth, firestore]);
+    // Google OAuth is handled by Supabase Auth automatically
 
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!auth) {
-             toast({ variant: "destructive", title: "Login Failed", description: "Authentication service is not ready. Please wait a moment and try again." });
-             return;
-        };
         setIsSubmitting(true);
+        
         try {
-            await signInWithEmailAndPassword(auth, email, password);
+            const { error } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+            });
+            
+            if (error) {
+                toast({
+                    variant: "destructive",
+                    title: "Login Failed",
+                    description: error.message || "Invalid email or password. Please try again.",
+                });
+                setIsSubmitting(false);
+            }
+            // Success is handled by useUser hook redirect
         } catch (error: any) {
             toast({
                 variant: "destructive",
                 title: "Login Failed",
-                description: "Invalid email or password. Please try again.",
+                description: "An unexpected error occurred. Please try again.",
             });
             setIsSubmitting(false);
         }
     };
 
     const handleGoogleSignIn = async () => {
-        if (!auth) {
-             toast({ variant: "destructive", title: "Google Sign-In Failed", description: "Authentication service is not ready. Please wait a moment and try again." });
-             return;
-        }
         setIsSubmitting(true);
         try {
-            sessionStorage.setItem(GOOGLE_SIGN_IN_REDIRECT_KEY, 'true');
-            const provider = new GoogleAuthProvider();
-            await signInWithRedirect(auth, provider);
+            const { error } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: `${window.location.origin}/auth/callback`,
+                },
+            });
+            
+            if (error) {
+                toast({
+                    variant: "destructive",
+                    title: "Google Sign-In Failed",
+                    description: error.message || "Could not start sign-in with Google. Please try again.",
+                });
+                setIsSubmitting(false);
+            }
         } catch (error) {
             console.error("Error during Google sign-in:", error);
-            sessionStorage.removeItem(GOOGLE_SIGN_IN_REDIRECT_KEY);
             toast({
-              variant: "destructive",
-              title: "Google Sign-In Failed",
-              description: "Could not start sign-in with Google. Please try again.",
+                variant: "destructive",
+                title: "Google Sign-In Failed",
+                description: "Could not start sign-in with Google. Please try again.",
             });
             setIsSubmitting(false);
         }
     };
 
-    if (isUserLoading || isProcessingRedirect || (user && roles.length === 0)) {
+    if (loading) {
         return (
             <div className="flex h-screen w-full items-center justify-center bg-background">
-                <p className="text-muted-foreground animate-pulse">Verifying credentials and redirecting...</p>
+                <p className="text-muted-foreground animate-pulse">Loading...</p>
             </div>
-        )
+        );
     }
 
-    // If the user is logged in but has no roles (or has not been redirected),
-    // they should not see the login form. They should stay on the loading screen.
-    if (user && roles.length > 0) {
-        // This case should be handled by the redirection useEffect, but as a fallback,
-        // we can show the loading screen.
+    if (user) {
         return (
             <div className="flex h-screen w-full items-center justify-center bg-background">
                 <p className="text-muted-foreground animate-pulse">Redirecting...</p>

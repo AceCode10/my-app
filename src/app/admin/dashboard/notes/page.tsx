@@ -4,7 +4,6 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { PlusCircle, MoreHorizontal, Search, Eye } from 'lucide-react';
-import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   DropdownMenu,
@@ -28,13 +27,13 @@ import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useNotes } from '@/hooks/use-notes';
-import { doc, deleteDoc } from 'firebase/firestore';
-import { useFirestore } from '@/firebase';
-import { allSubjects, type Subject } from '@/lib/subjects';
+import { createClient } from '@/lib/supabase/client';
 
 const AdminNotesPage = () => {
-    const firestore = useFirestore();
+    const supabase = createClient();
     const { toast } = useToast();
+    const [subjects, setSubjects] = useState<any[]>([]);
+    const [topics, setTopics] = useState<any[]>([]);
     
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
@@ -42,21 +41,35 @@ const AdminNotesPage = () => {
     const [selectedSubject, setSelectedSubject] = useState('all');
     const [selectedTopic, setSelectedTopic] = useState('all');
     const [selectedVisibility, setSelectedVisibility] = useState('all');
-    const [topics, setTopics] = useState<{name: string, description: string}[]>([]);
 
+    // Fetch subjects from database
     useEffect(() => {
-        if (selectedSubject === 'all') {
-            setTopics([]);
-        } else {
-            const subjectData = allSubjects.find(s => s.slug === selectedSubject);
-            setTopics(subjectData?.topics || []);
+        async function fetchSubjects() {
+            const { data } = await supabase.from('subjects').select('*').order('name');
+            if (data) setSubjects(data);
         }
+        fetchSubjects();
+    }, []);
+
+    // Fetch topics when subject changes
+    useEffect(() => {
+        async function fetchTopics() {
+            if (selectedSubject === 'all') {
+                setTopics([]);
+                return;
+            }
+            const { data } = await supabase
+                .from('topics')
+                .select('*')
+                .eq('subject_id', selectedSubject)
+                .order('ordering');
+            if (data) setTopics(data);
+        }
+        fetchTopics();
         setSelectedTopic('all');
     }, [selectedSubject]);
 
-    const topicId = selectedSubject !== 'all' && selectedTopic !== 'all' 
-        ? `${selectedSubject}-${selectedTopic}`
-        : null;
+    const topicId = selectedTopic !== 'all' ? selectedTopic : null;
 
     const { notes, isLoading, error } = useNotes({
         searchTerm,
@@ -80,10 +93,16 @@ const AdminNotesPage = () => {
     };
     
     const handleDeleteConfirm = async () => {
-        if (!firestore || !selectedNoteId) return;
+        if (!selectedNoteId) return;
 
         try {
-            await deleteDoc(doc(firestore, "notes", selectedNoteId));
+            const { error } = await supabase
+                .from('notes')
+                .delete()
+                .eq('id', selectedNoteId);
+
+            if (error) throw error;
+
             toast({
                 title: "Note Deleted",
                 description: "The note has been successfully deleted.",
@@ -132,7 +151,7 @@ const AdminNotesPage = () => {
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">All Subjects</SelectItem>
-                            {allSubjects.map(s => <SelectItem key={s.slug} value={s.slug}>{s.name}</SelectItem>)}
+                            {subjects.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                         </SelectContent>
                     </Select>
                      <Select value={selectedTopic} onValueChange={setSelectedTopic} disabled={selectedSubject === 'all'}>
@@ -141,7 +160,7 @@ const AdminNotesPage = () => {
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">All Topics</SelectItem>
-                            {topics.map(t => <SelectItem key={t.name} value={t.name.toLowerCase().replace(/ /g, '-')}>{t.name}</SelectItem>)}
+                            {topics.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                         </SelectContent>
                     </Select>
                      <Select value={selectedVisibility} onValueChange={setSelectedVisibility}>
@@ -197,15 +216,15 @@ const AdminNotesPage = () => {
                                 notes.map(note => (
                                     <TableRow key={note.id}>
                                         <TableCell className="font-medium">{note.title}</TableCell>
-                                        <TableCell className="capitalize">{note.subjectId?.replace(/-/g, ' ')}</TableCell>
-                                        <TableCell className="capitalize">{note.topicId?.split('-').slice(1).join(' ')}</TableCell>
-                                        <TableCell className="font-mono text-xs">{note.authorId}</TableCell>
+                                        <TableCell className="capitalize">{subjects.find(s => s.id === note.subject_id)?.name || 'N/A'}</TableCell>
+                                        <TableCell className="capitalize">{topics.find(t => t.id === note.topic_id)?.name || 'N/A'}</TableCell>
+                                        <TableCell className="font-mono text-xs">{note.author_id?.substring(0, 8) || 'N/A'}</TableCell>
                                         <TableCell>
                                             <Badge variant={getBadgeVariant(note.visibility)}>{note.visibility || 'draft'}</Badge>
                                         </TableCell>
-                                        <TableCell className="text-center font-medium">{note.viewCount || 0}</TableCell>
+                                        <TableCell className="text-center font-medium">{note.view_count || 0}</TableCell>
                                         <TableCell>
-                                            {note.updatedAt ? format(note.updatedAt.toDate(), 'PPP') : 'N/A'}
+                                            {note.updated_at ? new Date(note.updated_at).toLocaleDateString() : 'N/A'}
                                         </TableCell>
                                         <TableCell>
                                             <DropdownMenu>

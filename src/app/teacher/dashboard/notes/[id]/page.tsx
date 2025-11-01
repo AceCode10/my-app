@@ -18,7 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { ArrowLeft, Loader2, Bot } from 'lucide-react';
-import { generateRevisionNote } from '@/ai/flows/generate-revision-note';
+import { generateRevisionNote } from '@/lib/ai-placeholders';
 import withRole from '@/hooks/withRole';
 import { allSubjects as localSubjects } from '@/lib/subjects';
 

@@ -4,17 +4,14 @@ import { useState, useEffect } from 'react';
 import { Mail, KeyRound, User } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { GoogleAuthProvider, signInWithRedirect, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { useAuth, useFirestore, FirestorePermissionError, errorEmitter } from '@/firebase';
 import { useToast } from "@/hooks/use-toast";
-import { doc, setDoc, serverTimestamp, writeBatch, collection } from 'firebase/firestore';
+import { createClient } from '@/lib/supabase/client';
 
 export default function SignupPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const auth = useAuth();
-    const firestore = useFirestore();
     const { toast } = useToast();
+    const supabase = createClient();
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -27,76 +24,50 @@ export default function SignupPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!auth || !firestore) {
-            toast({ variant: 'destructive', title: 'Sign Up Failed', description: 'Authentication service not ready. Please try again.' });
-            return;
-        }
         setIsLoading(true);
 
         try {
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-            const user = userCredential.user;
-            
-            await updateProfile(user, { 
-                displayName: name,
-            });
-
-            let role: string | string[] = isTeacher ? 'teacher' : 'student';
+            // Determine role before signup
+            let role: 'student' | 'teacher' | 'super_admin' = isTeacher ? 'teacher' : 'student';
             const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
             
-            // If the signing-up user's email matches the admin email, grant them
-            // both 'admin' and 'teacher' roles for full platform access.
             if (adminEmail && email === adminEmail) {
-                role = ['admin', 'teacher'];
+                role = 'super_admin';
             }
 
-            const batch = writeBatch(firestore);
-
-            const userRef = doc(firestore, 'users', user.uid);
-            const userData = {
-                uid: user.uid,
-                email: user.email,
-                displayName: name,
-                photoURL: user.photoURL,
-                role: role,
-                xp: 0,
-                streak: 0,
-                activeSubjects: [],
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-            };
-            batch.set(userRef, userData);
-
-            const auditLogRef = doc(collection(firestore, 'auditLogs'));
-            const auditLogData = {
-                action: 'create',
-                collection: 'users',
-                docId: user.uid,
-                performedBy: user.uid,
-                details: {
-                    email: user.email,
-                    role: role,
+            // Sign up with Supabase Auth
+            // The database trigger will automatically create the user profile
+            const { data: authData, error: authError } = await supabase.auth.signUp({
+                email,
+                password,
+                options: {
+                    data: {
+                        display_name: name,
+                        role: role, // Pass role in metadata for trigger
+                    },
                 },
-                createdAt: serverTimestamp(),
-            };
-            batch.set(auditLogRef, auditLogData);
-            
-            await batch.commit();
-            
-            if (Array.isArray(role) && role.includes('admin')) {
-                toast({ title: 'Account Created!', description: 'Redirecting to your admin dashboard.' });
-                router.push('/admin/dashboard');
-            } else if (role === 'teacher') {
-                toast({ title: 'Account Created!', description: 'Redirecting to your dashboard.' });
-                router.push('/teacher/dashboard');
-            } else {
-                 toast({ title: 'Welcome!', description: 'Your account has been created.' });
-                router.push('/dashboard');
+            });
+
+            if (authError) {
+                throw authError;
+            }
+
+            if (authData.user) {
+                toast({ title: 'Account Created!', description: 'Welcome to IGCSE Simplified!' });
+                
+                // Redirect based on role
+                if (role === 'super_admin') {
+                    router.push('/admin/dashboard');
+                } else if (role === 'teacher') {
+                    router.push('/teacher/dashboard');
+                } else {
+                    router.push('/dashboard');
+                }
             }
 
         } catch (error: any) {
             setIsLoading(false);
-            if (error.code === 'auth/email-already-in-use') {
+            if (error.message?.includes('already registered')) {
                 toast({
                     variant: "destructive",
                     title: "Sign Up Failed",
@@ -113,21 +84,24 @@ export default function SignupPage() {
     };
 
     const handleGoogleSignIn = async () => {
-        if (!auth) {
-            toast({ variant: "destructive", title: "Google Sign-In Failed", description: "Authentication service is not ready. Please try again." });
-            return;
-        }
         setIsLoading(true);
-        const provider = new GoogleAuthProvider();
         try {
-            await signInWithRedirect(auth, provider);
-            // After redirect, the login page will handle user creation.
-        } catch (error) {
+            const { error } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: `${window.location.origin}/auth/callback`,
+                },
+            });
+            
+            if (error) {
+                throw error;
+            }
+        } catch (error: any) {
             console.error("Error during Google sign-in redirect:", error);
             toast({
-              variant: "destructive",
-              title: "Google Sign-In Failed",
-              description: "Could not start sign-in with Google. Please try again.",
+                variant: "destructive",
+                title: "Google Sign-In Failed",
+                description: error.message || "Could not start sign-in with Google. Please try again.",
             });
             setIsLoading(false);
         }

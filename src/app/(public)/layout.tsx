@@ -1,6 +1,6 @@
 
 'use client'
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Menu, Search, ChevronDown, BookOpen, Layers, FileText } from "lucide-react";
@@ -28,7 +28,12 @@ export default function PublicLayout({
 }) {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [isClient, setIsClient] = useState(false);
     const router = useRouter();
+
+    useEffect(() => {
+        setIsClient(true);
+    }, []);
 
     const handleSearchSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -54,34 +59,36 @@ export default function PublicLayout({
                     </div>
                     <nav className="hidden md:flex items-center space-x-1">
                         <NavLink href="/subjects">Subjects</NavLink>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <button className="group inline-flex items-center text-sm font-medium text-muted-foreground hover:text-primary px-3 py-2 rounded-md transition-colors focus:outline-none">
-                                    <span>Resources</span>
-                                    <ChevronDown className="ml-1 h-4 w-4 text-muted-foreground group-hover:text-primary transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                                </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent className="w-56">
-                                <DropdownMenuItem asChild>
-                                    <Link href="/resources/revision-notes">
-                                        <BookOpen className="mr-2 h-4 w-4" />
-                                        <span>Revision Notes</span>
-                                    </Link>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem asChild>
-                                    <Link href="/resources/quizzes">
-                                        <Layers className="mr-2 h-4 w-4" />
-                                        <span>Quizzes</span>
-                                    </Link>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem asChild>
-                                    <Link href="/resources/past-papers">
-                                        <FileText className="mr-2 h-4 w-4" />
-                                        <span>Past Papers</span>
-                                    </Link>
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                        {isClient && (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <button className="group inline-flex items-center text-sm font-medium text-muted-foreground hover:text-primary px-3 py-2 rounded-md transition-colors focus:outline-none">
+                                        <span>Resources</span>
+                                        <ChevronDown className="ml-1 h-4 w-4 text-muted-foreground group-hover:text-primary transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                                    </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent className="w-56">
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/resources/revision-notes">
+                                            <BookOpen className="mr-2 h-4 w-4" />
+                                            <span>Revision Notes</span>
+                                        </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/resources/quizzes">
+                                            <Layers className="mr-2 h-4 w-4" />
+                                            <span>Quizzes</span>
+                                        </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/resources/past-papers">
+                                            <FileText className="mr-2 h-4 w-4" />
+                                            <span>Past Papers</span>
+                                        </Link>
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        )}
                         <NavLink href="/pricing">Pricing</NavLink>
                         <form onSubmit={handleSearchSubmit} className="relative w-full max-w-xs ml-4">
                             <label htmlFor="search" className="sr-only">Search</label>

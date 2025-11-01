@@ -5,18 +5,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { useUser, useFirestore } from "@/firebase";
-import { collection, query, where, getDocs, updateDoc, doc, arrayUnion } from "firebase/firestore";
-import type { Class } from "@/types";
+import { useUser } from "@/hooks/use-user";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useClasses } from "@/hooks/use-classes";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { createClient } from '@/lib/supabase/client';
 
 
 export default function ClassesPage() {
     const { user } = useUser();
-    const firestore = useFirestore();
+    const supabase = createClient();
     const { toast } = useToast();
     
     const { classes, isLoading: isLoadingClasses } = useClasses();
@@ -25,38 +24,52 @@ export default function ClassesPage() {
     const [isJoining, setIsJoining] = useState(false);
     
     const handleJoinClass = async () => {
-        if (!firestore || !user || !classCode) return;
+        if (!user || !classCode) return;
         setIsJoining(true);
         
         try {
-            const classQuery = query(collection(firestore, 'classes'), where('classCode', '==', classCode.trim()));
-            const querySnapshot = await getDocs(classQuery);
+            // Find class by join code
+            const { data: classData, error: classError } = await supabase
+                .from('classes')
+                .select('*')
+                .eq('join_code', classCode.trim())
+                .single();
 
-            if (querySnapshot.empty) {
+            if (classError || !classData) {
                 toast({ variant: "destructive", title: "Invalid Code", description: "No class found with that code. Please check and try again." });
                 setIsJoining(false);
                 return;
             }
-            
-            const classDoc = querySnapshot.docs[0];
-            const classData = classDoc.data() as Class;
 
-            if (classData.studentIds?.includes(user.uid)) {
-                 toast({ title: "Already Enrolled", description: `You are already in ${classData.name}.` });
-                 setIsJoining(false);
-                 return;
-            }
+            // Check if already enrolled
+            const { data: existingEnrollment } = await supabase
+                .from('enrollments')
+                .select('*')
+                .eq('user_id', user.id)
+                .eq('class_id', classData.id)
+                .single();
 
-            if (classData.pendingStudentIds?.includes(user.uid)) {
-                toast({ title: "Request Pending", description: `Your request to join ${classData.name} is already pending approval.` });
+            if (existingEnrollment) {
+                if (existingEnrollment.status === 'active') {
+                    toast({ title: "Already Enrolled", description: `You are already in ${classData.name}.` });
+                } else if (existingEnrollment.status === 'pending') {
+                    toast({ title: "Request Pending", description: `Your request to join ${classData.name} is already pending approval.` });
+                }
                 setIsJoining(false);
                 return;
-           }
+            }
 
-            const classRef = doc(firestore, 'classes', classDoc.id);
-            await updateDoc(classRef, {
-                pendingStudentIds: arrayUnion(user.uid)
-            });
+            // Create enrollment request
+            const { error: enrollError } = await supabase
+                .from('enrollments')
+                .insert({
+                    user_id: user.id,
+                    class_id: classData.id,
+                    status: 'pending',
+                    enrolled_at: new Date().toISOString()
+                });
+
+            if (enrollError) throw enrollError;
 
             toast({ title: "Request Sent!", description: `Your request to join ${classData.name} has been sent to the teacher.` });
             setClassCode('');
@@ -85,11 +98,11 @@ export default function ClassesPage() {
                                 <Card className="hover:border-primary transition-colors">
                                     <CardHeader>
                                         <CardTitle>{cls.name}</CardTitle>
-                                        <CardDescription>{cls.subject}</CardDescription>
+                                        <CardDescription>{cls.subject_id}</CardDescription>
                                     </CardHeader>
                                     <CardContent className="flex justify-between items-center">
                                        <div className="text-sm text-muted-foreground">
-                                           {cls.studentIds?.length || 0} students
+                                           View class details
                                        </div>
                                        <div className="flex items-center text-primary font-semibold">
                                            View Class <ArrowRight className="ml-2 h-4 w-4" />

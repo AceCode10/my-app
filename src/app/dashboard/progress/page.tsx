@@ -2,29 +2,71 @@
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid, Legend } from 'recharts';
 import { Trophy, Zap, Flame, Repeat } from 'lucide-react';
-import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, where, orderBy } from "firebase/firestore";
-import { type QuizAttempt } from "@/types";
-import { useMemo } from "react";
+import { useUser } from "@/hooks/use-user";
+import { useMemo, useEffect, useState } from "react";
 import { format } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { createClient } from '@/lib/supabase/client';
+
+interface QuizAttempt {
+    id: string;
+    user_id: string;
+    quiz_id: string;
+    score: number;
+    total_questions: number;
+    topic?: string;
+    completed_at: string;
+}
 
 export default function ProgressPage() {
-    const { user, profile } = useUser();
-    const firestore = useFirestore();
+    const { user } = useUser();
+    const supabase = createClient();
+    const [attempts, setAttempts] = useState<QuizAttempt[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [userXP, setUserXP] = useState(0);
+    const [userStreak, setUserStreak] = useState(0);
 
-    const attemptsQuery = useMemoFirebase(() => {
-        if (!firestore || !user) return null;
-        // Query the global collection and filter by the current user's ID.
-        return query(
-            collection(firestore, 'quizAttempts'),
-            where('userId', '==', user.uid),
-            orderBy('completedAt', 'desc')
-        );
-    }, [firestore, user]);
+    useEffect(() => {
+        if (!user) {
+            setIsLoading(false);
+            return;
+        }
 
-    const { data: attempts, isLoading } = useCollection<QuizAttempt>(attemptsQuery);
+        fetchData();
+    }, [user]);
+
+    async function fetchData() {
+        if (!user) return;
+
+        try {
+            // Fetch user profile for XP and streak
+            const { data: userData } = await supabase
+                .from('users')
+                .select('xp, streak_days')
+                .eq('id', user.id)
+                .single();
+
+            if (userData) {
+                setUserXP(userData.xp || 0);
+                setUserStreak(userData.streak_days || 0);
+            }
+
+            // Fetch quiz attempts
+            const { data: attemptsData, error } = await supabase
+                .from('attempts')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('completed_at', { ascending: false });
+
+            if (error) throw error;
+            setAttempts(attemptsData || []);
+        } catch (error) {
+            console.error('Error fetching progress data:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    }
     
     const { totalXP, quizzesCompleted, avgScore, weeklyXPData } = useMemo(() => {
         if (!attempts) {
@@ -37,12 +79,12 @@ export default function ProgressPage() {
 
         attempts.forEach(attempt => {
             totalScore += attempt.score;
-            totalQuestions += attempt.totalQuestions;
+            totalQuestions += attempt.total_questions;
         });
 
         const avgScore = totalQuestions > 0 ? Math.round((totalScore / totalQuestions) * 100) : 0;
         
-        const totalXP = profile?.xp || 0;
+        const totalXP = userXP;
 
         // Group XP by day for the last 7 days
         const recentXP: { [key: string]: number } = {};
@@ -55,8 +97,8 @@ export default function ProgressPage() {
         }
 
         attempts.forEach(attempt => {
-            if (attempt.completedAt) {
-                const date = (attempt.completedAt as any).toDate();
+            if (attempt.completed_at) {
+                const date = new Date(attempt.completed_at);
                 const dayKey = format(date, 'yyyy-MM-dd');
                 if (dayKey in recentXP) {
                     const xp = attempt.score * 10;
@@ -71,7 +113,7 @@ export default function ProgressPage() {
 
         return { totalXP, quizzesCompleted, avgScore, weeklyXPData };
 
-    }, [attempts, profile?.xp]);
+    }, [attempts, userXP]);
 
     return (
         <div className="grid grid-cols-1">
@@ -104,7 +146,7 @@ export default function ProgressPage() {
                         <Flame className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{isLoading ? <Skeleton className="h-8 w-12" /> : (profile?.streak || 0)} Days</div>
+                        <div className="text-2xl font-bold">{isLoading ? <Skeleton className="h-8 w-12" /> : userStreak} Days</div>
                     </CardContent>
                 </Card>
             </div>
@@ -155,10 +197,10 @@ export default function ProgressPage() {
                                 <TableBody>
                                     {attempts?.slice(0, 5).map(attempt => (
                                         <TableRow key={attempt.id}>
-                                            <TableCell className="font-medium capitalize">{attempt.topic}</TableCell>
-                                            <TableCell className="text-right">{attempt.score}/{attempt.totalQuestions}</TableCell>
+                                            <TableCell className="font-medium capitalize">{attempt.topic || 'Quiz'}</TableCell>
+                                            <TableCell className="text-right">{attempt.score}/{attempt.total_questions}</TableCell>
                                             <TableCell className="text-right text-muted-foreground text-xs">
-                                                {attempt.completedAt ? format((attempt.completedAt as any).toDate(), 'MMM d, yyyy') : 'N/A'}
+                                                {attempt.completed_at ? format(new Date(attempt.completed_at), 'MMM d, yyyy') : 'N/A'}
                                             </TableCell>
                                         </TableRow>
                                     ))}

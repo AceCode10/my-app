@@ -24,8 +24,7 @@ import { collection, query, where, getDocs, doc, limit } from 'firebase/firestor
 import type { Quiz, Question, QuizAttempt } from '@/types';
 import { saveQuizAttempt } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
-import { generateQuizQuestions } from '@/ai/flows/generate-quiz-questions';
-import { generateModelAnswer, GenerateModelAnswerOutput } from '@/ai/flows/generate-model-answer';
+import { generateQuizQuestions, generateModelAnswer, GenerateModelAnswerOutput } from '@/lib/ai-placeholders';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';

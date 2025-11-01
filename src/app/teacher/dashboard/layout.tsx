@@ -19,7 +19,9 @@ import {
     LayoutDashboard, Users, BarChart3, Edit, Settings, ChevronDown, 
     LogOut, Filter, Search, BookOpen, Layers, PanelLeft,
 } from 'lucide-react';
-import { useUser, useAuth, useSidebar } from '@/firebase';
+import { useUser } from '@/hooks/use-user';
+import { useSidebar } from '@/components/ui/sidebar';
+import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -109,9 +111,9 @@ const AppSidebar = () => {
 };
 
 const AppHeader = () => {
-    const { user, profile } = useUser();
-    const auth = useAuth();
-    const username = profile?.displayName || user?.displayName || 'Teacher';
+    const { user } = useUser();
+    const supabase = createClient();
+    const username = user?.display_name || 'Teacher';
     const router = useRouter();
     const [filter, setFilter] = React.useState('all');
     const [searchQuery, setSearchQuery] = React.useState('');
@@ -127,8 +129,7 @@ const AppHeader = () => {
     }, [searchQuery, filter]);
 
     const handleLogout = async () => {
-        if (!auth) return;
-        await auth.signOut();
+        await supabase.auth.signOut();
         router.push('/');
     };
 
@@ -192,7 +193,7 @@ const AppHeader = () => {
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <div className="flex items-center space-x-3 cursor-pointer">
-                            <img className="h-10 w-10 rounded-full object-cover" data-ai-hint="avatar" src={profile?.photoURL || `https://placehold.co/100x100/3b82f6/ffffff?text=${username.charAt(0)}`} alt="Teacher avatar" />
+                            <img className="h-10 w-10 rounded-full object-cover" data-ai-hint="avatar" src={user?.avatar_url || `https://placehold.co/100x100/3b82f6/ffffff?text=${username.charAt(0)}`} alt="Teacher avatar" />
                             <div className="hidden sm:block">
                                 <p className="text-sm font-semibold text-foreground">{username}</p>
                                 <p className="text-xs text-muted-foreground">

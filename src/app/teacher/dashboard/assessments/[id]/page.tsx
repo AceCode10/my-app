@@ -21,7 +21,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
-import { generateQuizQuestions } from '@/ai/flows/generate-quiz-questions';
+import { generateQuizQuestions } from '@/lib/ai-placeholders';
 import { allSubjects as localSubjects, type Subject as SubjectType} from '@/lib/subjects';
 
 

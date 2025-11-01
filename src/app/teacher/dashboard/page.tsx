@@ -6,7 +6,7 @@ import React, { useState, useMemo } from 'react';
 import { 
     Users, PlusCircle, BookOpen, ArrowRight, Book, Activity, Bell
 } from 'lucide-react';
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useUser } from '@/hooks/use-user';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { CreateClassModal } from '@/components/teacher/create-class-modal';
@@ -14,8 +14,8 @@ import { useClasses } from '@/hooks/use-classes';
 import { allSubjects } from '@/lib/subjects';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ContentSeeder } from '@/components/content-seeder';
-import { collection, query, where, orderBy, limit, Timestamp } from 'firebase/firestore';
-import type { QuizAttempt, Class } from '@/types';
+import { createClient } from '@/lib/supabase/client';
+import { useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
@@ -29,46 +29,57 @@ const getSubjectVisuals = (subjectName: string) => {
 };
 
 const RecentActivity = () => {
-    const { user, firestore } = useUser();
+    const { user } = useUser();
     const { classes, isLoading: isLoadingClasses } = useClasses();
+    const supabase = createClient();
+    const [recentAttempts, setRecentAttempts] = useState<any[]>([]);
+    const [isLoadingAttempts, setIsLoadingAttempts] = useState(true);
 
     const classIds = useMemo(() => classes?.map(c => c.id) || [], [classes]);
 
-    const attemptsQuery = useMemoFirebase(() => {
-        if (!firestore || classIds.length === 0) return null;
-        return query(
-            collection(firestore, 'quizAttempts'),
-            where('classId', 'in', classIds.slice(0,10)),
-            orderBy('completedAt', 'desc'),
-            limit(5)
-        );
-    }, [firestore, classIds]);
-    
-    const { data: recentAttempts, isLoading: isLoadingAttempts } = useCollection<QuizAttempt>(attemptsQuery);
+    useEffect(() => {
+        async function fetchAttempts() {
+            if (classIds.length === 0) {
+                setIsLoadingAttempts(false);
+                return;
+            }
+
+            try {
+                const { data, error } = await supabase
+                    .from('attempts')
+                    .select('*')
+                    .in('class_id', classIds.slice(0, 10))
+                    .order('completed_at', { ascending: false })
+                    .limit(5);
+
+                if (error) throw error;
+                setRecentAttempts(data || []);
+            } catch (error) {
+                console.error('Error fetching attempts:', error);
+            } finally {
+                setIsLoadingAttempts(false);
+            }
+        }
+
+        fetchAttempts();
+    }, [classIds]);
     
     const pendingRequests = useMemo(() => {
         if (!classes) return [];
-        return classes.flatMap(c => 
-            (c.pendingStudentIds || []).map(studentId => ({
-                type: 'request',
-                classId: c.id,
-                className: c.name,
-                // In a real app, we'd fetch student names, but for this component, we'll keep it simple.
-                message: `New request to join ${c.name}`, 
-                date: new Date() // Placeholder date
-            }))
-        );
+        // Note: With Supabase, pending requests are in the enrollments table
+        // For now, returning empty array - this should be fetched from enrollments
+        return [];
     }, [classes]);
 
     const formattedAttempts = useMemo(() => {
         if (!recentAttempts) return [];
         return recentAttempts.map(attempt => {
-             const className = classes?.find(c => c.id === attempt.classId)?.name || '';
+             const className = classes?.find(c => c.id === attempt.class_id)?.name || '';
              return {
                 type: 'submission',
-                message: `New submission for "${attempt.topic}" quiz in ${className}`,
-                date: (attempt.completedAt as Timestamp)?.toDate(),
-                classId: attempt.classId
+                message: `New submission for "${attempt.topic || 'quiz'}" in ${className}`,
+                date: new Date(attempt.completed_at),
+                classId: attempt.class_id
             }
         });
     }, [recentAttempts, classes]);
@@ -132,11 +143,12 @@ const DashboardView = ({
     isLoadingClasses: boolean,
 }) => {
     const { user } = useUser();
-    const username = user?.displayName || 'Teacher';
+    const username = user?.display_name || 'Teacher';
     const router = useRouter();
     
-    const totalStudents = classes ? classes.reduce((acc, curr) => acc + (curr.studentIds?.length || 0), 0) : 0;
-    const totalPending = classes ? classes.reduce((acc, curr) => acc + (curr.pendingStudentIds?.length || 0), 0) : 0;
+    // Note: Student counts should be fetched from enrollments table
+    const totalStudents = 0; // TODO: Fetch from enrollments
+    const totalPending = 0; // TODO: Fetch from enrollments with status='pending'
 
     return (
     <div>
@@ -179,15 +191,15 @@ const DashboardView = ({
                 ) : (
                     <div className="space-y-4">
                         {classes.slice(0, 5).map(c => { // Show first 5 classes on dashboard
-                             const { icon, color } = getSubjectVisuals(c.subject);
+                             const { icon, color } = getSubjectVisuals(c.subject_id || '');
                             return (
                             <div key={c.id} className="p-4 border rounded-lg hover:bg-muted/50">
                                <div className="flex flex-col sm:flex-row justify-between sm:items-center">
                                     <div className="flex items-center space-x-3">
-                                        <div className={'p-2 rounded-md bg-muted'}>{React.cloneElement(icon as React.ReactElement, {className: "w-5 h-5 text-primary"})}</div>
+                                        <div className={'p-2 rounded-md bg-muted'}>{React.cloneElement(icon as React.ReactElement, {"className": "w-5 h-5 text-primary"} as any)}</div>
                                         <div>
                                             <h4 className="font-bold text-foreground">{c.name}</h4>
-                                            <p className="text-sm text-muted-foreground">{c.studentIds?.length || 0} students • {c.pendingStudentIds?.length || 0} pending</p>
+                                            <p className="text-sm text-muted-foreground">Class code: {c.join_code}</p>
                                         </div>
                                     </div>
                                     <div className="flex space-x-2 mt-3 sm:mt-0 self-end sm:self-center">

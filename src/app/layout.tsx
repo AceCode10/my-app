@@ -4,13 +4,13 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
-import { FirebaseClientProvider } from "@/firebase/client-provider";
+import { ExamBoardProvider } from "@/contexts/ExamBoardContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "IGCSE Simplified",
-  description: "Your personalized AI-powered coach to help you ace your IGCSE exams.",
+  description: "Your personalized learning platform to help you ace your IGCSE exams.",
 };
 
 export default function RootLayout({
@@ -27,10 +27,10 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <FirebaseClientProvider>
+          <ExamBoardProvider>
             {children}
             <Toaster />
-          </FirebaseClientProvider>
+          </ExamBoardProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useUser } from '@/firebase';
+import { useUser } from '@/hooks/use-user';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -17,10 +17,10 @@ const FullPageLoader = () => (
  */
 const withRole = (WrappedComponent: React.ComponentType<any>, allowedRoles: string[]) => {
   const Wrapper = (props: any) => {
-    const { isUserLoading } = useUser();
+    const { loading } = useUser();
 
-    // Render a loader while firebase is authenticating, then render the component.
-    if (isUserLoading) {
+    // Render a loader while authenticating, then render the component.
+    if (loading) {
       return <FullPageLoader />;
     }
 

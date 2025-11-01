@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Trophy } from 'lucide-react';
 import { Skeleton } from "@/components/ui/skeleton";
-import { getLeaderboard, type LeaderboardUser } from '@/ai/flows/get-leaderboard';
+import { getLeaderboard, type LeaderboardUser } from '@/lib/ai-placeholders';
 
 export default function LeaderboardPage() {
     const [topUsers, setTopUsers] = useState<LeaderboardUser[] | null>(null);

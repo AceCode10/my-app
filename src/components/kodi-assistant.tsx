@@ -16,7 +16,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { getAcademicCoaching } from '@/ai/flows/get-academic-coaching';
 import { cn } from '@/lib/utils';
 
 interface Message {
@@ -39,11 +38,14 @@ export function KodiAssistant() {
     setIsLoading(true);
 
     try {
-      const response = await getAcademicCoaching({ question: input });
-      const kodiMessage: Message = { sender: 'kodi', text: response.answer };
+      // AI features disabled - showing placeholder response
+      const kodiMessage: Message = { 
+        sender: 'kodi', 
+        text: 'AI assistant is currently disabled. Please contact your teacher for help.' 
+      };
       setMessages((prev) => [...prev, kodiMessage]);
     } catch (error) {
-      console.error('Error getting academic coaching:', error);
+      console.error('Error:', error);
       const errorMessage: Message = {
         sender: 'kodi',
         text: 'Sorry, I am having trouble connecting. Please try again later.',

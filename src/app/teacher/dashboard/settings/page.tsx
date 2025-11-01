@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useUser, useFirestore } from '@/firebase';
+import { useUser } from '@/hooks/use-user';
 import { useTheme } from 'next-themes';
 import { 
     Bell, Sun, Moon, ShieldCheck, User, Upload, CreditCard, Loader2
@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { doc, updateDoc } from 'firebase/firestore';
+import { createClient } from '@/lib/supabase/client';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription } from '@/components/ui/card';
 
 
@@ -22,8 +22,8 @@ const avatars = [
 ];
 
 function SettingsPage() {
-    const { user, profile } = useUser();
-    const firestore = useFirestore();
+    const { user } = useUser();
+    const supabase = createClient();
     const { toast } = useToast();
     const { theme, setTheme } = useTheme();
 
@@ -36,11 +36,11 @@ function SettingsPage() {
 
     useEffect(() => {
         setMounted(true);
-        if (profile) {
-            setDisplayName(profile.displayName || '');
-            setAvatarUrl(profile.photoURL || `https://placehold.co/128x128/3b82f6/ffffff?text=${(profile.displayName || 'T').charAt(0)}`);
+        if (user) {
+            setDisplayName(user.display_name || '');
+            setAvatarUrl(user.avatar_url || `https://placehold.co/128x128/3b82f6/ffffff?text=${(user.display_name || 'T').charAt(0)}`);
         }
-    }, [profile]);
+    }, [user]);
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         if (event.target.files && event.target.files[0]) {
@@ -55,18 +55,22 @@ function SettingsPage() {
 
     const handleSaveChanges = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!user || !firestore) {
+        if (!user) {
             toast({ variant: 'destructive', title: 'Error', description: 'Not authenticated.' });
             return;
         }
 
         setIsLoading(true);
         try {
-            const userRef = doc(firestore, 'users', user.uid);
-            await updateDoc(userRef, {
-                displayName: displayName,
-                photoURL: avatarUrl
-            });
+            const { error } = await supabase
+                .from('users')
+                .update({
+                    display_name: displayName,
+                    avatar_url: avatarUrl
+                })
+                .eq('id', user.id);
+
+            if (error) throw error;
             toast({ title: 'Success', description: 'Your profile has been updated.' });
         } catch (error) {
             console.error('Error updating profile:', error);
@@ -76,11 +80,11 @@ function SettingsPage() {
         }
     };
     
-    if (!mounted || !profile) {
+    if (!mounted || !user) {
         return null; // or a loading skeleton
     }
 
-    const email = profile.email || 'teacher@example.com';
+    const email = user.email || 'teacher@example.com';
     const usernameInitial = (displayName || 'T').charAt(0);
 
     return (

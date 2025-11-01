@@ -1,9 +1,6 @@
 'use client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, query, doc, updateDoc, deleteDoc } from "firebase/firestore";
-import type { UserProfile } from "@/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -14,23 +11,74 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
+import { createClient } from '@/lib/supabase/client';
+
+interface UserProfile {
+    id: string;
+    email: string;
+    display_name: string;
+    avatar_url?: string;
+    role: string | string[];
+    xp?: number;
+    created_at: string;
+}
 
 
 function ManageUsersPage() {
-    const firestore = useFirestore();
+    const supabase = createClient();
     const { toast } = useToast();
 
+    const [users, setUsers] = useState<UserProfile[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [userToEdit, setUserToEdit] = useState<UserProfile | null>(null);
     const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
     const [selectedRole, setSelectedRole] = useState('');
     const [isUpdating, setIsUpdating] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
 
-    const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
-    const { data: users, isLoading } = useCollection<UserProfile>(usersQuery);
+    useEffect(() => {
+        fetchUsers();
+
+        // Set up realtime subscription
+        const channel = supabase
+            .channel('users-changes')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'users',
+                },
+                () => {
+                    fetchUsers();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, []);
+
+    async function fetchUsers() {
+        try {
+            const { data, error } = await supabase
+                .from('users')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            setUsers(data || []);
+        } catch (error) {
+            console.error('Error fetching users:', error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch users.' });
+        } finally {
+            setIsLoading(false);
+        }
+    }
 
     const handleEditRole = (user: UserProfile) => {
         setUserToEdit(user);
@@ -39,18 +87,23 @@ function ManageUsersPage() {
     };
 
     const handleUpdateRole = async () => {
-        if (!firestore || !userToEdit || !selectedRole) return;
+        if (!userToEdit || !selectedRole) return;
         setIsUpdating(true);
 
         // Convert string back to array if it contains commas, otherwise it's a single role string
         const newRole = selectedRole.includes(',') ? selectedRole.split(',') : selectedRole;
 
         try {
-            const userRef = doc(firestore, 'users', userToEdit.uid);
-            await updateDoc(userRef, { role: newRole });
-            toast({ title: 'Role Updated', description: `${userToEdit.displayName}'s role has been changed.` });
+            const { error } = await supabase
+                .from('users')
+                .update({ role: newRole })
+                .eq('id', userToEdit.id);
+
+            if (error) throw error;
+            toast({ title: 'Role Updated', description: `${userToEdit.display_name}'s role has been changed.` });
             setUserToEdit(null);
         } catch (error) {
+            console.error('Error updating role:', error);
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to update user role.' });
         } finally {
             setIsUpdating(false);
@@ -62,14 +115,19 @@ function ManageUsersPage() {
     };
 
     const handleDeleteConfirm = async () => {
-        if (!firestore || !userToDelete) return;
+        if (!userToDelete) return;
         setIsDeleting(true);
         try {
-            const userRef = doc(firestore, 'users', userToDelete.uid);
-            await deleteDoc(userRef);
-            toast({ title: 'User Deleted', description: `${userToDelete.displayName} has been removed from the platform.` });
+            const { error } = await supabase
+                .from('users')
+                .delete()
+                .eq('id', userToDelete.id);
+
+            if (error) throw error;
+            toast({ title: 'User Deleted', description: `${userToDelete.display_name} has been removed from the platform.` });
             setUserToDelete(null);
         } catch (error) {
+            console.error('Error deleting user:', error);
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete user.' });
         } finally {
             setIsDeleting(false);
@@ -117,20 +175,20 @@ function ManageUsersPage() {
                             ))
                         ) : (
                             users?.map(user => (
-                                <TableRow key={user.uid}>
+                                <TableRow key={user.id}>
                                     <TableCell>
                                         <div className="flex items-center gap-3">
                                             <Avatar>
-                                                <AvatarImage src={user.photoURL ?? undefined} alt={user.displayName ?? undefined} />
-                                                <AvatarFallback>{user.displayName?.charAt(0) || 'U'}</AvatarFallback>
+                                                <AvatarImage src={user.avatar_url ?? undefined} alt={user.display_name ?? undefined} />
+                                                <AvatarFallback>{user.display_name?.charAt(0) || 'U'}</AvatarFallback>
                                             </Avatar>
-                                            <span className="font-medium">{user.displayName}</span>
+                                            <span className="font-medium">{user.display_name}</span>
                                         </div>
                                     </TableCell>
                                     <TableCell>{user.email}</TableCell>
                                     <TableCell>{getRoleBadge(user.role)}</TableCell>
                                     <TableCell>{user.xp?.toLocaleString()}</TableCell>
-                                    <TableCell>{user.createdAt ? format(user.createdAt.toDate(), 'PPP') : 'N/A'}</TableCell>
+                                    <TableCell>{user.created_at ? format(new Date(user.created_at), 'PPP') : 'N/A'}</TableCell>
                                     <TableCell>
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
@@ -154,7 +212,7 @@ function ManageUsersPage() {
         <Dialog open={!!userToEdit} onOpenChange={(open) => !open && setUserToEdit(null)}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Edit Role for {userToEdit?.displayName}</DialogTitle>
+                    <DialogTitle>Edit Role for {userToEdit?.display_name}</DialogTitle>
                 </DialogHeader>
                 <div className="py-4">
                     <Label htmlFor="role-select">Role</Label>
@@ -187,7 +245,7 @@ function ManageUsersPage() {
                 <AlertDialogHeader>
                     <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete the user account for <span className="font-bold">{userToDelete?.displayName}</span> and all of their associated data.
+                        This action cannot be undone. This will permanently delete the user account for <span className="font-bold">{userToDelete?.display_name}</span> and all of their associated data.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

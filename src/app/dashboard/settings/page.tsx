@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { doc, updateDoc } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription } from '@/components/ui/card';
+import { ExamBoardSettings } from '@/components/exam-board';
 
 const avatars = [
     'https://placehold.co/128x128/00bf8f/ffffff?text=S',
@@ -150,6 +151,9 @@ export default function SettingsPage() {
                         </CardFooter>
                     </form>
                 </Card>
+
+                {/* Exam Board Preference */}
+                <ExamBoardSettings />
 
                 <Card>
                      <CardHeader>

@@ -1,11 +1,9 @@
 'use client';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import type { UserProfile, Note, Quiz } from "@/types";
-import { collection, query } from "firebase/firestore";
 import { Users, FileText, Edit } from 'lucide-react';
 import { Skeleton } from "@/components/ui/skeleton";
-import withRole from "@/hooks/withRole";
+import { createClient } from '@/lib/supabase/client';
 
 const StatCard = ({ title, value, icon, isLoading }: { title: string, value: number, icon: React.ReactNode, isLoading: boolean }) => {
     return (
@@ -23,15 +21,53 @@ const StatCard = ({ title, value, icon, isLoading }: { title: string, value: num
 
 
 function AdminDashboardPage() {
-    const firestore = useFirestore();
+    const supabase = createClient();
+    const [usersCount, setUsersCount] = useState(0);
+    const [notesCount, setNotesCount] = useState(0);
+    const [quizzesCount, setQuizzesCount] = useState(0);
+    const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+    const [isLoadingNotes, setIsLoadingNotes] = useState(true);
+    const [isLoadingQuizzes, setIsLoadingQuizzes] = useState(true);
 
-    const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
-    const notesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'notes')) : null, [firestore]);
-    const quizzesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'quizzes')) : null, [firestore]);
+    useEffect(() => {
+        fetchCounts();
+    }, []);
 
-    const { data: users, isLoading: isLoadingUsers } = useCollection<UserProfile>(usersQuery);
-    const { data: notes, isLoading: isLoadingNotes } = useCollection<Note>(notesQuery);
-    const { data: quizzes, isLoading: isLoadingQuizzes } = useCollection<Quiz>(quizzesQuery);
+    async function fetchCounts() {
+        try {
+            // Fetch users count
+            const { count: usersTotal, error: usersError } = await supabase
+                .from('users')
+                .select('*', { count: 'exact', head: true });
+            
+            if (usersError) throw usersError;
+            setUsersCount(usersTotal || 0);
+            setIsLoadingUsers(false);
+
+            // Fetch notes count
+            const { count: notesTotal, error: notesError } = await supabase
+                .from('notes')
+                .select('*', { count: 'exact', head: true });
+            
+            if (notesError) throw notesError;
+            setNotesCount(notesTotal || 0);
+            setIsLoadingNotes(false);
+
+            // Fetch quizzes count
+            const { count: quizzesTotal, error: quizzesError } = await supabase
+                .from('quizzes')
+                .select('*', { count: 'exact', head: true });
+            
+            if (quizzesError) throw quizzesError;
+            setQuizzesCount(quizzesTotal || 0);
+            setIsLoadingQuizzes(false);
+        } catch (error) {
+            console.error('Error fetching counts:', error);
+            setIsLoadingUsers(false);
+            setIsLoadingNotes(false);
+            setIsLoadingQuizzes(false);
+        }
+    }
     
     return (
         <div>
@@ -46,19 +82,19 @@ function AdminDashboardPage() {
             <div className="grid gap-6 md:grid-cols-3">
                 <StatCard 
                     title="Total Users" 
-                    value={users?.length || 0} 
+                    value={usersCount} 
                     icon={<Users className="h-4 w-4 text-muted-foreground" />}
                     isLoading={isLoadingUsers}
                 />
                 <StatCard 
                     title="Total Notes" 
-                    value={notes?.length || 0} 
+                    value={notesCount} 
                     icon={<FileText className="h-4 w-4 text-muted-foreground" />}
                     isLoading={isLoadingNotes}
                 />
                 <StatCard 
                     title="Total Quizzes" 
-                    value={quizzes?.length || 0} 
+                    value={quizzesCount} 
                     icon={<Edit className="h-4 w-4 text-muted-foreground" />}
                     isLoading={isLoadingQuizzes}
                 />

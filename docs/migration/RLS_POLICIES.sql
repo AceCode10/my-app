@@ -36,6 +36,10 @@ CREATE POLICY "Users can view own profile"
   ON users FOR SELECT
   USING (id = auth.uid());
 
+CREATE POLICY "Users can create own profile on signup"
+  ON users FOR INSERT
+  WITH CHECK (auth.uid() = id);
+
 CREATE POLICY "Users can update own profile"
   ON users FOR UPDATE
   USING (id = auth.uid())

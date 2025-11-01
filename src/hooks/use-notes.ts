@@ -1,63 +1,107 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, where } from 'firebase/firestore';
-import type { Note } from '@/types';
+import { useState, useEffect, useMemo } from 'react';
+import { createClient } from '@/lib/supabase/client';
+
+interface Note {
+    id: string;
+    title: string;
+    subtitle?: string;
+    slug: string;
+    content_md: string;
+    rendered_html?: string;
+    subject_id: string;
+    topic_id: string;
+    author_id?: string;
+    visibility: string;
+    tags?: string[];
+    is_downloadable?: boolean;
+    view_count?: number;
+    version?: number;
+    created_at: string;
+    updated_at?: string;
+    published_at?: string;
+}
 
 interface UseNotesProps {
     searchTerm?: string;
     subjectId?: string | null;
     topicId?: string | null;
-    authorId?: string | null; // Can be null to fetch all notes (for admin)
+    authorId?: string | null;
     visibility?: string | null;
 }
 
 /**
- * A custom hook to fetch and filter notes from Firestore.
+ * A custom hook to fetch and filter notes from Supabase.
  */
 export function useNotes({ searchTerm, subjectId, topicId, authorId, visibility }: UseNotesProps) {
-    const firestore = useFirestore();
+    const supabase = createClient();
+    const [data, setData] = useState<Note[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<Error | null>(null);
 
-    const notesQuery = useMemoFirebase(() => {
-        if (!firestore) return null;
+    useEffect(() => {
+        fetchNotes();
 
-        let q = query(collection(firestore, 'notes'));
-        
-        // Add author filter if an authorId is provided
-        if (authorId) {
-            q = query(q, where('authorId', '==', authorId));
+        // Set up realtime subscription
+        const channel = supabase
+            .channel('notes-changes')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'notes',
+                },
+                () => {
+                    fetchNotes();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [subjectId, topicId, authorId, visibility]);
+
+    async function fetchNotes() {
+        try {
+            let query = supabase.from('notes').select('*');
+
+            // Add filters
+            if (authorId) {
+                query = query.eq('author_id', authorId);
+            }
+
+            if (subjectId && subjectId !== 'all') {
+                query = query.eq('subject_id', subjectId);
+            }
+
+            if (topicId && topicId !== 'all') {
+                query = query.eq('topic_id', topicId);
+            }
+
+            if (visibility && visibility !== 'all') {
+                query = query.eq('visibility', visibility);
+            }
+
+            const { data: notesData, error: fetchError } = await query.order('title');
+
+            if (fetchError) throw fetchError;
+            setData(notesData || []);
+        } catch (err) {
+            console.error('Error fetching notes:', err);
+            setError(err as Error);
+        } finally {
+            setIsLoading(false);
         }
-
-        // Add subject filter
-        if (subjectId && subjectId !== 'all') {
-            q = query(q, where('subjectId', '==', subjectId));
-        }
-        
-        // Add topic filter
-        if (topicId && topicId !== 'all') {
-            q = query(q, where('topicId', '==', topicId));
-        }
-
-        if (visibility && visibility !== 'all') {
-            q = query(q, where('visibility', '==', visibility));
-        }
-
-        // Adding an orderBy clause here with multiple where clauses
-        // often requires a composite index in Firestore. Removing it
-        // to prevent crashes if the index doesn't exist.
-        // q = query(q, orderBy('title'));
-
-        return q;
-    }, [firestore, subjectId, topicId, authorId, visibility]);
-
-    const { data, isLoading, error } = useCollection<Note>(notesQuery);
+    }
 
     const filteredNotes = useMemo(() => {
         if (!data) return [];
         if (!searchTerm) return data;
-        
-        return data.filter(note =>
+
+        return data.filter((note) =>
             note.title.toLowerCase().includes(searchTerm.toLowerCase())
         );
     }, [data, searchTerm]);

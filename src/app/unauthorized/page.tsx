@@ -1,25 +1,27 @@
 'use client';
 
 import Link from 'next/link';
-import { useUser } from '@/firebase';
+import { useUser } from '@/hooks/use-user';
 import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { ShieldAlert } from 'lucide-react';
 
 
 export default function UnauthorizedPage() {
-  const { roles, isUserLoading } = useUser();
+  const { user, loading } = useUser();
   
   const dashboardUrl = useMemo(() => {
-    if (isUserLoading) return '/'; // Default fallback while loading
-    if (roles.includes('admin')) {
+    if (loading) return '/'; // Default fallback while loading
+    const role = user?.role;
+    // Check for super_admin or teacher roles
+    if (role === 'super_admin') {
       return '/admin/dashboard';
     }
-    if (roles.includes('teacher')) {
+    if (role === 'teacher') {
       return '/teacher/dashboard';
     }
     return '/dashboard';
-  }, [roles, isUserLoading]);
+  }, [user, loading]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-background">
