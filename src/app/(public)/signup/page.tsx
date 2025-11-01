@@ -59,9 +59,9 @@ export default function SignupPage() {
                 if (role === 'super_admin') {
                     router.push('/admin/dashboard');
                 } else if (role === 'teacher') {
-                    router.push('/teacher/dashboard');
+                    router.push('/teacher');
                 } else {
-                    router.push('/dashboard');
+                    router.push('/student');
                 }
             }
 

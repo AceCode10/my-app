@@ -32,13 +32,14 @@ export default function ExamBoardOnboardingPage() {
       // Check if onboarding already completed
       const { data: userRecord } = await supabase
         .from('users')
-        .select('onboarding_completed')
+        .select('onboarding_completed, role')
         .eq('id', user.id)
         .single();
 
       if (userRecord?.onboarding_completed) {
-        // Already completed, redirect to dashboard
-        router.push('/dashboard');
+        // Already completed, redirect to appropriate dashboard
+        const redirectPath = userRecord.role === 'teacher' ? '/teacher' : '/student';
+        router.push(redirectPath);
         return;
       }
 
@@ -49,14 +50,29 @@ export default function ExamBoardOnboardingPage() {
   }, [router, supabase]);
 
   const handleComplete = async (boardId: string | null) => {
-    // Redirect to dashboard after completion
-    router.push('/dashboard');
+    // Get user role and redirect to appropriate dashboard
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: userRecord } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+      const redirectPath = userRecord?.role === 'teacher' ? '/teacher' : '/student';
+      router.push(redirectPath);
+    }
   };
 
   const handleSkip = async () => {
     // Mark onboarding as completed even if skipped
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
+      const { data: userRecord } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+      
       await supabase
         .from('users')
         .update({ 
@@ -64,8 +80,10 @@ export default function ExamBoardOnboardingPage() {
           show_all_exam_boards: true 
         })
         .eq('id', user.id);
+      
+      const redirectPath = userRecord?.role === 'teacher' ? '/teacher' : '/student';
+      router.push(redirectPath);
     }
-    router.push('/dashboard');
   };
 
   if (isLoading) {

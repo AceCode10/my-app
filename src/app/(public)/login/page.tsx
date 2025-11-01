@@ -30,9 +30,9 @@ export default function LoginPage() {
             if (user.role === 'super_admin' || user.role === 'content_moderator') {
                 router.push('/admin/dashboard');
             } else if (user.role === 'teacher') {
-                router.push('/teacher/dashboard');
+                router.push('/teacher');
             } else {
-                router.push('/dashboard');
+                router.push('/student');
             }
         }
     }, [user, loading, router]);
