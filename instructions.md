@@ -258,6 +258,198 @@ AC: Students in class see assigned test in dashboard; assignment metadata visibl
 
 4.5 Class management (Teacher)
 
+FR-4.5 — Assessment Types & Student Self-Directed Practice
+Purpose: Clarify that assessments can be teacher-assigned OR student-initiated (self-practice).
+FR-4.5.1 — Assessment Types
+The platform supports four assessment types:
+TypeDescriptionCreatorStudent AccessTopical QuizQuestions from single topicTeacher via BuilderAssigned OR Self-practiceCustom TestMulti-topic questionsTeacher via BuilderAssigned onlyFull PaperAdmin-uploaded past paperAdminAssigned OR Self-practiceQuick QuizAuto-generated 10 questionsSystemSelf-practice only
+Student Access Modes:
+
+Assigned Assessment (Teacher → Student)
+
+Teacher creates/selects assessment
+Assigns to class or specific students
+Settings: Due date, time limit, attempt count
+Student sees in "Assigned" section of dashboard
+
+
+Self-Practice Assessment (Student initiates)
+
+Student browses past papers or topics
+Clicks "Practice" button
+No teacher involvement
+No due dates or attempt limits
+Results stored but not graded by teacher
+
+
+
+AC:
+
+Teacher-assigned assessments appear in student's "Assigned Tests" list
+Self-practice assessments available in "Practice" section
+Both types use same assessment engine but different workflows
+
+
+FR-4.5.2 — Assessment Builder UI Flow
+Location: Teacher Dashboard → "Create Assessment" button
+Step 1: Choose Assessment Type
+UI: Radio cards
+[📝 Topical Quiz]     [📋 Custom Test]     [📄 Full Paper]
+  Single topic          Multiple topics       Use past paper
+  Quick creation        Full control          Pre-made content
+
+  Step 2: Configure Assessment
+For Topical Quiz:
+
+Select: Subject → Exam Board → Topic
+Filter questions: Difficulty (Easy/Medium/Hard), Question Type
+Set question count (default: 10)
+System auto-selects questions matching criteria
+
+For Custom Test:
+
+Opens Test Builder (existing FR-4.1)
+Manual question selection from bank
+
+For Full Paper:
+
+Select from admin-uploaded papers
+Use as-is (no modification)
+
+Step 3: Set Assessment Settings
+interface AssessmentSettings {
+  title: string;
+  duration_minutes: number | null; // null = untimed
+  allow_calculator: boolean;
+  show_results: 'immediately' | 'after_due' | 'manual_release';
+  attempts_allowed: number; // 1 = single attempt
+  randomize_questions: boolean;
+  randomize_choices: boolean; // for MCQ
+}
+```
+
+**Step 4: Choose Action**
+- **Assign to Class/Students** → Goes to assignment flow (FR-4.4)
+- **Download as PDF** → Generates PDF (FR-4.3)
+- **Save to Library** → Saves for later use
+
+**AC:**
+- All three assessment types can be created through unified interface
+- Settings apply regardless of type
+- Teacher can preview before assigning/downloading
+
+---
+
+#### **FR-4.5.3 — Student Assessment Discovery (Self-Practice)**
+
+**New Pages Required:**
+
+**1. `/practice` - Practice Hub**
+
+Layout:
+```
+┌─────────────────────────────────────────────────────────┐
+│  Practice Assessments                                    │
+├─────────────────────────────────────────────────────────┤
+│                                                          │
+│  📚 Practice by Topic                                   │
+│  [Subject: Mathematics ▼] [Exam Board: CIE ▼]          │
+│                                                          │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ │
+│  │ Algebra      │  │ Number       │  │ Geometry     │ │
+│  │ 48 questions │  │ 35 questions │  │ 42 questions │ │
+│  │ [Practice →] │  │ [Practice →] │  │ [Practice →] │ │
+│  └──────────────┘  └──────────────┘  └──────────────┘ │
+│                                                          │
+│  📄 Past Papers                                         │
+│  [Year: 2023 ▼] [Series: May/June ▼]                   │
+│                                                          │
+│  ┌─────────────────────────────────────┐               │
+│  │ CIE 0580 Mathematics - Paper 2      │               │
+│  │ May/June 2023 • 90 minutes • 80 marks│              │
+│  │ [Take Paper →]                       │               │
+│  └─────────────────────────────────────┘               │
+└─────────────────────────────────────────────────────────┘
+
+API Endpoint:
+GET /api/v1/practice/topics?subject=&examBoard=
+Response: {
+  topics: [
+    { id, name, questionsCount, yourProgress: { attempted, accuracy } }
+  ]
+}
+
+GET /api/v1/practice/papers?year=&examBoard=
+Response: {
+  papers: [
+    { id, title, year, series, duration, totalMarks }
+  ]
+}
+AC:
+
+Student can browse topics and papers
+Click "Practice" starts new attempt
+No assignment required
+
+FR-4.5.4 — Start Assessment Flow (Student)
+Unified flow for both assigned and self-practice:
+// API: Start an attempt
+POST /api/v1/attempts/start
+Request: {
+  assessmentType: 'topic_quiz' | 'custom_test' | 'full_paper';
+  assessmentId: string; // testId or paperId or topicId
+  assignmentId?: string; // null for self-practice
+}
+
+Response: {
+  attemptId: string;
+  assessment: {
+    title: string;
+    duration: number | null;
+    questionsCount: number;
+    totalMarks: number;
+  };
+  questions: Question[]; // Full question data
+  startedAt: string; // ISO timestamp
+  expiresAt: string | null; // If timed
+}
+Business Logic:
+
+Check permissions:
+
+If assignmentId exists → verify student is target
+If self-practice → check freemium limits
+Create attempt record:
+INSERT INTO attempts (
+  user_id, 
+  assessment_type, 
+  assessment_id,
+  assignment_id, -- null for self-practice
+  started_at,
+  expires_at, -- calculated from duration
+  status -- 'in_progress'
+) VALUES (...);
+Select/fetch questions:
+
+For topic quiz: randomly select N questions from topic
+For custom test: fetch questions from test.sections
+For full paper: fetch questions linked to paper
+
+
+Randomization (if enabled):
+
+Shuffle question order
+Shuffle MCQ choices
+
+
+
+AC:
+Single endpoint handles both assigned and self-practice
+Attempt creation atomic (transaction)
+Timer starts immediately on creation
+
+
+
 FR-5.1 — Create a class
 
 Inputs: name, subjectId, description, capacity, autoApprove boolean
@@ -553,6 +745,127 @@ CREATE TABLE assignments (
   allow_retakes boolean DEFAULT false,
   created_at timestamptz DEFAULT now()
 );
+-- Assessment metadata (unified table for all assessment types)
+CREATE TABLE assessments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  
+  -- Type discrimination
+  assessment_type text NOT NULL, -- 'topic_quiz'|'custom_test'|'full_paper'|'quick_quiz'
+  
+  -- References (one will be non-null based on type)
+  test_id uuid REFERENCES tests(id), -- for custom_test
+  paper_id uuid REFERENCES papers(id), -- for full_paper
+  topic_id uuid REFERENCES topics(id), -- for topic_quiz
+  
+  -- Metadata
+  title text NOT NULL,
+  subject_id uuid REFERENCES subjects(id),
+  exam_board text,
+  
+  -- Settings
+  duration_minutes int NULL, -- null = untimed
+  total_marks numeric NOT NULL,
+  allow_calculator boolean DEFAULT true,
+  randomize_questions boolean DEFAULT false,
+  randomize_choices boolean DEFAULT false,
+  
+  -- For topic_quiz: selection criteria
+  topic_quiz_config jsonb NULL, -- {questionCount:10, difficulty:['easy','medium'], questionTypes:[...]}
+  
+  -- Ownership
+  created_by uuid REFERENCES users(id), -- teacher or null for admin papers
+  created_at timestamptz DEFAULT now(),
+  
+  -- Constraints
+  CHECK (
+    (assessment_type = 'topic_quiz' AND topic_id IS NOT NULL) OR
+    (assessment_type = 'custom_test' AND test_id IS NOT NULL) OR
+    (assessment_type = 'full_paper' AND paper_id IS NOT NULL)
+  )
+);
+
+-- Enhanced attempts table (supports both assigned and self-practice)
+CREATE TABLE attempts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  
+  -- What is being attempted
+  assessment_id uuid REFERENCES assessments(id), -- CHANGED: now references assessments
+  
+  -- Who and why
+  user_id uuid REFERENCES users(id),
+  assignment_id uuid NULL REFERENCES assignments(id), -- null = self-practice
+  
+  -- Timing
+  started_at timestamptz DEFAULT now(),
+  submitted_at timestamptz NULL,
+  expires_at timestamptz NULL, -- for timed assessments
+  time_spent_seconds int DEFAULT 0,
+  
+  -- Question set (snapshot at attempt start)
+  questions_snapshot jsonb NOT NULL, -- [{questionId, order, marks}] - frozen at start
+  
+  -- Answers
+  answers jsonb DEFAULT '{}', -- {questionId: {answer, timeTaken, flagged}}
+  
+  -- Grading
+  score numeric NULL,
+  max_score numeric NOT NULL,
+  auto_graded boolean DEFAULT false,
+  teacher_graded boolean DEFAULT false,
+  grading_details jsonb NULL, -- per-question breakdown
+  
+  -- Status
+  status text DEFAULT 'in_progress', -- 'in_progress'|'submitted'|'graded'|'abandoned'
+  
+  -- Result release
+  results_released_at timestamptz NULL, -- when student can view results
+  
+  -- Metadata
+  ip_address inet,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+-- Per-question attempt detail
+CREATE TABLE attempt_answers (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  attempt_id uuid REFERENCES attempts(id) ON DELETE CASCADE,
+  question_id uuid REFERENCES questions(id),
+  
+  -- Answer data
+  answer_text text, -- for text-based answers
+  selected_choice_id text, -- for MCQ: 'a', 'b', 'c', 'd'
+  answer_files text[], -- URLs if file upload required
+  
+  -- Scoring
+  is_correct boolean,
+  marks_awarded numeric,
+  max_marks numeric,
+  
+  -- Feedback
+  auto_feedback text, -- system-generated
+  teacher_feedback text,
+  
+  -- Metadata
+  time_spent_seconds int DEFAULT 0,
+  flagged boolean DEFAULT false,
+  answered_at timestamptz,
+  
+  created_at timestamptz DEFAULT now()
+);
+
+-- Assignment enhancements (already exists but add these columns)
+ALTER TABLE assignments ADD COLUMN assessment_id uuid REFERENCES assessments(id);
+ALTER TABLE assignments ADD COLUMN results_release_policy text DEFAULT 'immediately'; 
+  -- 'immediately'|'after_due'|'manual'
+
+-- Indexes
+CREATE INDEX idx_assessments_type ON assessments(assessment_type);
+CREATE INDEX idx_assessments_topic ON assessments(topic_id);
+CREATE INDEX idx_attempts_user ON attempts(user_id);
+CREATE INDEX idx_attempts_assessment ON attempts(assessment_id);
+CREATE INDEX idx_attempts_status ON attempts(status);
+CREATE INDEX idx_attempt_answers_attempt ON attempt_answers(attempt_id);
 
 -- attempts
 CREATE TABLE attempts (
@@ -623,6 +936,8 @@ export interface Question {
   createdAt?: string;
 }
 
+
+
 7. API contract — core endpoints (examples)
 
 Base path: /api/v1/
@@ -671,6 +986,67 @@ POST /api/v1/attempts/:id/submit — finalizes attempt; triggers autograding and
 
 GET /api/v1/attempts/:id/result — returns scored attempt.
 
+// 1. Create topical quiz
+POST /api/v1/assessments/topic-quiz
+Authorization: Bearer <teacher_token>
+Request: {
+  topicId: string;
+  title: string;
+  config: {
+    questionCount: number; // default 10
+    difficulty: ('easy'|'medium'|'hard')[]; // default ['all']
+    questionTypes: string[]; // default ['all']
+  };
+  settings: {
+    duration_minutes: number | null;
+    allow_calculator: boolean;
+    attempts_allowed: number;
+  };
+}
+Response: {
+  assessmentId: string;
+  questionsSelected: number;
+  totalMarks: number;
+}
+
+// 2. Create custom test (uses existing test builder)
+POST /api/v1/assessments/custom-test
+Request: {
+  testId: string; // from existing test builder
+  title: string;
+  settings: AssessmentSettings;
+}
+Response: { assessmentId: string }
+
+// 3. Use full paper as assessment
+POST /api/v1/assessments/full-paper
+Request: {
+  paperId: string;
+  title?: string; // optional override
+  settings: AssessmentSettings;
+}
+Response: { assessmentId: string }
+
+// 4. Get teacher's assessments
+GET /api/v1/assessments/my?type=&subject=
+Response: {
+  assessments: [{
+    id, type, title, questionsCount, totalMarks, 
+    createdAt, timesAssigned, avgScore
+  }]
+}
+
+// 5. Generate PDF
+POST /api/v1/assessments/:id/export-pdf
+Request: { 
+  includeAnswers: boolean; // teacher key
+  includeMarkScheme: boolean;
+}
+Response: { 
+  pdfUrl: string; // signed URL, expires in 1 hour
+  answerKeyUrl?: string;
+}
+
 7.5 Teacher actions
 
 GET /api/v1/classes/my — list classes teacher manages.
@@ -687,7 +1063,174 @@ POST /api/v1/admin/papers — upload paper and map questions.
 
 GET /api/v1/admin/moderation/queue — pending items.
 
+Student Practice APIs
+// 1. Browse practice options
+GET /api/v1/practice/topics?subject=&examBoard=
+Response: {
+  topics: [{
+    id, name, questionsCount,
+    yourProgress: { attempted: number, accuracy: number }
+  }]
+}
+
+GET /api/v1/practice/papers?examBoard=&year=&series=
+Response: {
+  papers: [{
+    id, title, year, series, paperLabel,
+    duration, totalMarks, questionsCount
+  }]
+}
+
+// 2. Start practice attempt (unified with assigned attempts)
+POST /api/v1/attempts/start
+Request: {
+  assessmentType: 'topic_quiz' | 'full_paper';
+  assessmentId?: string; // if pre-created assessment
+  topicId?: string; // if ad-hoc topic practice
+  paperId?: string; // if ad-hoc paper practice
+  assignmentId?: string; // null for self-practice
+}
+Response: {
+  attemptId: string;
+  assessment: {
+    title: string;
+    duration: number | null;
+    questionsCount: number;
+  };
+  questions: Question[];
+  startedAt: string;
+  expiresAt: string | null;
+}
+
+// 3. Auto-save answers (same for assigned and practice)
+PATCH /api/v1/attempts/:attemptId/autosave
+Request: {
+  answers: {
+    [questionId: string]: {
+      answer: string | string[]; // text or MCQ selection
+      timeTaken: number;
+      flagged?: boolean;
+    }
+  }
+}
+Response: { saved: boolean, lastSavedAt: string }
+
+// 4. Submit attempt (finalize)
+POST /api/v1/attempts/:attemptId/submit
+Request: {
+  answers: { [questionId: string]: any }; // final answers
+}
+Response: {
+  attemptId: string;
+  status: 'submitted';
+  autoGradeComplete: boolean;
+  score?: number; // if auto-graded
+  needsManualGrading: boolean;
+  resultsAvailableAt?: string; // based on release policy
+}
+
+// 5. View results
+GET /api/v1/attempts/:attemptId/results
+Response: {
+  attempt: {
+    id, title, score, maxScore, percentage,
+    startedAt, submittedAt, timeSpent
+  };
+  questions: [{
+    id, questionText, yourAnswer, correctAnswer,
+    isCorrect, marksAwarded, maxMarks,
+    solution, examinerComment, teacherFeedback
+  }];
+  summary: {
+    totalQuestions: number;
+    correct: number;
+    incorrect: number;
+    unanswered: number;
+    byDifficulty: { easy: {}, medium: {}, hard: {} };
+  };
+}
+```
+
+---
+
+═══════════════════════════════════════════════════════════
+## **SECTION TO ADD TO 11 (Assessment Lifecycle)**
+═══════════════════════════════════════════════════════════
+
+### **REPLACE/EXPAND Section 11 with:**
+
+#### **11.1 Assessment Creation Paths**
+
+**Path A: Teacher Creates Assessment**
+1. Teacher opens Assessment Builder
+2. Chooses type (Topical/Custom/Full Paper)
+3. Configures settings
+4. System creates `assessments` record
+5. Teacher either:
+   - Assigns to class/students → creates `assignments` record
+   - Downloads PDF → generates PDF via worker
+   - Saves to library → no action needed
+
+**Path B: Student Self-Practice**
+1. Student browses `/practice` page
+2. Clicks "Practice" on topic or paper
+3. System creates ad-hoc `assessments` record (if not exists)
+4. Student starts attempt (no assignment)
+
+**AC:**
+- Both paths use same `assessments` table
+- Assignment differentiates teacher-assigned vs self-practice
+
+---
+
+#### **11.2 Attempt Lifecycle (Unified)**
+```
+State Machine: created → in_progress → submitted → grading → graded → released
+
+┌─────────────┐
+│  created    │ (attempt record created)
+└──────┬──────┘
+       ↓
+┌─────────────┐
+│ in_progress │ (student answering questions, autosave running)
+└──────┬──────┘
+       ↓
+┌─────────────┐
+│  submitted  │ (student clicks Submit or timer expires)
+└──────┬──────┘
+       ↓
+┌─────────────┐
+│  grading    │ (auto-grade job running)
+└──────┬──────┘
+       ↓
+┌─────────────┐
+│   graded    │ (score calculated, awaiting release)
+└──────┬──────┘
+       ↓
+┌─────────────┐
+│  released   │ (student can view results)
+└─────────────┘
+
+Triggers:
+
+Timer expiry → Auto-submit
+
+Cron job checks attempts where expires_at < now() and status = 'in_progress'
+Calls submit endpoint automatically
+
+
+Submit → Trigger auto-grade job
+
+typescript   await queue.add('autograde', { attemptId });
+
+Auto-grade complete → Check release policy
+
+If immediately → Set results_released_at = now()
+If after_due → Set results_released_at = assignment.due_at
+If manual → Teacher must release
+
 8. Server-side logic, background jobs & triggers
+
 8.1 Job types & responsibilities
 
 autogradeJob(attemptId)
@@ -713,6 +1256,61 @@ Periodic job (e.g., 5 minutes) to compute top users by XP and cache leaderboard.
 backupJob
 
 Nightly DB snapshots and storage backups.
+// Job: Generate assessment questions (for topic quiz)
+async function generateTopicQuiz(config: TopicQuizConfig) {
+  const { topicId, questionCount, difficulty, questionTypes } = config;
+  
+  // Build query filters
+  const filters = {
+    topic_id: topicId,
+    visibility: 'published',
+    ...(difficulty.length && { difficulty: { in: difficulty } }),
+    ...(questionTypes.length && { question_type: { in: questionTypes } })
+  };
+  
+  // Fetch matching questions
+  const questions = await db.questions.findMany({
+    where: filters,
+    orderBy: { created_at: 'desc' }
+  });
+  
+  // Randomly sample
+  const selected = shuffle(questions).slice(0, questionCount);
+  
+  // Calculate total marks
+  const totalMarks = selected.reduce((sum, q) => sum + q.marks, 0);
+  
+  return { selected, totalMarks };
+}
+
+// Job: Auto-expire timed attempts
+async function checkExpiredAttempts() {
+  const now = new Date();
+  
+  const expiredAttempts = await db.attempts.findMany({
+    where: {
+      status: 'in_progress',
+      expires_at: { lt: now }
+    }
+  });
+  
+  for (const attempt of expiredAttempts) {
+    await submitAttempt(attempt.id, { autoSubmit: true });
+    await notifyStudent(attempt.user_id, {
+      type: 'attempt_auto_submitted',
+      attemptId: attempt.id,
+      message: 'Your timed assessment was automatically submitted.'
+    });
+  }
+}
+
+// Schedule: Run every minute
+cron.schedule('* * * * *', checkExpiredAttempts);
+
+// Job: Generate PDF (uses Playwright)
+async function generateAssessmentPDF(assessmentId: string, options: PDFOptions) {
+  const assessment = await db.assessments.findUnique({
+    where: { id:
 
 8.2 Triggers
 
@@ -826,12 +1424,277 @@ Partial marks: question correctAnswer may be structured { parts: [ {value, marks
 Essay / longAnswer: set requiresManualGrading = true; teacher assigns marks.
 
 Final score computed as sum(marksAwarded) / sum(maxMarks) * 100 (normalized display).
+ 
+ Auto-Grading Rules (Enhanced)
+ async function autoGradeAttempt(attemptId: string) {
+  const attempt = await db.attempts.findUnique({ 
+    where: { id: attemptId },
+    include: { assessment: true, answers: true }
+  });
+  
+  let totalScore = 0;
+  const gradingDetails = [];
+  
+  for (const answer of attempt.answers) {
+    const question = await db.questions.findUnique({ 
+      where: { id: answer.questionId }
+    });
+    
+    const result = gradeAnswer(answer, question);
+    
+    // Update attempt_answers
+    await db.attemptAnswers.update({
+      where: { id: answer.id },
+      data: {
+        is_correct: result.isCorrect,
+        marks_awarded: result.marksAwarded,
+        auto_feedback: result.feedback
+      }
+    });
+    
+    totalScore += result.marksAwarded;
+    gradingDetails.push({
+      questionId: answer.questionId,
+      marksAwarded: result.marksAwarded,
+      maxMarks: question.marks
+    });
+  }
+  
+  // Update attempt
+  await db.attempts.update({
+    where: { id: attemptId },
+    data: {
+      score: totalScore,
+      auto_graded: true,
+      grading_details: gradingDetails,
+      status: hasManualGradingNeeded ? 'grading' : 'graded'
+    }
+  });
+  
+  // Notify if needs manual grading
+  if (hasManualGradingNeeded && attempt.assignment_id) {
+    await notifyTeacher(attempt.assignment.assigned_by, attemptId);
+  }
+}
+
+function gradeAnswer(answer: AttemptAnswer, question: Question) {
+  switch (question.question_type) {
+    case 'mcq':
+      const isCorrect = answer.selected_choice_id === question.correct_answer;
+      return {
+        isCorrect,
+        marksAwarded: isCorrect ? question.marks : 0,
+        feedback: isCorrect ? 'Correct!' : `Correct answer: ${question.correct_answer}`
+      };
+      
+    case 'numeric':
+      const userNum = parseFloat(answer.answer_text);
+      const correctNum = question.correct_answer.value;
+      const tolerance = question.correct_answer.tolerance || 0;
+      const isCorrect = Math.abs(userNum - correctNum) <= tolerance;
+      return {
+        isCorrect,
+        marksAwarded: isCorrect ? question.marks : 0,
+        feedback: isCorrect ? 'Correct!' : `Expected: ${correctNum} (±${tolerance})`
+      };
+      
+    case 'short_answer':
+      const normalized = normalizeText(answer.answer_text);
+      const correctNormalized = normalizeText(question.correct_answer);
+      const similarity = calculateSimilarity(normalized, correctNormalized);
+      const isCorrect = similarity > 0.9;
+      return {
+        isCorrect,
+        marksAwarded: isCorrect ? question.marks : 0,
+        feedback: isCorrect ? 'Correct!' : 'Review the solution below'
+      };
+      
+    default:
+      // long_answer, essay → manual grading
+      return {
+        isCorrect: null,
+        marksAwarded: null,
+        feedback: 'Awaiting teacher grading'
+      };
+  }
+}
+```
+
+**AC:**
+- MCQ/numeric/short_answer auto-graded in <1 second
+- Essay/long_answer marked as `needsManualGrading: true`
+- Partial marks supported for multi-part questions
+
+---
+
+═══════════════════════════════════════════════════════════
+## **SECTION TO ADD TO 14 (UI/UX Pages)**
+═══════════════════════════════════════════════════════════
+
+### **INSERT AFTER "Teacher Dashboard":**
+
+#### **14.X — Assessment Builder Pages**
+
+**Page: `/teacher/assessments/create`**
+
+Component Tree:
+```
+<AssessmentBuilderLayout>
+  <StepIndicator currentStep={1} /> {/* Type → Configure → Review → Action */}
+  
+  {/* Step 1: Choose Type */}
+  <AssessmentTypeSelector 
+    types={['topic_quiz', 'custom_test', 'full_paper']}
+    onSelect={setType}
+  />
+  
+  {/* Step 2: Configure */}
+  {type === 'topic_quiz' && (
+    <TopicalQuizConfig
+      onSubmit={handleCreateAssessment}
+    />
+  )}
+  {type === 'custom_test' && (
+    <TestBuilderInterface /> {/* Existing component */}
+  )}
+  {type === 'full_paper' && (
+    <PaperSelector 
+      onSelect={handleSelectPaper}
+    />
+  )}
+  
+  {/* Step 3: Settings */}
+  <AssessmentSettings
+    value={settings}
+    onChange={setSettings}
+  />
+  
+  {/* Step 4: Actions */}
+  <AssessmentActions>
+    <Button onClick={handleAssign}>Assign to Class</Button>
+    <Button onClick={handleExportPDF}>Download PDF</Button>
+    <Button variant="secondary" onClick={handleSave}>Save to Library</Button>
+  </AssessmentActions>
+</AssessmentBuilderLayout>
+
 
 11.4 Result release & post-assessment
 
 Teachers can configure release policy.
 
 Detailed per-question feedback includes examinerComment from admin and teacher comments if any.
+
+**Topical Quiz:**
+- ✅ Topic must have ≥ questionCount published questions
+- ✅ If insufficient questions for filters, relax difficulty filter first
+- ✅ Minimum 5 questions, maximum 50
+
+**Custom Test:**
+- ✅ Must include ≥ 1 question
+- ✅ Total marks must be > 0
+- ✅ All referenced questions must exist and be published
+
+**Full Paper:**
+- ✅ Paper must be published
+- ✅ Duration cannot be modified (uses paper's duration)
+
+**General:**
+- ✅ Title max 200 characters
+- ✅ Duration 5-240 minutes (if timed)
+- ✅ Attempts allowed: 1-10
+
+#### **11.5 — Attempt Start Validation**
+```typescript
+async function validateAttemptStart(userId: string, assessmentId: string, assignmentId?: string) {
+  // 1. Check freemium limits (self-practice only)
+  if (!assignmentId) {
+    const user = await db.users.findUnique({ where: { id: userId } });
+    const attemptsToday = await db.attempts.count({
+      where: {
+        user_id: userId,
+        started_at: { gte: startOfDay(new Date()) },
+        assignment_id: null
+      }
+    });
+    
+    const limits = { guest: 3, basic: 5, essential: 999, pro: 999 };
+    if (attemptsToday >= limits[user.subscription_tier]) {
+      throw new Error('Daily practice limit reached. Upgrade to continue.');
+    }
+  }
+  
+  // 2. Check assignment constraints
+  if (assignmentId) {
+    const assignment = await db.assignments.findUnique({ 
+      where: { id: assignmentId } 
+    });
+    
+    // Check if student is target
+    const isTarget = assignment.target_class_id 
+      ? await isStudentInClass(userId, assignment.target_class_id)
+      : assignment.target_user_ids.includes(userId);
+    
+    if (!isTarget) throw new Error('Not authorized');
+    
+    // Check attempt count
+    const previousAttempts = await db.attempts.count({
+      where: { user_id: userId, assignment_id: assignmentId }
+    });
+    
+    if (previousAttempts >= assignment.allow_retakes ? 999 : 1) {
+      throw new Error('Maximum attempts reached');
+    }
+    
+    // Check time window
+    if (assignment.start_at && new Date() < assignment.start_at) {
+      throw new Error('Assessment not yet available');
+    }
+    if (assignment.due_at && new Date() > assignment.due_at) {
+      throw new Error('Assessment deadline passed');
+    }
+  }
+  
+  return true;
+}
+```
+
+---
+
+═══════════════════════════════════════════════════════════
+## **SUMMARY: WHERE TO INSERT IN SRS**
+═══════════════════════════════════════════════════════════
+
+| Section | Insert After | Content to Add |
+|---------|--------------|----------------|
+| **4 (FRs)** | FR-4.4 | **FR-4.5** - Assessment types & student practice |
+| **6 (Data Model)** | `assignments` table | **Enhanced tables**: `assessments`, `attempts`, `attempt_answers` |
+| **7 (API)** | 7.4 | **7.5** - Assessment Builder APIs, **7.6** - Student Practice APIs |
+| **8 (Server Logic)** | 8.1 | Assessment jobs (quiz generation, PDF, timer checks) |
+| **11 (Assessment Lifecycle)** | Replace existing | Unified lifecycle for assigned + self-practice |
+| **14 (UI/UX)** | Teacher Dashboard | Assessment Builder pages + Practice Hub + Attempt Player |
+
+---
+
+## **✅ IMPLEMENTATION READINESS CHECKLIST**
+
+After adding above sections, coding agent will have:
+
+- ✅ Clear data model (tables, relationships, constraints)
+- ✅ Complete API contract (request/response schemas)
+- ✅ Business logic (validation, grading, job flows)
+- ✅ UI component structure (page layouts, state management)
+- ✅ Distinction between assigned and self-practice
+- ✅ PDF generation specs
+- ✅ Timer/auto-submit logic
+- ✅ Freemium enforcement
+
+**Estimated implementation time with complete specs:** 3-4 weeks
+
+**Without these additions:** 6-8 weeks (due to ambiguity and rework)
+
+---
+
+**Ready to proceed?** Add these sections to your SRS and you'll have a complete, unambiguous specification for the Assessment Builder feature! 🚀
 
 12. Student features & gamification
 12.1 Dashboard

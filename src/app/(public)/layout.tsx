@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Menu, Search, ChevronDown, BookOpen, Layers, FileText } from "lucide-react";
+import { Menu, Search, ChevronDown, BookOpen, Layers, FileText, Target } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import {
   DropdownMenu,
@@ -69,6 +69,18 @@ export default function PublicLayout({
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent className="w-56">
                                     <DropdownMenuItem asChild>
+                                        <Link href="/resources/topical-questions" className="font-medium">
+                                            <Target className="mr-2 h-4 w-4 text-primary" />
+                                            <span>Topical Questions</span>
+                                        </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/resources/past-papers">
+                                            <FileText className="mr-2 h-4 w-4" />
+                                            <span>Past Papers</span>
+                                        </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem asChild>
                                         <Link href="/resources/revision-notes">
                                             <BookOpen className="mr-2 h-4 w-4" />
                                             <span>Revision Notes</span>
@@ -78,12 +90,6 @@ export default function PublicLayout({
                                         <Link href="/resources/quizzes">
                                             <Layers className="mr-2 h-4 w-4" />
                                             <span>Quizzes</span>
-                                        </Link>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem asChild>
-                                        <Link href="/resources/past-papers">
-                                            <FileText className="mr-2 h-4 w-4" />
-                                            <span>Past Papers</span>
                                         </Link>
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
@@ -140,9 +146,10 @@ export default function PublicLayout({
                 <div className="md:hidden border-t">
                     <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
                         <Link href="/subjects" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:text-primary-foreground hover:bg-primary">Subjects</Link>
-                        <Link href="/resources/revision-notes" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:text-primary-foreground hover:bg-primary">Notes</Link>
-                        <Link href="/resources/quizzes" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:text-primary-foreground hover:bg-primary">Quizzes</Link>
+                        <Link href="/resources/topical-questions" className="block px-3 py-2 rounded-md text-base font-medium text-primary hover:text-primary-foreground hover:bg-primary">⭐ Topical Questions</Link>
                         <Link href="/resources/past-papers" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:text-primary-foreground hover:bg-primary">Past Papers</Link>
+                        <Link href="/resources/revision-notes" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:text-primary-foreground hover:bg-primary">Revision Notes</Link>
+                        <Link href="/resources/quizzes" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:text-primary-foreground hover:bg-primary">Quizzes</Link>
                         <Link href="/pricing" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:text-primary-foreground hover:bg-primary">Pricing</Link>
                         <Link href="/teacher" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:text-primary-foreground hover:bg-primary">For Teachers</Link>
                         <Link href="/faq" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:text-primary-foreground hover:bg-primary">FAQ</Link>

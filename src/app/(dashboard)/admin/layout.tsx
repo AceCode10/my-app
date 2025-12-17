@@ -21,7 +21,8 @@ import {
   ClipboardList,
   Upload,
   Shield,
-  BookMarked
+  BookMarked,
+  Target
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -49,6 +50,12 @@ const navigation: NavItem[] = [
     label: 'Lesson Notes',
     href: '/admin/dashboard/notes',
     icon: BookMarked,
+    roles: ['super_admin', 'content_moderator']
+  },
+  {
+    label: 'Topical Questions',
+    href: '/admin/topical-questions',
+    icon: Target,
     roles: ['super_admin', 'content_moderator']
   },
   {

@@ -12,9 +12,9 @@ interface Subject {
   code?: string;
   icon_url?: string;
   color?: string;
-  exam_board: string;
-  status: string;
-  display_order: number;
+  exam_board?: string;
+  status?: string;
+  display_order?: number;
 }
 
 interface SubjectsGridProps {
@@ -36,15 +36,11 @@ export function SubjectsGrid({ basePath = '/subjects', pathSuffix = '', showAll 
   async function fetchSubjects() {
     try {
       setIsLoading(true);
+      
+      // Select only core columns that are guaranteed to exist
       let query = supabase
         .from('subjects')
-        .select('*')
-        .order('display_order', { ascending: true });
-
-      // Only show published subjects for public view
-      if (!showAll) {
-        query = query.eq('status', 'published');
-      }
+        .select('*');
 
       const { data, error: fetchError } = await query;
 
@@ -108,7 +104,7 @@ export function SubjectsGrid({ basePath = '/subjects', pathSuffix = '', showAll 
                         <SubjectCard 
                             key={subject.id}
                             name={subject.name}
-                            code={subject.code || subject.exam_board}
+                            code={subject.code || subject.exam_board || ''}
                             icon={subject.icon_url}
                             path={`${basePath}/${subject.slug}${pathSuffix}`}
                             color={subject.color || '#3b82f6'}
