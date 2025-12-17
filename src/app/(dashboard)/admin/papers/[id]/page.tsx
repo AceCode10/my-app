@@ -19,6 +19,8 @@ import { ArrowLeft, Save, Loader2, Upload, CheckCircle, Eye } from 'lucide-react
 import { Progress } from '@/components/ui/progress';
 
 const EXAM_BOARDS = ['IGCSE', 'Edexcel', 'Cambridge', 'IB', 'AQA', 'OCR'];
+const SESSIONS = ['May/June', 'Oct/Nov', 'Feb/Mar', 'Specimen'];
+const LEVELS = ['igcse', 'olevel', 'alevel', 'aslevel'];
 const STATUSES = ['draft', 'pending', 'published', 'archived'];
 
 export default function EditPastPaperPage() {
@@ -42,8 +44,10 @@ export default function EditPastPaperPage() {
     exam_board: 'IGCSE',
     subject_id: '',
     year: new Date().getFullYear(),
+    session: 'May/June',
     paper_number: '',
     variant: '',
+    level: 'igcse',
     duration_minutes: 0,
     total_marks: 0,
     status: 'draft'
@@ -86,8 +90,10 @@ export default function EditPastPaperPage() {
           exam_board: data.exam_board || 'IGCSE',
           subject_id: data.subject_id || '',
           year: data.year || new Date().getFullYear(),
+          session: data.session || 'May/June',
           paper_number: data.paper_number || '',
           variant: data.variant || '',
+          level: data.level || 'igcse',
           duration_minutes: data.duration_minutes || 0,
           total_marks: data.total_marks || 0,
           status: data.status || 'draft'
@@ -125,26 +131,48 @@ export default function EditPastPaperPage() {
   async function uploadFile(file: File, type: 'paper' | 'markScheme' | 'examinerReport') {
     try {
       const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = `past-papers/${fileName}`;
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(7);
+      
+      // Create organized file path: year/subject/type-timestamp-random.pdf
+      const year = formData.year || new Date().getFullYear();
+      const subjectSlug = formData.subject_id ? 'subject' : 'general';
+      const typePrefix = type === 'paper' ? 'qp' : type === 'markScheme' ? 'ms' : 'er';
+      const fileName = `${typePrefix}-${timestamp}-${randomId}.${fileExt}`;
+      const filePath = `${year}/${subjectSlug}/${fileName}`;
 
       setUploadProgress(prev => ({ ...prev, [type]: 0 }));
-      
-      // Simulate progress
-      for (let i = 0; i <= 100; i += 10) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        setUploadProgress(prev => ({ ...prev, [type]: i }));
+
+      // Upload to Supabase Storage
+      const { data, error } = await supabase.storage
+        .from('past-papers')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: 'application/pdf'
+        });
+
+      if (error) {
+        if (error.message.includes('Bucket not found') || error.message.includes('bucket')) {
+          throw new Error('Storage bucket "past-papers" not configured. Please create it in Supabase Dashboard.');
+        }
+        throw error;
       }
 
-      // In production, use actual Supabase Storage
-      const publicUrl = `https://placeholder.com/${filePath}`;
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('past-papers')
+        .getPublicUrl(filePath);
+
+      const publicUrl = urlData.publicUrl;
       
       setUploadedUrls(prev => ({ ...prev, [type]: publicUrl }));
       setUploadProgress(prev => ({ ...prev, [type]: 100 }));
       
       return publicUrl;
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error uploading ${type}:`, error);
+      setUploadProgress(prev => ({ ...prev, [type]: 0 }));
       throw error;
     }
   }
@@ -208,11 +236,14 @@ export default function EditPastPaperPage() {
         exam_board: formData.exam_board,
         subject_id: formData.subject_id || null,
         year: formData.year,
+        session: formData.session || null,
         paper_number: formData.paper_number || null,
         variant: formData.variant || null,
+        level: formData.level || null,
         duration_minutes: formData.duration_minutes || null,
         total_marks: formData.total_marks || null,
         paper_url: uploadedUrls.paper,
+        question_paper_url: uploadedUrls.paper,
         mark_scheme_url: uploadedUrls.markScheme || null,
         examiner_report_url: uploadedUrls.examinerReport || null,
         status: formData.status
@@ -324,7 +355,7 @@ export default function EditPastPaperPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="year">Year *</Label>
                 <Input
@@ -336,6 +367,25 @@ export default function EditPastPaperPage() {
                   onChange={(e) => setFormData({ ...formData, year: parseInt(e.target.value) || new Date().getFullYear() })}
                   required
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="session">Session *</Label>
+                <Select
+                  value={formData.session}
+                  onValueChange={(value) => setFormData({ ...formData, session: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SESSIONS.map(session => (
+                      <SelectItem key={session} value={session}>
+                        {session}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
@@ -357,6 +407,25 @@ export default function EditPastPaperPage() {
                   placeholder="e.g., Variant 1"
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="level">Level</Label>
+              <Select
+                value={formData.level}
+                onValueChange={(value) => setFormData({ ...formData, level: value })}
+              >
+                <SelectTrigger className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {LEVELS.map(level => (
+                    <SelectItem key={level} value={level}>
+                      {level.toUpperCase()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

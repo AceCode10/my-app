@@ -41,11 +41,14 @@ interface PastPaper {
   title: string;
   exam_board: string;
   year: number;
+  session: string | null;
   paper_number: string | null;
   variant: string | null;
+  level: string | null;
   duration_minutes: number | null;
   total_marks: number | null;
   paper_url: string;
+  question_paper_url: string | null;
   mark_scheme_url: string | null;
   examiner_report_url: string | null;
   status: string;
@@ -269,6 +272,7 @@ export default function PastPapersPage() {
                     <TableHead>Subject</TableHead>
                     <TableHead>Board</TableHead>
                     <TableHead>Year</TableHead>
+                    <TableHead>Session</TableHead>
                     <TableHead>Paper</TableHead>
                     <TableHead>Duration</TableHead>
                     <TableHead>Files</TableHead>
@@ -291,6 +295,7 @@ export default function PastPapersPage() {
                         <Badge variant="outline">{paper.exam_board}</Badge>
                       </TableCell>
                       <TableCell>{paper.year}</TableCell>
+                      <TableCell>{paper.session || '-'}</TableCell>
                       <TableCell>
                         {paper.paper_number || '-'}
                         {paper.variant && ` (${paper.variant})`}

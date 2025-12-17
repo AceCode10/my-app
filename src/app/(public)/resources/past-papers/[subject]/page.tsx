@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState, use } from 'react';
 import Link from 'next/link';
-import { ChevronRight, FileText, CheckCircle, Download, FileArchive, Calendar, Filter, Search } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { ChevronRight, FileText, CheckCircle, Download, FileArchive, Calendar, Filter, Search, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -14,14 +15,19 @@ interface Paper {
   id: string;
   title: string;
   year: number;
-  session: string;
+  session?: string;
   paper_number?: string;
   variant?: string;
+  paper_url?: string;
   question_paper_url?: string;
   mark_scheme_url?: string;
   examiner_report_url?: string;
   duration_minutes?: number;
   total_marks?: number;
+  exam_board?: string;
+  exam_board_id?: string;
+  level?: string;
+  status?: string;
 }
 
 interface Subject {
@@ -68,12 +74,12 @@ export default function SubjectPastPapersPage({
       
       setSubject(subjectData);
 
-      // Fetch papers for this subject
+      // Fetch papers for this subject from past_papers table
       const { data: papersData, error: papersError } = await supabase
-        .from('papers')
+        .from('past_papers')
         .select('*')
         .eq('subject_id', subjectData.id)
-        .eq('is_published', true)
+        .eq('status', 'published')
         .order('year', { ascending: false })
         .order('session', { ascending: true });
 
@@ -90,7 +96,7 @@ export default function SubjectPastPapersPage({
 
   // Get unique years and sessions for filters
   const years = [...new Set(papers.map(p => p.year))].sort((a, b) => b - a);
-  const sessions = [...new Set(papers.map(p => p.session))].filter(Boolean);
+  const sessions = [...new Set(papers.map(p => p.session).filter((s): s is string => Boolean(s)))];
 
   // Filter papers
   const filteredPapers = papers.filter(paper => {
@@ -109,11 +115,12 @@ export default function SubjectPastPapersPage({
 
   // Group papers by year and session
   const groupedPapers = filteredPapers.reduce((acc, paper) => {
-    const key = `${paper.year}-${paper.session}`;
+    const sessionKey = paper.session || 'Unknown';
+    const key = `${paper.year}-${sessionKey}`;
     if (!acc[key]) {
       acc[key] = {
         year: paper.year,
-        session: paper.session,
+        session: sessionKey,
         papers: []
       };
     }
@@ -123,7 +130,7 @@ export default function SubjectPastPapersPage({
 
   const sortedGroups = Object.values(groupedPapers).sort((a, b) => {
     if (b.year !== a.year) return b.year - a.year;
-    return a.session.localeCompare(b.session);
+    return (a.session || '').localeCompare(b.session || '');
   });
 
   const ResourceIcon = ({ type }: { type: 'qp' | 'ms' | 'er' }) => {
@@ -271,72 +278,103 @@ export default function SubjectPastPapersPage({
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {groupPapers.map((paper) => (
-                  <div key={paper.id} className="space-y-2">
-                    <div className="font-medium text-foreground text-sm mb-2">
-                      {paper.title || `Paper ${paper.paper_number || ''} ${paper.variant ? `(Variant ${paper.variant})` : ''}`}
+                  <div key={paper.id} className="bg-muted/30 p-4 rounded-lg space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="font-medium text-foreground text-sm">
+                          {paper.title || `Paper ${paper.paper_number || ''} ${paper.variant ? `(Variant ${paper.variant})` : ''}`}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          {paper.duration_minutes && (
+                            <Badge variant="outline" className="text-xs">
+                              {paper.duration_minutes} min
+                            </Badge>
+                          )}
+                          {paper.total_marks && (
+                            <Badge variant="outline" className="text-xs">
+                              {paper.total_marks} marks
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    
-                    {/* Question Paper */}
-                    {paper.question_paper_url ? (
-                      <a 
-                        href={paper.question_paper_url} 
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex justify-between items-center bg-muted/50 p-3 rounded-lg hover:bg-muted transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <ResourceIcon type="qp" />
-                          <span className="text-sm font-medium text-foreground">Question Paper</span>
-                        </div>
-                        <Download className="w-4 h-4 text-muted-foreground" />
-                      </a>
-                    ) : (
-                      <div className="flex justify-between items-center bg-muted/30 p-3 rounded-lg opacity-50">
-                        <div className="flex items-center gap-3">
-                          <ResourceIcon type="qp" />
-                          <span className="text-sm font-medium text-muted-foreground">Question Paper (Coming Soon)</span>
-                        </div>
-                      </div>
-                    )}
 
-                    {/* Mark Scheme */}
-                    {paper.mark_scheme_url ? (
-                      <a 
-                        href={paper.mark_scheme_url} 
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex justify-between items-center bg-muted/50 p-3 rounded-lg hover:bg-muted transition-colors"
+                    {/* Action Buttons */}
+                    <div className="space-y-2">
+                      {/* Take Paper Button - Primary Action */}
+                      <Link 
+                        href={`/practice/paper/${paper.id}`}
+                        className="flex justify-between items-center bg-primary text-primary-foreground p-3 rounded-lg hover:bg-primary/90 transition-colors"
                       >
                         <div className="flex items-center gap-3">
-                          <ResourceIcon type="ms" />
-                          <span className="text-sm font-medium text-foreground">Mark Scheme</span>
+                          <Play className="w-4 h-4" />
+                          <span className="text-sm font-medium">Take Paper</span>
                         </div>
-                        <Download className="w-4 h-4 text-muted-foreground" />
-                      </a>
-                    ) : (
-                      <div className="flex justify-between items-center bg-muted/30 p-3 rounded-lg opacity-50">
-                        <div className="flex items-center gap-3">
-                          <ResourceIcon type="ms" />
-                          <span className="text-sm font-medium text-muted-foreground">Mark Scheme (Coming Soon)</span>
+                        <ChevronRight className="w-4 h-4" />
+                      </Link>
+                      
+                      {/* Question Paper Download */}
+                      {(paper.question_paper_url || paper.paper_url) ? (
+                        <a 
+                          href={paper.question_paper_url || paper.paper_url} 
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex justify-between items-center bg-muted/50 p-3 rounded-lg hover:bg-muted transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <ResourceIcon type="qp" />
+                            <span className="text-sm font-medium text-foreground">Question Paper</span>
+                          </div>
+                          <Download className="w-4 h-4 text-muted-foreground" />
+                        </a>
+                      ) : (
+                        <div className="flex justify-between items-center bg-muted/30 p-3 rounded-lg opacity-50">
+                          <div className="flex items-center gap-3">
+                            <ResourceIcon type="qp" />
+                            <span className="text-sm font-medium text-muted-foreground">Question Paper (Coming Soon)</span>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    {/* Examiner Report (if available) */}
-                    {paper.examiner_report_url && (
-                      <a 
-                        href={paper.examiner_report_url} 
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex justify-between items-center bg-muted/50 p-3 rounded-lg hover:bg-muted transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <ResourceIcon type="er" />
-                          <span className="text-sm font-medium text-foreground">Examiner Report</span>
+                      {/* Mark Scheme */}
+                      {paper.mark_scheme_url ? (
+                        <a 
+                          href={paper.mark_scheme_url} 
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex justify-between items-center bg-muted/50 p-3 rounded-lg hover:bg-muted transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <ResourceIcon type="ms" />
+                            <span className="text-sm font-medium text-foreground">Mark Scheme</span>
+                          </div>
+                          <Download className="w-4 h-4 text-muted-foreground" />
+                        </a>
+                      ) : (
+                        <div className="flex justify-between items-center bg-muted/30 p-3 rounded-lg opacity-50">
+                          <div className="flex items-center gap-3">
+                            <ResourceIcon type="ms" />
+                            <span className="text-sm font-medium text-muted-foreground">Mark Scheme (Coming Soon)</span>
+                          </div>
                         </div>
-                        <Download className="w-4 h-4 text-muted-foreground" />
-                      </a>
-                    )}
+                      )}
+
+                      {/* Examiner Report (if available) */}
+                      {paper.examiner_report_url && (
+                        <a 
+                          href={paper.examiner_report_url} 
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex justify-between items-center bg-muted/50 p-3 rounded-lg hover:bg-muted transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <ResourceIcon type="er" />
+                            <span className="text-sm font-medium text-foreground">Examiner Report</span>
+                          </div>
+                          <Download className="w-4 h-4 text-muted-foreground" />
+                        </a>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
