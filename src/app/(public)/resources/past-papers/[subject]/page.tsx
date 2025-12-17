@@ -16,19 +16,54 @@ interface Paper {
   title: string;
   year: number;
   session?: string;
+  component_code?: string;
   paper_number?: string;
   variant?: string;
   paper_url?: string;
   question_paper_url?: string;
   mark_scheme_url?: string;
   examiner_report_url?: string;
+  insert_url?: string;
+  grade_thresholds_url?: string;
+  specimen_url?: string;
+  source_files_url?: string;
   duration_minutes?: number;
   total_marks?: number;
   exam_board?: string;
   exam_board_id?: string;
   level?: string;
+  resource_type?: string;
   status?: string;
 }
+
+interface PaperComponent {
+  component_code: string;
+  component_name: string;
+  component_description?: string;
+}
+
+// Series name mapping for display
+const SERIES_NAMES: Record<string, string> = {
+  'fm': 'February/March',
+  'mj': 'May/June',
+  'on': 'October/November',
+  'jan': 'January',
+  'may': 'May',
+  'jun': 'June',
+  'am': 'April/May',
+};
+
+// Resource type names for display
+const RESOURCE_TYPE_NAMES: Record<string, string> = {
+  'question_paper': 'Question Paper',
+  'mark_scheme': 'Mark Scheme',
+  'insert': 'Insert/Source Booklet',
+  'source_files': 'Source Files',
+  'examiner_report': 'Examiner Report',
+  'grade_thresholds': 'Grade Thresholds',
+  'specimen': 'Specimen Paper',
+  'syllabus': 'Syllabus',
+};
 
 interface Subject {
   id: string;
@@ -52,7 +87,12 @@ export default function SubjectPastPapersPage({
   // Filters
   const [yearFilter, setYearFilter] = useState<string>('all');
   const [sessionFilter, setSessionFilter] = useState<string>('all');
+  const [componentFilter, setComponentFilter] = useState<string>('all');
+  const [resourceTypeFilter, setResourceTypeFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Subject-specific configuration
+  const [paperComponents, setPaperComponents] = useState<PaperComponent[]>([]);
 
   useEffect(() => {
     fetchData();
@@ -85,6 +125,16 @@ export default function SubjectPastPapersPage({
 
       if (papersError) throw papersError;
       setPapers(papersData || []);
+
+      // Fetch paper components for this subject (for filter options)
+      const { data: componentsData } = await supabase
+        .from('subject_paper_components')
+        .select('component_code, component_name, component_description')
+        .eq('subject_id', subjectData.id)
+        .order('display_order');
+      
+      setPaperComponents(componentsData || []);
+
       setError(null);
     } catch (err: any) {
       console.error('Error fetching data:', err);
@@ -94,14 +144,24 @@ export default function SubjectPastPapersPage({
     }
   }
 
-  // Get unique years and sessions for filters
+  // Get unique years, sessions, components, and resource types for filters
   const years = [...new Set(papers.map(p => p.year))].sort((a, b) => b - a);
   const sessions = [...new Set(papers.map(p => p.session).filter((s): s is string => Boolean(s)))];
+  const components = [...new Set(papers.map(p => p.component_code).filter((c): c is string => Boolean(c)))];
+  const resourceTypes = [...new Set(papers.map(p => p.resource_type).filter((r): r is string => Boolean(r)))];
+
+  // Get component name for display
+  const getComponentName = (code: string) => {
+    const comp = paperComponents.find(c => c.component_code === code);
+    return comp?.component_name || `Paper ${code}`;
+  };
 
   // Filter papers
   const filteredPapers = papers.filter(paper => {
     if (yearFilter !== 'all' && paper.year !== parseInt(yearFilter)) return false;
     if (sessionFilter !== 'all' && paper.session !== sessionFilter) return false;
+    if (componentFilter !== 'all' && paper.component_code !== componentFilter) return false;
+    if (resourceTypeFilter !== 'all' && paper.resource_type !== resourceTypeFilter) return false;
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       return (
@@ -113,25 +173,39 @@ export default function SubjectPastPapersPage({
     return true;
   });
 
-  // Group papers by year and session
+  // Group papers by year and session, then sort by component within each group
   const groupedPapers = filteredPapers.reduce((acc, paper) => {
-    const sessionKey = paper.session || 'Unknown';
-    const key = `${paper.year}-${sessionKey}`;
+    const sessionCode = paper.session || 'Unknown';
+    const sessionName = SERIES_NAMES[sessionCode] || sessionCode;
+    const key = `${paper.year}-${sessionCode}`;
     if (!acc[key]) {
       acc[key] = {
         year: paper.year,
-        session: sessionKey,
+        session: sessionName,
+        sessionCode: sessionCode,
         papers: []
       };
     }
     acc[key].papers.push(paper);
     return acc;
-  }, {} as Record<string, { year: number; session: string; papers: Paper[] }>);
+  }, {} as Record<string, { year: number; session: string; sessionCode: string; papers: Paper[] }>);
 
-  const sortedGroups = Object.values(groupedPapers).sort((a, b) => {
-    if (b.year !== a.year) return b.year - a.year;
-    return (a.session || '').localeCompare(b.session || '');
-  });
+  // Sort groups by year (descending) then session, and sort papers within each group by component
+  const sortedGroups = Object.values(groupedPapers)
+    .sort((a, b) => {
+      if (b.year !== a.year) return b.year - a.year;
+      return (a.session || '').localeCompare(b.session || '');
+    })
+    .map(group => ({
+      ...group,
+      // Sort papers by component_code numerically, then by paper_number
+      papers: group.papers.sort((a, b) => {
+        const aCode = parseInt(a.component_code || '0') || 0;
+        const bCode = parseInt(b.component_code || '0') || 0;
+        if (aCode !== bCode) return aCode - bCode;
+        return (a.paper_number || '').localeCompare(b.paper_number || '');
+      })
+    }));
 
   const ResourceIcon = ({ type }: { type: 'qp' | 'ms' | 'er' }) => {
     switch (type) {
@@ -208,12 +282,44 @@ export default function SubjectPastPapersPage({
 
         <Select value={sessionFilter} onValueChange={setSessionFilter}>
           <SelectTrigger className="w-40">
-            <SelectValue placeholder="Session" />
+            <SelectValue placeholder="Series" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Sessions</SelectItem>
+            <SelectItem value="all">All Series</SelectItem>
             {sessions.map(session => (
-              <SelectItem key={session} value={session}>{session}</SelectItem>
+              <SelectItem key={session} value={session}>
+                {SERIES_NAMES[session] || session}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {components.length > 0 && (
+          <Select value={componentFilter} onValueChange={setComponentFilter}>
+            <SelectTrigger className="w-36">
+              <SelectValue placeholder="Paper" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Papers</SelectItem>
+              {components.map(code => (
+                <SelectItem key={code} value={code}>
+                  {getComponentName(code)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        <Select value={resourceTypeFilter} onValueChange={setResourceTypeFilter}>
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="Resource Type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Resources</SelectItem>
+            {resourceTypes.map(type => (
+              <SelectItem key={type} value={type}>
+                {RESOURCE_TYPE_NAMES[type] || type}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -359,6 +465,22 @@ export default function SubjectPastPapersPage({
                         </div>
                       )}
 
+                      {/* Insert (if available) */}
+                      {paper.insert_url && (
+                        <a 
+                          href={paper.insert_url} 
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex justify-between items-center bg-muted/50 p-3 rounded-lg hover:bg-muted transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <FileText className="w-5 h-5 text-purple-500" />
+                            <span className="text-sm font-medium text-foreground">Insert</span>
+                          </div>
+                          <Download className="w-4 h-4 text-muted-foreground" />
+                        </a>
+                      )}
+
                       {/* Examiner Report (if available) */}
                       {paper.examiner_report_url && (
                         <a 
@@ -370,6 +492,22 @@ export default function SubjectPastPapersPage({
                           <div className="flex items-center gap-3">
                             <ResourceIcon type="er" />
                             <span className="text-sm font-medium text-foreground">Examiner Report</span>
+                          </div>
+                          <Download className="w-4 h-4 text-muted-foreground" />
+                        </a>
+                      )}
+
+                      {/* Source Files (if available) */}
+                      {paper.source_files_url && (
+                        <a 
+                          href={paper.source_files_url} 
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex justify-between items-center bg-muted/50 p-3 rounded-lg hover:bg-muted transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <FileArchive className="w-5 h-5 text-orange-500" />
+                            <span className="text-sm font-medium text-foreground">Source Files</span>
                           </div>
                           <Download className="w-4 h-4 text-muted-foreground" />
                         </a>

@@ -78,16 +78,32 @@ export default function PastPapersPage() {
 
   async function fetchPapers() {
     try {
-      const { data, error } = await supabase
+      // First try with subject join
+      let { data, error } = await supabase
         .from('past_papers')
-        .select(`
-          *,
-          subjects:subject_id(name)
-        `)
+        .select('*')
         .order('year', { ascending: false })
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+      
+      // Fetch subject names separately if we have papers with subject_ids
+      if (data && data.length > 0) {
+        const subjectIds = [...new Set(data.filter(p => p.subject_id).map(p => p.subject_id))];
+        if (subjectIds.length > 0) {
+          const { data: subjectsData } = await supabase
+            .from('subjects')
+            .select('id, name')
+            .in('id', subjectIds);
+          
+          const subjectsMap = new Map(subjectsData?.map(s => [s.id, s.name]) || []);
+          data = data.map(paper => ({
+            ...paper,
+            subjects: paper.subject_id ? { name: subjectsMap.get(paper.subject_id) } : null
+          }));
+        }
+      }
+      
       setPapers(data || []);
     } catch (error) {
       console.error('Error fetching papers:', error);

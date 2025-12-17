@@ -18,8 +18,48 @@ import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Save, Loader2, Upload, CheckCircle, Eye } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
-const EXAM_BOARDS = ['IGCSE', 'Edexcel', 'Cambridge', 'IB', 'AQA', 'OCR'];
-const SESSIONS = ['May/June', 'Oct/Nov', 'Feb/Mar', 'Specimen'];
+const EXAM_BOARDS = ['CIE', 'Edexcel', 'AQA', 'OCR', 'IB', 'AP'];
+
+// Exam board specific series/sessions
+const EXAM_BOARD_SERIES: Record<string, { code: string; name: string }[]> = {
+  'CIE': [
+    { code: 'fm', name: 'February/March' },
+    { code: 'mj', name: 'May/June' },
+    { code: 'on', name: 'October/November' },
+  ],
+  'Edexcel': [
+    { code: 'jan', name: 'January' },
+    { code: 'mj', name: 'May/June' },
+    { code: 'on', name: 'October/November' },
+  ],
+  'AQA': [
+    { code: 'may', name: 'May' },
+    { code: 'jun', name: 'June' },
+  ],
+  'OCR': [
+    { code: 'may', name: 'May' },
+    { code: 'jun', name: 'June' },
+  ],
+  'IB': [
+    { code: 'am', name: 'April/May' },
+    { code: 'on', name: 'October/November' },
+  ],
+  'AP': [
+    { code: 'may', name: 'May' },
+  ],
+};
+
+const RESOURCE_TYPES = [
+  { code: 'question_paper', name: 'Question Paper' },
+  { code: 'mark_scheme', name: 'Mark Scheme' },
+  { code: 'insert', name: 'Insert/Source Booklet' },
+  { code: 'source_files', name: 'Source Files' },
+  { code: 'examiner_report', name: 'Examiner Report' },
+  { code: 'grade_thresholds', name: 'Grade Thresholds' },
+  { code: 'specimen', name: 'Specimen Paper' },
+  { code: 'syllabus', name: 'Syllabus' },
+];
+
 const LEVELS = ['igcse', 'olevel', 'alevel', 'aslevel'];
 const STATUSES = ['draft', 'pending', 'published', 'archived'];
 
@@ -41,17 +81,21 @@ export default function EditPastPaperPage() {
 
   const [formData, setFormData] = useState({
     title: '',
-    exam_board: 'IGCSE',
+    exam_board: 'CIE',
     subject_id: '',
     year: new Date().getFullYear(),
-    session: 'May/June',
+    session: 'mj',
     paper_number: '',
     variant: '',
     level: 'igcse',
+    resource_type: 'question_paper',
     duration_minutes: 0,
     total_marks: 0,
     status: 'draft'
   });
+
+  // Get available series for selected exam board
+  const availableSeries = EXAM_BOARD_SERIES[formData.exam_board] || [];
 
   const [files, setFiles] = useState<{
     paper: File | null;
@@ -87,13 +131,14 @@ export default function EditPastPaperPage() {
       if (data) {
         setFormData({
           title: data.title || '',
-          exam_board: data.exam_board || 'IGCSE',
+          exam_board: data.exam_board || 'CIE',
           subject_id: data.subject_id || '',
           year: data.year || new Date().getFullYear(),
-          session: data.session || 'May/June',
+          session: data.session || 'mj',
           paper_number: data.paper_number || '',
           variant: data.variant || '',
           level: data.level || 'igcse',
+          resource_type: data.resource_type || 'question_paper',
           duration_minutes: data.duration_minutes || 0,
           total_marks: data.total_marks || 0,
           status: data.status || 'draft'
@@ -240,6 +285,7 @@ export default function EditPastPaperPage() {
         paper_number: formData.paper_number || null,
         variant: formData.variant || null,
         level: formData.level || null,
+        resource_type: formData.resource_type || 'question_paper',
         duration_minutes: formData.duration_minutes || null,
         total_marks: formData.total_marks || null,
         paper_url: uploadedUrls.paper,
@@ -320,7 +366,10 @@ export default function EditPastPaperPage() {
                 <Label htmlFor="exam_board">Exam Board *</Label>
                 <Select
                   value={formData.exam_board}
-                  onValueChange={(value) => setFormData({ ...formData, exam_board: value })}
+                  onValueChange={(value) => {
+                    const newSeries = EXAM_BOARD_SERIES[value]?.[0]?.code || 'mj';
+                    setFormData({ ...formData, exam_board: value, session: newSeries });
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -370,18 +419,18 @@ export default function EditPastPaperPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="session">Session *</Label>
+                <Label htmlFor="session">Series *</Label>
                 <Select
                   value={formData.session}
                   onValueChange={(value) => setFormData({ ...formData, session: value })}
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Select series" />
                   </SelectTrigger>
                   <SelectContent>
-                    {SESSIONS.map(session => (
-                      <SelectItem key={session} value={session}>
-                        {session}
+                    {availableSeries.map((series: { code: string; name: string }) => (
+                      <SelectItem key={series.code} value={series.code}>
+                        {series.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -409,23 +458,44 @@ export default function EditPastPaperPage() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="level">Level</Label>
-              <Select
-                value={formData.level}
-                onValueChange={(value) => setFormData({ ...formData, level: value })}
-              >
-                <SelectTrigger className="w-48">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {LEVELS.map(level => (
-                    <SelectItem key={level} value={level}>
-                      {level.toUpperCase()}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="level">Level</Label>
+                <Select
+                  value={formData.level}
+                  onValueChange={(value) => setFormData({ ...formData, level: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LEVELS.map(level => (
+                      <SelectItem key={level} value={level}>
+                        {level.toUpperCase()}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="resource_type">Resource Type *</Label>
+                <Select
+                  value={formData.resource_type}
+                  onValueChange={(value) => setFormData({ ...formData, resource_type: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {RESOURCE_TYPES.map(type => (
+                      <SelectItem key={type.code} value={type.code}>
+                        {type.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

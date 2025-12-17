@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -15,10 +14,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation';
-import { ArrowLeft, Upload, Save, FileText, CheckCircle } from 'lucide-react';
+import { useRouter, useParams } from 'next/navigation';
+import { ArrowLeft, Save, Loader2, CheckCircle } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
-import { logCreate } from '@/lib/audit';
+import { logUpdate } from '@/lib/audit';
 
 const EXAM_BOARDS = ['CIE', 'Edexcel', 'AQA', 'OCR', 'IB', 'AP'];
 
@@ -77,12 +76,15 @@ interface SubjectResourceType {
   is_available: boolean;
 }
 
-export default function NewPastPaperPage() {
+export default function EditPastPaperPage() {
   const supabase = createClient();
   const { toast } = useToast();
   const router = useRouter();
+  const params = useParams();
+  const paperId = params.id as string;
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [subjects, setSubjects] = useState<any[]>([]);
   const [paperComponents, setPaperComponents] = useState<PaperComponent[]>([]);
   const [subjectResourceTypes, setSubjectResourceTypes] = useState<SubjectResourceType[]>([]);
@@ -97,20 +99,20 @@ export default function NewPastPaperPage() {
     exam_board: 'CIE',
     subject_id: '',
     year: new Date().getFullYear(),
-    session: 'mj', // Default to May/June
+    session: 'mj',
     component_code: '',
     paper_number: '',
     variant: '',
     level: 'igcse',
     duration_minutes: 0,
     total_marks: 0,
-    status: 'published' // Default to published for convenience
+    status: 'published'
   });
 
   // Get available series for selected exam board
   const availableSeries = EXAM_BOARD_SERIES[formData.exam_board] || [];
 
-  // Selected optional resource type
+  // Selected optional resource type (determined from existing data)
   const [optionalResourceType, setOptionalResourceType] = useState<string>('');
 
   // Filter optional resources based on subject configuration
@@ -142,7 +144,8 @@ export default function NewPastPaperPage() {
 
   useEffect(() => {
     fetchSubjects();
-  }, []);
+    fetchPaper();
+  }, [paperId]);
 
   // Fetch subject-specific configuration when subject or exam board changes
   useEffect(() => {
@@ -153,6 +156,57 @@ export default function NewPastPaperPage() {
       setSubjectResourceTypes([]);
     }
   }, [formData.subject_id, formData.exam_board]);
+
+  async function fetchPaper() {
+    try {
+      const { data, error } = await supabase
+        .from('past_papers')
+        .select('*')
+        .eq('id', paperId)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setFormData({
+          exam_board: data.exam_board || 'CIE',
+          subject_id: data.subject_id || '',
+          year: data.year || new Date().getFullYear(),
+          session: data.session || 'mj',
+          component_code: data.component_code || '',
+          paper_number: data.paper_number || '',
+          variant: data.variant || '',
+          level: data.level || 'igcse',
+          duration_minutes: data.duration_minutes || 0,
+          total_marks: data.total_marks || 0,
+          status: data.status || 'published'
+        });
+
+        setUploadedUrls({
+          questionPaper: data.question_paper_url || data.paper_url,
+          markScheme: data.mark_scheme_url || undefined,
+          optionalResource: data.insert_url || data.examiner_report_url || data.grade_thresholds_url || data.specimen_url || undefined,
+          sourceFiles: data.source_files_url || undefined
+        });
+
+        // Determine which optional resource type is set
+        if (data.insert_url) setOptionalResourceType('insert');
+        else if (data.examiner_report_url) setOptionalResourceType('examiner_report');
+        else if (data.grade_thresholds_url) setOptionalResourceType('grade_thresholds');
+        else if (data.specimen_url) setOptionalResourceType('specimen');
+      }
+    } catch (error: any) {
+      console.error('Error fetching paper:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to load past paper'
+      });
+      router.push('/admin/papers');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function fetchSubjects() {
     const { data } = await supabase
@@ -183,18 +237,6 @@ export default function NewPastPaperPage() {
       .eq('exam_board', examBoard);
     
     setSubjectResourceTypes(resourceTypes || []);
-
-    // If we have components and none is selected, select the first one
-    if (components && components.length > 0 && !formData.component_code) {
-      const firstComponent = components[0];
-      setFormData(prev => ({
-        ...prev,
-        component_code: firstComponent.component_code,
-        paper_number: `Paper ${firstComponent.component_code}`,
-        duration_minutes: firstComponent.duration_minutes || prev.duration_minutes,
-        total_marks: firstComponent.total_marks || prev.total_marks
-      }));
-    }
   }
 
   async function uploadFile(file: File, type: 'questionPaper' | 'markScheme' | 'optionalResource' | 'sourceFiles') {
@@ -232,7 +274,6 @@ export default function NewPastPaperPage() {
         });
 
       if (error) {
-        // If bucket doesn't exist, show helpful error
         if (error.message.includes('Bucket not found') || error.message.includes('bucket')) {
           throw new Error('Storage bucket "past-papers" not configured. Please create it in Supabase Dashboard.');
         }
@@ -291,7 +332,7 @@ export default function NewPastPaperPage() {
         setUploadProgress(prev => ({ ...prev, sourceFiles: Math.round(((i + 1) / totalFiles) * 100) }));
       }
 
-      // Store folder path as the URL (we'll store individual file URLs in the database)
+      // Store folder path as the URL
       const { data: folderUrlData } = supabase.storage
         .from('past-papers')
         .getPublicUrl(folderPath);
@@ -400,7 +441,7 @@ export default function NewPastPaperPage() {
       return;
     }
 
-    setLoading(true);
+    setSaving(true);
 
     try {
       // Auto-generate title from form fields
@@ -433,45 +474,50 @@ export default function NewPastPaperPage() {
         status: formData.status
       };
 
-      const { data: newPaper, error } = await supabase
+      const { error } = await supabase
         .from('past_papers')
-        .insert(paperData)
-        .select()
-        .single();
+        .update(paperData)
+        .eq('id', paperId);
 
       if (error) throw error;
 
-      // Log the creation in audit logs
-      if (newPaper) {
-        await logCreate(
-          'past_paper',
-          newPaper.id,
-          generatedTitle,
-          {
-            exam_board: formData.exam_board,
-            year: formData.year,
-            paper_number: formData.paper_number,
-            status: formData.status
-          }
-        );
-      }
+      // Log the update in audit logs
+      await logUpdate(
+        'past_paper',
+        paperId,
+        generatedTitle,
+        {
+          exam_board: formData.exam_board,
+          year: formData.year,
+          paper_number: formData.paper_number,
+          status: formData.status
+        }
+      );
 
       toast({
         title: 'Success',
-        description: 'Past paper created successfully'
+        description: 'Past paper updated successfully'
       });
 
       router.push('/admin/papers');
     } catch (error: any) {
-      console.error('Error creating past paper:', error);
+      console.error('Error updating past paper:', error);
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: error.message || 'Failed to create past paper'
+        description: error.message || 'Failed to update past paper'
       });
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
   }
 
   return (
@@ -487,9 +533,9 @@ export default function NewPastPaperPage() {
           Back
         </Button>
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Upload Past Paper</h1>
+          <h1 className="text-3xl font-bold text-foreground">Edit Past Paper</h1>
           <p className="text-muted-foreground mt-1">
-            Add a new past paper with mark scheme and examiner report
+            Update paper details and files
           </p>
         </div>
       </div>
@@ -499,7 +545,7 @@ export default function NewPastPaperPage() {
         <Card>
           <CardHeader>
             <CardTitle>Paper Details</CardTitle>
-            <CardDescription>Select the exam board, subject, year, series, and paper component</CardDescription>
+            <CardDescription>Update the exam board, subject, year, series, and paper component</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-3 gap-4">
@@ -648,7 +694,7 @@ export default function NewPastPaperPage() {
                   id="variant"
                   value={formData.variant}
                   onChange={(e) => setFormData({ ...formData, variant: e.target.value })}
-                  placeholder="e.g., Variant 1"
+                  placeholder="e.g., 1"
                 />
               </div>
             </div>
@@ -685,7 +731,7 @@ export default function NewPastPaperPage() {
         <Card>
           <CardHeader>
             <CardTitle>File Uploads</CardTitle>
-            <CardDescription>Upload PDF files (max 50MB each). Question Paper and Mark Scheme are required.</CardDescription>
+            <CardDescription>Upload or replace PDF files (max 50MB each). Question Paper and Mark Scheme are required.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Question Paper - Required */}
@@ -708,9 +754,9 @@ export default function NewPastPaperPage() {
               {uploadProgress.questionPaper !== undefined && uploadProgress.questionPaper < 100 && (
                 <Progress value={uploadProgress.questionPaper} className="h-2" />
               )}
-              {files.questionPaper && (
+              {uploadedUrls.questionPaper && (
                 <p className="text-sm text-muted-foreground">
-                  {files.questionPaper.name} ({(files.questionPaper.size / 1024 / 1024).toFixed(2)} MB)
+                  Current file uploaded. Upload a new file to replace.
                 </p>
               )}
             </div>
@@ -735,9 +781,9 @@ export default function NewPastPaperPage() {
               {uploadProgress.markScheme !== undefined && uploadProgress.markScheme < 100 && (
                 <Progress value={uploadProgress.markScheme} className="h-2" />
               )}
-              {files.markScheme && (
+              {uploadedUrls.markScheme && (
                 <p className="text-sm text-muted-foreground">
-                  {files.markScheme.name} ({(files.markScheme.size / 1024 / 1024).toFixed(2)} MB)
+                  Current file uploaded. Upload a new file to replace.
                 </p>
               )}
             </div>
@@ -786,11 +832,6 @@ export default function NewPastPaperPage() {
               </div>
               {uploadProgress.optionalResource !== undefined && uploadProgress.optionalResource < 100 && (
                 <Progress value={uploadProgress.optionalResource} className="h-2" />
-              )}
-              {files.optionalResource && (
-                <p className="text-sm text-muted-foreground">
-                  {files.optionalResource.name} ({(files.optionalResource.size / 1024 / 1024).toFixed(2)} MB)
-                </p>
               )}
             </div>
 
@@ -861,9 +902,9 @@ export default function NewPastPaperPage() {
 
         {/* Actions */}
         <div className="flex items-center gap-4">
-          <Button type="submit" disabled={loading || !uploadedUrls.questionPaper || !uploadedUrls.markScheme}>
+          <Button type="submit" disabled={saving || !uploadedUrls.questionPaper || !uploadedUrls.markScheme}>
             <Save className="mr-2 h-4 w-4" />
-            {loading ? 'Creating...' : 'Create Past Paper'}
+            {saving ? 'Saving...' : 'Save Changes'}
           </Button>
           <Button
             type="button"
