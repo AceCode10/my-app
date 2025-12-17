@@ -8,15 +8,15 @@ import Image from "next/image";
 
 const testimonials = [
     {
-        quote: "This platform transformed my study habits. The interactive quizzes are a game-changer for IGCSE prep!",
+        quote: "This platform transformed my study habits. The interactive quizzes are a game-changer for exam prep!",
         name: "Aisha Khan",
-        title: "IGCSE Student",
+        title: "A Level Student",
         avatar: "1"
     },
     {
-        quote: "As a teacher, I can finally track my students' progress effectively. Highly recommended for all IGCSE educators.",
+        quote: "As a teacher, I can finally track my students' progress effectively. Highly recommended for all educators.",
         name: "David Miller",
-        title: "IGCSE Teacher",
+        title: "GCSE Teacher",
         avatar: "2"
     }
 ];
@@ -36,10 +36,10 @@ export default function LandingPage() {
                 />
                 <div className="container mx-auto px-4 text-center relative z-10">
                     <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-foreground mb-4 leading-tight">
-                        Master Your IGCSEs with <span className="gradient-text">Confidence</span>
+                        Master Your Exams with <span className="gradient-text">Confidence</span>
                     </h1>
                     <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
-                        The ultimate platform for IGCSE students and teachers. Access AI-powered quizzes, track progress, and achieve top grades.
+                        The ultimate revision platform for GCSE, IGCSE, AS & A Level students. Access topical questions, past papers, and achieve top grades.
                     </p>
                     <div className="flex flex-col sm:flex-row justify-center gap-4">
                         <Button asChild size="lg" className="shadow-lg">
@@ -84,7 +84,7 @@ export default function LandingPage() {
                                 <BookOpen className="h-4 w-4 text-muted-foreground" />
                             </CardHeader>
                             <CardContent>
-                                <p className="text-xs text-muted-foreground">Curated by experienced IGCSE educators to match the syllabus.</p>
+                                <p className="text-xs text-muted-foreground">Curated by experienced educators to match exam board syllabuses.</p>
                             </CardContent>
                         </Card>
                         <Card className="hover:shadow-xl hover:-translate-y-2 transition-transform duration-300">

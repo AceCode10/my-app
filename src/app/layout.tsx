@@ -9,8 +9,11 @@ import { ExamBoardProvider } from "@/contexts/ExamBoardContext";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "IGCSE Simplified",
-  description: "Your personalized learning platform to help you ace your IGCSE exams.",
+  title: "RevisionPlus",
+  description: "The best revision materials for GCSE, IGCSE, AS & A Level students across all major exam boards.",
+  icons: {
+    icon: '/icon.svg',
+  },
 };
 
 export default function RootLayout({

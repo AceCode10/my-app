@@ -63,12 +63,26 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
+import { EXAM_BOARDS, QUALIFICATION_LEVELS, getLevelsForBoard, type ExamBoard } from '@/lib/exam-boards';
+
+interface DbExamBoard {
+  id: string;
+  code: string;
+  name: string;
+  full_name: string;
+  description: string | null;
+  color: string;
+  is_active: boolean;
+  display_order: number;
+}
 
 interface Subject {
   id: string;
   name: string;
   slug: string;
   code?: string;
+  exam_board_id?: string;
+  level?: string;
 }
 
 interface Topic {
@@ -86,7 +100,8 @@ interface Topic {
 
 interface Question {
   id: string;
-  stem_markdown: string;
+  stem_markdown?: string;
+  stem_md?: string;
   question_type: string;
   difficulty: string;
   marks: number;
@@ -125,6 +140,13 @@ export default function TopicalQuestionsManagementPage() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // Database exam boards
+  const [dbExamBoards, setDbExamBoards] = useState<DbExamBoard[]>([]);
+
+  // Exam board and level filters for content management
+  const [selectedExamBoard, setSelectedExamBoard] = useState<string>('');
+  const [selectedLevel, setSelectedLevel] = useState<string>('igcse');
 
   // Dialog states
   const [isTopicDialogOpen, setIsTopicDialogOpen] = useState(false);
@@ -173,12 +195,46 @@ export default function TopicalQuestionsManagementPage() {
   const [uploadingAnswersPdf, setUploadingAnswersPdf] = useState(false);
 
   useEffect(() => {
-    fetchSubjects();
+    fetchExamBoards();
   }, []);
+
+  // Re-fetch subjects when exam board or level changes
+  useEffect(() => {
+    if (selectedExamBoard) {
+      fetchSubjects(selectedExamBoard, selectedLevel);
+    }
+  }, [selectedExamBoard, selectedLevel]);
+
+  async function fetchExamBoards() {
+    try {
+      const { data, error } = await supabase
+        .from('exam_boards')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order');
+
+      if (error) throw error;
+      setDbExamBoards(data || []);
+      
+      // Set first exam board as default
+      if (data && data.length > 0 && !selectedExamBoard) {
+        setSelectedExamBoard(data[0].id);
+      }
+    } catch (error: any) {
+      console.error('Error fetching exam boards:', error);
+    }
+  }
 
   useEffect(() => {
     if (selectedSubject) {
+      // Clear previous topic selection when subject changes
+      setSelectedTopic(null);
+      setQuestions([]);
       fetchTopics(selectedSubject);
+    } else {
+      setTopics([]);
+      setSelectedTopic(null);
+      setQuestions([]);
     }
   }, [selectedSubject]);
 
@@ -188,18 +244,36 @@ export default function TopicalQuestionsManagementPage() {
     }
   }, [selectedTopic]);
 
-  async function fetchSubjects() {
+  async function fetchSubjects(examBoardId?: string, level?: string) {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('subjects')
-        .select('id, name, slug, code')
+        .select('id, name, slug, code, exam_board_id, level')
         .order('name');
+
+      // Filter by exam board if provided
+      if (examBoardId) {
+        query = query.eq('exam_board_id', examBoardId);
+      }
+      
+      // Filter by level if provided
+      if (level) {
+        query = query.eq('level', level);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setSubjects(data || []);
       
+      // Auto-select first subject if available, or clear selection
       if (data && data.length > 0) {
         setSelectedSubject(data[0].id);
+      } else {
+        setSelectedSubject('');
+        setTopics([]);
+        setSelectedTopic(null);
+        setQuestions([]);
       }
     } catch (error: any) {
       console.error('Error fetching subjects:', error);
@@ -215,46 +289,70 @@ export default function TopicalQuestionsManagementPage() {
 
   async function fetchTopics(subjectId: string) {
     try {
+      console.log('Fetching topics for subject:', subjectId);
+      
+      // Order by display_order for proper topic sequencing
       const { data: topicsData, error } = await supabase
         .from('topics')
         .select('*')
         .eq('subject_id', subjectId)
-        .order('name');
+        .order('display_order', { ascending: true });
 
       if (error) throw error;
 
+      console.log('Topics fetched:', topicsData?.length || 0);
+
+      // Handle empty or null topics
+      if (!topicsData || topicsData.length === 0) {
+        setTopics([]);
+        setSelectedTopic(null);
+        setQuestions([]);
+        return;
+      }
+
       // Get question counts for each topic
-      if (topicsData) {
-        const topicIds = topicsData.map(t => t.id);
-        const { data: questionCounts } = await supabase
+      const topicIds = topicsData.map(t => t.id);
+      let counts: Record<string, number> = {};
+      
+      if (topicIds.length > 0) {
+        const { data: questionCounts, error: countError } = await supabase
           .from('questions')
           .select('topic_id')
           .in('topic_id', topicIds);
 
-        const counts: Record<string, number> = {};
+        if (countError) {
+          console.error('Error fetching question counts:', countError);
+        }
+
         (questionCounts || []).forEach((q: any) => {
           counts[q.topic_id] = (counts[q.topic_id] || 0) + 1;
         });
+      }
 
-        const topicsWithCounts = topicsData.map(t => ({
-          ...t,
-          question_count: counts[t.id] || 0
-        }));
+      const topicsWithCounts = topicsData.map(t => ({
+        ...t,
+        question_count: counts[t.id] || 0
+      }));
 
-        setTopics(topicsWithCounts);
+      setTopics(topicsWithCounts);
+      
+      // Auto-select first topic if none selected
+      if (!selectedTopic && topicsWithCounts.length > 0) {
+        setSelectedTopic(topicsWithCounts[0]);
       }
     } catch (error: any) {
       console.error('Error fetching topics:', error);
+      setTopics([]);
     }
   }
 
   async function fetchQuestions(topicId: string) {
     try {
+      // Order by created_at (question_number ordering will work after migration)
       const { data, error } = await supabase
         .from('questions')
         .select('*')
         .eq('topic_id', topicId)
-        .order('question_number', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: true });
 
       if (error) throw error;
@@ -342,20 +440,32 @@ export default function TopicalQuestionsManagementPage() {
     setSaving(true);
 
     try {
-      const slug = topicForm.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      // Get subject info for unique slug generation
+      const subject = subjects.find(s => s.id === selectedSubject);
+      const subjectSlug = subject?.slug || subject?.name?.toLowerCase().replace(/\s+/g, '-') || 'unknown';
+      const baseName = topicForm.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      // Include subject slug in topic slug to ensure uniqueness across subjects
+      const slug = `${baseName}-${subjectSlug}`;
       
-      const topicData = {
+      // Build topic data with only columns that exist in the database
+      const topicData: Record<string, any> = {
         subject_id: selectedSubject,
         name: topicForm.name,
         slug,
         description: topicForm.description || null,
         pdf_url: topicForm.pdf_url || null,
         answers_pdf_url: topicForm.answers_pdf_url || null,
-        estimated_time: topicForm.estimated_time || null,
-        status: topicForm.status
+        estimated_time: topicForm.estimated_time || 30,
+        status: topicForm.status || 'published',
       };
 
       if (editingTopic) {
+        // For updates, only change slug if name changed
+        const needsNewSlug = editingTopic.name !== topicForm.name;
+        if (!needsNewSlug) {
+          topicData.slug = editingTopic.slug;
+        }
+        
         const { error } = await supabase
           .from('topics')
           .update(topicData)
@@ -430,19 +540,19 @@ export default function TopicalQuestionsManagementPage() {
         correctAnswer = correctOption?.label || '';
       }
 
-      const questionData = {
+      // Build question data using columns that exist in the base schema
+      // correct_answer must be JSONB, stem_md is required text
+      const questionData: Record<string, any> = {
         topic_id: selectedTopic.id,
         subject_id: selectedSubject,
-        stem_markdown: questionForm.stem_markdown,
-        question_type: questionForm.question_type,
+        stem_md: questionForm.stem_markdown,
+        question_type: questionForm.question_type === 'multiple_choice' ? 'mcq' : questionForm.question_type,
         difficulty: questionForm.difficulty,
         marks: questionForm.marks,
-        correct_answer: correctAnswer,
+        correct_answer: JSON.stringify(correctAnswer), // Must be JSONB
         options: options,
-        explanation: questionForm.explanation || null,
-        examiner_comment: questionForm.examiner_comment || null,
-        question_number: questionForm.question_number || null,
-        status: questionForm.status
+        examiner_comment: questionForm.examiner_comment || 'N/A', // Required NOT NULL field
+        visibility: questionForm.status || 'published',
       };
 
       if (editingQuestion) {
@@ -498,7 +608,7 @@ export default function TopicalQuestionsManagementPage() {
     }
   }
 
-  // Bulk import
+  // Bulk import with one-at-a-time insertion for better error handling
   async function handleBulkImport() {
     if (!selectedTopic || !bulkQuestions.trim()) return;
     setSaving(true);
@@ -511,32 +621,61 @@ export default function TopicalQuestionsManagementPage() {
         throw new Error('Input must be a JSON array of questions');
       }
 
+      // Supports model_answer, answer, or correct_answer for the answer field
       const questionsData = questionsToImport.map((q: any, index: number) => ({
         topic_id: selectedTopic.id,
         subject_id: selectedSubject,
-        stem_markdown: q.question || q.stem_markdown || q.text,
+        stem_md: q.question || q.stem_markdown || q.stem_md || q.text,
         question_type: q.question_type || q.type || 'short_answer',
         difficulty: q.difficulty || 'medium',
         marks: q.marks || 2,
-        correct_answer: q.correct_answer || q.answer || '',
+        correct_answer: JSON.stringify(q.model_answer || q.correct_answer || q.answer || ''),
         explanation: q.explanation || null,
         examiner_comment: q.examiner_comment || null,
         question_number: q.question_number || `${index + 1}`,
-        status: 'published'
+        visibility: 'published',
       }));
 
-      const { error } = await supabase.from('questions').insert(questionsData);
-      if (error) throw error;
+      // Insert one at a time with timeout to avoid stalling
+      let successCount = 0;
+      const errors: string[] = [];
+      
+      for (let i = 0; i < questionsData.length; i++) {
+        const question = questionsData[i];
+        try {
+          const insertPromise = supabase.from('questions').insert(question);
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Request timeout')), 10000)
+          );
+          
+          const { error } = await Promise.race([insertPromise, timeoutPromise]) as any;
+          
+          if (error) {
+            console.error(`Error inserting question ${i + 1}:`, error);
+            errors.push(`Q${i + 1}: ${error.message}`);
+          } else {
+            successCount++;
+          }
+        } catch (e: any) {
+          console.error(`Exception inserting question ${i + 1}:`, e);
+          errors.push(`Q${i + 1}: ${e.message}`);
+        }
+      }
 
-      toast({ 
-        title: 'Success', 
-        description: `Imported ${questionsData.length} questions successfully` 
-      });
-
-      setIsBulkImportOpen(false);
-      setBulkQuestions('');
-      fetchQuestions(selectedTopic.id);
-      fetchTopics(selectedSubject);
+      if (successCount > 0) {
+        toast({ 
+          title: 'Import Complete', 
+          description: `Imported ${successCount} of ${questionsData.length} questions${errors.length > 0 ? `. ${errors.length} failed.` : ''}` 
+        });
+        setIsBulkImportOpen(false);
+        setBulkQuestions('');
+        fetchQuestions(selectedTopic.id);
+        fetchTopics(selectedSubject);
+      }
+      
+      if (errors.length > 0 && successCount === 0) {
+        throw new Error(errors.slice(0, 3).join('; '));
+      }
     } catch (error: any) {
       console.error('Error importing questions:', error);
       toast({
@@ -547,6 +686,48 @@ export default function TopicalQuestionsManagementPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  // Download questions template
+  function downloadQuestionsTemplate() {
+    const template = [
+      {
+        "question": "What is the chemical formula for water?",
+        "type": "short_answer",
+        "difficulty": "easy",
+        "marks": 2,
+        "model_answer": "H2O",
+        "explanation": "Water consists of two hydrogen atoms and one oxygen atom.",
+        "examiner_comment": "Award 1 mark for correct formula. Accept H₂O."
+      },
+      {
+        "question": "Which of the following is a noble gas?",
+        "type": "multiple_choice",
+        "difficulty": "medium",
+        "marks": 1,
+        "model_answer": "B",
+        "options": ["Oxygen", "Argon", "Nitrogen", "Carbon"],
+        "explanation": "Argon is a noble gas found in Group 18 of the periodic table.",
+        "examiner_comment": "Award 1 mark for selecting option B (Argon)."
+      },
+      {
+        "question": "Plants produce oxygen during photosynthesis.",
+        "type": "true_false",
+        "difficulty": "easy",
+        "marks": 1,
+        "model_answer": "true",
+        "explanation": "During photosynthesis, plants convert CO2 and H2O into glucose and O2.",
+        "examiner_comment": "Award 1 mark for correct answer."
+      }
+    ];
+    
+    const blob = new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'questions-template.json';
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   // Form helpers
@@ -597,7 +778,7 @@ export default function TopicalQuestionsManagementPage() {
   function openEditQuestion(question: Question) {
     setEditingQuestion(question);
     setQuestionForm({
-      stem_markdown: question.stem_markdown,
+      stem_markdown: (question.stem_markdown ?? question.stem_md ?? '') as string,
       question_type: question.question_type,
       difficulty: question.difficulty,
       marks: question.marks,
@@ -680,23 +861,95 @@ export default function TopicalQuestionsManagementPage() {
         </div>
       </div>
 
-      {/* Subject Selector */}
+      {/* Exam Board, Level & Subject Selector */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex items-center gap-4">
-            <Label className="text-sm font-medium">Select Subject:</Label>
-            <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-              <SelectTrigger className="w-64">
-                <SelectValue placeholder="Choose a subject" />
-              </SelectTrigger>
-              <SelectContent>
-                {subjects.map(subject => (
-                  <SelectItem key={subject.id} value={subject.id}>
-                    {subject.name} {subject.code && `(${subject.code})`}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex flex-wrap items-end gap-4">
+            {/* Exam Board */}
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Exam Board</Label>
+              <Select value={selectedExamBoard} onValueChange={(value) => {
+                setSelectedExamBoard(value);
+                // Find the board code to get available levels
+                const board = dbExamBoards.find(b => b.id === value);
+                if (board) {
+                  const boardCode = board.code.toLowerCase();
+                  const availableLevels = getLevelsForBoard(boardCode === 'cie' ? 'cambridge' : boardCode === 'edex' ? 'edexcel' : boardCode.toLowerCase());
+                  if (!availableLevels.some(l => l.id === selectedLevel)) {
+                    setSelectedLevel(availableLevels[0]?.id || '');
+                  }
+                }
+              }}>
+                <SelectTrigger className="w-52">
+                  <SelectValue placeholder="Select board" />
+                </SelectTrigger>
+                <SelectContent>
+                  {dbExamBoards.map(board => (
+                    <SelectItem key={board.id} value={board.id}>
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: board.color }} />
+                        {board.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Level */}
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Level</Label>
+              <Select value={selectedLevel} onValueChange={setSelectedLevel}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Select level" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(() => {
+                    const board = dbExamBoards.find(b => b.id === selectedExamBoard);
+                    const boardCode = board?.code.toLowerCase() || '';
+                    const mappedCode = boardCode === 'cie' ? 'cambridge' : boardCode === 'edex' ? 'edexcel' : boardCode;
+                    return getLevelsForBoard(mappedCode).map(level => (
+                      <SelectItem key={level.id} value={level.id}>
+                        {level.name}
+                      </SelectItem>
+                    ));
+                  })()}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Subject */}
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Subject</Label>
+              <Select value={selectedSubject} onValueChange={setSelectedSubject}>
+                <SelectTrigger className="w-64">
+                  <SelectValue placeholder="Choose a subject" />
+                </SelectTrigger>
+                <SelectContent>
+                  {subjects.map(subject => (
+                    <SelectItem key={subject.id} value={subject.id}>
+                      {subject.name} {subject.code && `(${subject.code})`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Current Selection Badge */}
+            <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg">
+              <span className="text-sm text-muted-foreground">Managing:</span>
+              <Badge variant="secondary">
+                {dbExamBoards.find(b => b.id === selectedExamBoard)?.code || 'All'}
+              </Badge>
+              <Badge variant="secondary">
+                {(() => {
+                  const board = dbExamBoards.find(b => b.id === selectedExamBoard);
+                  const boardCode = board?.code.toLowerCase() || '';
+                  const mappedCode = boardCode === 'cie' ? 'cambridge' : boardCode === 'edex' ? 'edexcel' : boardCode;
+                  return getLevelsForBoard(mappedCode).find(l => l.id === selectedLevel)?.name || selectedLevel;
+                })()}
+              </Badge>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -870,7 +1123,7 @@ export default function TopicalQuestionsManagementPage() {
                                 </Badge>
                               </div>
                               <p className="text-sm text-foreground line-clamp-2">
-                                {question.stem_markdown}
+                                {question.stem_markdown || question.stem_md}
                               </p>
                               {question.correct_answer && (
                                 <p className="text-xs text-muted-foreground mt-1">
@@ -1318,14 +1571,23 @@ export default function TopicalQuestionsManagementPage() {
 
       {/* Bulk Import Dialog */}
       <Dialog open={isBulkImportOpen} onOpenChange={setIsBulkImportOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Bulk Import Questions</DialogTitle>
             <DialogDescription>
-              Import multiple questions at once using JSON format
+              Import multiple questions for <strong>{selectedTopic?.name}</strong>
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Supported types: short_answer, multiple_choice, true_false, numeric, essay
+              </p>
+              <Button variant="outline" size="sm" onClick={downloadQuestionsTemplate}>
+                <Download className="h-4 w-4 mr-1" />
+                Download Template
+              </Button>
+            </div>
             <div className="p-4 bg-muted rounded-lg">
               <h4 className="font-medium text-sm mb-2">JSON Format Example:</h4>
               <pre className="text-xs bg-background p-3 rounded overflow-x-auto">
@@ -1335,15 +1597,18 @@ export default function TopicalQuestionsManagementPage() {
     "type": "short_answer",
     "difficulty": "easy",
     "marks": 2,
-    "answer": "7",
-    "explanation": "Neutral solutions have pH 7"
+    "model_answer": "7",
+    "explanation": "A neutral solution has equal H+ and OH- ions",
+    "examiner_comment": "Award 1 mark for correct answer"
   },
   {
-    "question": "Is water a good conductor?",
+    "question": "Is water a good conductor of electricity?",
     "type": "true_false",
-    "difficulty": "easy",
+    "difficulty": "medium",
     "marks": 1,
-    "answer": "false"
+    "model_answer": "false",
+    "explanation": "Pure water is a poor conductor",
+    "examiner_comment": "Award 1 mark for 'false'"
   }
 ]`}
               </pre>
@@ -1359,13 +1624,22 @@ export default function TopicalQuestionsManagementPage() {
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="mt-4 gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setIsBulkImportOpen(false)}>
               Cancel
             </Button>
             <Button onClick={handleBulkImport} disabled={saving || !bulkQuestions.trim()}>
-              <Upload className="h-4 w-4 mr-2" />
-              {saving ? 'Importing...' : 'Import Questions'}
+              {saving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Importing...
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Import Questions
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

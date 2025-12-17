@@ -24,9 +24,9 @@ export default function SettingsPage() {
 
   const [settings, setSettings] = useState({
     // General
-    siteName: 'IGCSE Simplified',
-    siteDescription: 'Your comprehensive IGCSE exam preparation platform',
-    supportEmail: 'support@igcsesimplified.com',
+    siteName: 'RevisionPlus',
+    siteDescription: 'The best revision materials for GCSE, IGCSE, AS & A Level students',
+    supportEmail: 'support@revisionplus.com',
     
     // Features
     enableSignups: true,

@@ -55,7 +55,7 @@ export default function PublicLayout({
             <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between h-16">
                     <div className="flex-shrink-0">
-                        <Link href="/" className="text-2xl font-bold text-foreground">IGCSE <span className="text-primary">Simplified</span></Link>
+                        <Link href="/" className="text-2xl font-bold text-foreground">Revision<span className="text-primary">Plus</span></Link>
                     </div>
                     <nav className="hidden md:flex items-center space-x-1">
                         <NavLink href="/subjects">Subjects</NavLink>
@@ -174,8 +174,8 @@ export default function PublicLayout({
             <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
                 <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-8">
                     <div className="col-span-full lg:col-span-1 mb-4 lg:mb-0">
-                         <h3 className="text-xl font-bold text-foreground">IGCSE <span className="text-primary">Simplified</span></h3>
-                         <p className="mt-2 text-sm">Achieve top grades with our AI-powered learning platform.</p>
+                         <h3 className="text-xl font-bold text-foreground">Revision<span className="text-primary">Plus</span></h3>
+                         <p className="mt-2 text-sm">The best revision materials for GCSE, IGCSE, AS & A Level.</p>
                     </div>
                     <div>
                         <h3 className="text-sm font-semibold text-foreground tracking-wider uppercase">Product</h3>
@@ -210,7 +210,7 @@ export default function PublicLayout({
                     </div>
                 </div>
                 <div className="mt-8 border-t pt-8 text-center">
-                    <p>&copy; {new Date().getFullYear()} IGCSE Simplified. All rights reserved.</p>
+                    <p>&copy; {new Date().getFullYear()} RevisionPlus. All rights reserved.</p>
                 </div>
             </div>
       </footer>

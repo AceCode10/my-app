@@ -95,6 +95,8 @@ export default function ClassDetailPage() {
     </div>
   );
 }
+
+const StudentsList = ({ studentIds, title, onRemove }: { studentIds: string[], title: string, onRemove?: (studentId: string) => void }) => {
     const firestore = useFirestore();
     const [studentToRemove, setStudentToRemove] = useState<UserProfile | null>(null);
 

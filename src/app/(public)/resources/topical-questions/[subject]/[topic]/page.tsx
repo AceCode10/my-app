@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, use } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { ChevronRight, ChevronLeft, CheckCircle, XCircle, Clock, RotateCcw, Home, AlertCircle, Download, FileText, Play, Flag, BookOpen, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,14 +10,16 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
+import { useProgress } from '@/hooks/use-progress';
 
 interface Question {
   id: string;
-  stem_markdown: string;
+  stem_md?: string;
+  stem_markdown?: string;
   question_type: string;
   difficulty: string;
   marks: number;
-  options?: { id: string; text: string }[];
+  options?: { id: string; text: string; label?: string; is_correct?: boolean }[];
   correct_answer: any;
   explanation?: string;
   examiner_comment?: string;
@@ -54,7 +57,11 @@ export default function TopicPracticePage({
   params: Promise<{ subject: string; topic: string }>;
 }) {
   const { subject: subjectSlug, topic: topicSlug } = use(params);
+  const searchParams = useSearchParams();
+  const examBoard = searchParams.get('board') || '';
+  const level = searchParams.get('level') || '';
   const supabase = createClient();
+  const { trackProgress } = useProgress();
   
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>('landing');
@@ -67,11 +74,35 @@ export default function TopicPracticePage({
 
   useEffect(() => {
     fetchData();
-  }, [subjectSlug, topicSlug]);
+  }, [subjectSlug, topicSlug, examBoard, level]);
 
   async function fetchData() {
     try {
       setIsLoading(true);
+
+      // Get exam_board_id from the exam_boards table if examBoard is provided
+      let examBoardId: string | null = null;
+      if (examBoard) {
+        const codeMap: Record<string, string> = {
+          'cambridge': 'CIE',
+          'ib': 'IB',
+          'edexcel': 'EDEX',
+          'ocr': 'OCR',
+          'aqa': 'AQA',
+          'ap': 'AP'
+        };
+        const dbCode = codeMap[examBoard.toLowerCase()] || examBoard.toUpperCase();
+        
+        const { data: boardData } = await supabase
+          .from('exam_boards')
+          .select('id')
+          .eq('code', dbCode)
+          .single();
+        
+        if (boardData) {
+          examBoardId = boardData.id;
+        }
+      }
 
       // Fetch subject
       const { data: subjectData, error: subjectError } = await supabase
@@ -80,32 +111,44 @@ export default function TopicPracticePage({
         .eq('slug', subjectSlug)
         .single();
 
-      if (subjectError || !subjectData) {
+      if (subjectError) {
+        console.error('Subject fetch error:', subjectError);
+        throw new Error(`Subject not found: ${subjectError.message}`);
+      }
+      if (!subjectData) {
         throw new Error('Subject not found');
       }
       setSubject(subjectData);
 
-      // Fetch topic
+      // Fetch topic by slug (simple and reliable)
       const { data: topicData, error: topicError } = await supabase
         .from('topics')
         .select('*')
         .eq('subject_id', subjectData.id)
-        .or(`slug.eq.${topicSlug},name.ilike.${topicSlug.replace(/-/g, ' ')}`)
+        .eq('slug', topicSlug)
         .single();
 
-      if (topicError || !topicData) {
+      if (topicError) {
+        console.error('Topic fetch error:', topicError);
+        throw new Error(`Topic not found: ${topicError.message}`);
+      }
+      
+      if (!topicData) {
         throw new Error('Topic not found');
       }
+      
       setTopic(topicData);
+      const finalTopic = topicData;
 
       // Fetch questions for this topic
       const { data: questionsData, error: questionsError } = await supabase
         .from('questions')
         .select('*')
-        .eq('topic_id', topicData.id)
+        .eq('topic_id', finalTopic.id)
         .order('created_at', { ascending: true });
 
       if (questionsError) {
+        console.error('Questions fetch error:', questionsError);
         throw questionsError;
       }
 
@@ -120,8 +163,10 @@ export default function TopicPracticePage({
       
       setError(null);
     } catch (err: any) {
-      console.error('Error fetching data:', err);
-      setError(err.message || 'Failed to load data');
+      console.error('Error fetching data:', JSON.stringify(err, null, 2));
+      console.error('Subject slug:', subjectSlug);
+      console.error('Topic slug:', topicSlug);
+      setError(err.message || err.details || 'Failed to load data');
     } finally {
       setIsLoading(false);
     }
@@ -140,6 +185,15 @@ export default function TopicPracticePage({
         [questions[0].id]: { ...prev[questions[0].id], viewed: true }
       }));
     }
+    // Track progress
+    if (subject && topic) {
+      trackProgress('practicing_questions', {
+        subjectId: subject.id,
+        topicId: topic.id,
+        progressData: { questionIndex: 0, totalQuestions: questions.length },
+        completionPercentage: 0
+      });
+    }
   };
 
   const handleQuestionSelect = (index: number) => {
@@ -150,6 +204,17 @@ export default function TopicPracticePage({
         ...prev,
         [q.id]: { ...prev[q.id], viewed: true }
       }));
+    }
+    // Update progress tracking
+    if (subject && topic && questions.length > 0) {
+      const completionPercentage = Math.round(((index + 1) / questions.length) * 100);
+      trackProgress('practicing_questions', {
+        subjectId: subject.id,
+        topicId: topic.id,
+        questionId: q?.id,
+        progressData: { questionIndex: index, totalQuestions: questions.length },
+        completionPercentage
+      });
     }
   };
 
@@ -390,9 +455,32 @@ export default function TopicPracticePage({
             {/* Question Text */}
             <div className="prose prose-sm max-w-none dark:prose-invert mb-6">
               <p className="text-lg text-foreground leading-relaxed whitespace-pre-wrap">
-                {currentQuestion.stem_markdown}
+                {currentQuestion.stem_markdown || currentQuestion.stem_md}
               </p>
             </div>
+
+            {/* MCQ Options */}
+            {(currentQuestion.question_type === 'multiple_choice' || currentQuestion.question_type === 'mcq') && currentQuestion.options && (
+              <div className="space-y-2 mb-6">
+                {(currentQuestion.options as any[]).map((option: any, idx: number) => (
+                  <div
+                    key={option.label || idx}
+                    className={cn(
+                      "p-3 rounded-lg border-2 transition-all",
+                      questionStatuses[currentQuestion.id]?.showAnswer && option.is_correct
+                        ? "border-green-500 bg-green-500/10"
+                        : "border-border hover:border-primary/50"
+                    )}
+                  >
+                    <span className="font-semibold mr-2">{option.label || String.fromCharCode(65 + idx)}.</span>
+                    <span>{option.text}</span>
+                    {questionStatuses[currentQuestion.id]?.showAnswer && option.is_correct && (
+                      <CheckCircle className="inline-block ml-2 w-4 h-4 text-green-500" />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Self Assessment Section */}
             <div className="border-t pt-4 mt-6">
@@ -467,9 +555,19 @@ export default function TopicPracticePage({
               <div className="mt-4 p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
                 <h4 className="font-semibold text-green-700 dark:text-green-400 mb-2">Answer:</h4>
                 <p className="text-foreground">
-                  {typeof currentQuestion.correct_answer === 'object' 
-                    ? JSON.stringify(currentQuestion.correct_answer) 
-                    : String(currentQuestion.correct_answer)}
+                  {(() => {
+                    const answer = currentQuestion.correct_answer;
+                    // Handle JSONB stored as string
+                    if (typeof answer === 'string') {
+                      try {
+                        const parsed = JSON.parse(answer);
+                        return typeof parsed === 'object' ? JSON.stringify(parsed) : String(parsed);
+                      } catch {
+                        return answer;
+                      }
+                    }
+                    return typeof answer === 'object' ? JSON.stringify(answer) : String(answer);
+                  })()}
                 </p>
                 {currentQuestion.explanation && (
                   <div className="mt-3 pt-3 border-t border-green-500/30">
@@ -477,7 +575,7 @@ export default function TopicPracticePage({
                     <p className="text-muted-foreground text-sm">{currentQuestion.explanation}</p>
                   </div>
                 )}
-                {currentQuestion.examiner_comment && (
+                {currentQuestion.examiner_comment && currentQuestion.examiner_comment !== 'N/A' && (
                   <div className="mt-3 pt-3 border-t border-green-500/30">
                     <h5 className="font-medium text-green-700 dark:text-green-400 mb-1">Examiner's Comment:</h5>
                     <p className="text-muted-foreground text-sm">{currentQuestion.examiner_comment}</p>

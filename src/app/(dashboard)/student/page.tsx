@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { createClient } from '@/lib/supabase/client';
+import { ContinueWhereYouLeftOff } from '@/components/ContinueWhereYouLeftOff';
 
 interface DashboardStats {
   xp: number;
@@ -68,7 +69,7 @@ const StudentDashboard = () => {
 
       const classIds = enrollments?.map(e => e.class_id) || [];
       
-      let assignmentsData = [];
+      let assignmentsData: any[] = [];
       if (classIds.length > 0) {
         const { data } = await supabase
           .from('assignments')
@@ -127,6 +128,9 @@ const StudentDashboard = () => {
         <h1 className="text-3xl font-bold">Welcome back, {user.display_name || 'Student'}!</h1>
         <p className="text-muted-foreground mt-1">Continue your learning journey</p>
       </div>
+
+      {/* Continue Where You Left Off */}
+      <ContinueWhereYouLeftOff />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

@@ -53,7 +53,7 @@ export default function SignupPage() {
             }
 
             if (authData.user) {
-                toast({ title: 'Account Created!', description: 'Welcome to IGCSE Simplified!' });
+                toast({ title: 'Account Created!', description: 'Welcome to RevisionPlus!' });
                 
                 // Redirect based on role
                 if (role === 'super_admin') {

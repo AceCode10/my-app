@@ -1,0 +1,62 @@
+{
+  "project": "IGCSE Simplified",
+  "version": "1.0.0",
+  "lastUpdated": "2025-12-17T15:51:00Z",
+  "status": "active",
+  "objectives": {
+    "primary": "Build comprehensive IGCSE educational platform with topical questions management",
+    "current": "Bulk import functionality for subjects, topics, and questions"
+  },
+  "completedFeatures": [
+    {
+      "feature": "Alphabetic filter for subjects",
+      "location": "src/components/subjects-grid.tsx",
+      "description": "A-Z filter with localStorage persistence, defaults to 'A'"
+    },
+    {
+      "feature": "Bulk import - Subjects",
+      "location": "src/app/(dashboard)/admin/subjects/page.tsx",
+      "description": "JSON import with level-based unique slugs (e.g., physics-igcse, physics-as)"
+    },
+    {
+      "feature": "Bulk import - Topics",
+      "location": "src/app/(dashboard)/admin/subjects/page.tsx",
+      "description": "JSON import with subject-based unique slugs"
+    },
+    {
+      "feature": "Bulk import - Questions",
+      "location": "src/app/(dashboard)/admin/topical-questions/page.tsx",
+      "description": "JSON import with one-at-a-time insertion, timeout handling, download template"
+    },
+    {
+      "feature": "RLS fixes",
+      "description": "Fixed infinite recursion in classes RLS, subjects RLS for admin access"
+    }
+  ],
+  "pendingIssues": [
+    {
+      "issue": "Duplicate code constraint on subjects",
+      "status": "user-actionable",
+      "solution": "Run: ALTER TABLE subjects DROP CONSTRAINT IF EXISTS subjects_code_key;"
+    }
+  ],
+  "database": {
+    "provider": "Supabase",
+    "tables": ["subjects", "topics", "questions", "exam_boards", "classes", "users"],
+    "rlsStatus": {
+      "subjects": "disabled for admin",
+      "classes": "disabled",
+      "questions": "needs verification"
+    }
+  },
+  "techStack": {
+    "frontend": "Next.js 14, React, TypeScript, TailwindCSS, shadcn/ui",
+    "backend": "Supabase (PostgreSQL, Auth, Storage)",
+    "state": "React useState/useEffect"
+  },
+  "slugPatterns": {
+    "subjects": "{name}-{level}",
+    "topics": "{name}-{subject-slug}",
+    "questions": "N/A (uses UUID)"
+  }
+}

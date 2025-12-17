@@ -2,11 +2,14 @@
 
 import React, { useEffect, useState, use } from 'react';
 import Link from 'next/link';
-import { ChevronRight, BookOpen, Clock, BarChart3, Play, Download, FileText } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { ChevronRight, BookOpen, Clock, BarChart3, Play, Download, FileText, Building2, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { createClient } from '@/lib/supabase/client';
+
+import { getExamBoardById, getLevelById } from '@/lib/exam-boards';
 
 interface Topic {
   id: string;
@@ -32,6 +35,10 @@ export default function SubjectTopicalQuestionsPage({
   params: Promise<{ subject: string }>
 }) {
   const { subject: subjectSlug } = use(params);
+  const searchParams = useSearchParams();
+  const examBoard = searchParams.get('board') || 'cambridge';
+  const level = searchParams.get('level') || 'igcse';
+  
   const supabase = createClient();
   const [subject, setSubject] = useState<Subject | null>(null);
   const [topics, setTopics] = useState<Topic[]>([]);
@@ -41,12 +48,37 @@ export default function SubjectTopicalQuestionsPage({
 
   useEffect(() => {
     fetchData();
-  }, [subjectSlug]);
+  }, [subjectSlug, examBoard, level]);
 
   async function fetchData() {
     try {
       setIsLoading(true);
       
+      // First, get the exam_board_id from the exam_boards table if examBoard is provided
+      let examBoardId: string | null = null;
+      if (examBoard) {
+        // Map the URL param to database code
+        const codeMap: Record<string, string> = {
+          'cambridge': 'CIE',
+          'ib': 'IB',
+          'edexcel': 'EDEX',
+          'ocr': 'OCR',
+          'aqa': 'AQA',
+          'ap': 'AP'
+        };
+        const dbCode = codeMap[examBoard.toLowerCase()] || examBoard.toUpperCase();
+        
+        const { data: boardData } = await supabase
+          .from('exam_boards')
+          .select('id')
+          .eq('code', dbCode)
+          .single();
+        
+        if (boardData) {
+          examBoardId = boardData.id;
+        }
+      }
+
       // Fetch subject
       const { data: subjectData, error: subjectError } = await supabase
         .from('subjects')
@@ -59,12 +91,15 @@ export default function SubjectTopicalQuestionsPage({
       
       setSubject(subjectData);
 
-      // Fetch topics for this subject
-      const { data: topicsData, error: topicsError } = await supabase
+      // Fetch topics for this subject with optional exam board and level filters
+      let topicsQuery = supabase
         .from('topics')
         .select('*')
-        .eq('subject_id', subjectData.id)
-        .order('name', { ascending: true });
+        .eq('subject_id', subjectData.id);
+
+      // Note: exam_board_id and level filters will work after migration is applied
+      // For now, fetch all topics for the subject
+      const { data: topicsData, error: topicsError } = await topicsQuery.order('name', { ascending: true });
 
       if (topicsError) throw topicsError;
       setTopics(topicsData || []);
@@ -72,6 +107,7 @@ export default function SubjectTopicalQuestionsPage({
       // Fetch question counts per topic
       if (topicsData && topicsData.length > 0) {
         const topicIds = topicsData.map(t => t.id);
+        
         const { data: questionCounts, error: countError } = await supabase
           .from('questions')
           .select('topic_id')
@@ -118,6 +154,24 @@ export default function SubjectTopicalQuestionsPage({
         <span className="font-medium text-foreground">
           {isLoading ? <Skeleton className="h-4 w-24 inline-block" /> : subject?.name}
         </span>
+      </div>
+
+      {/* Exam Board & Level Display */}
+      <div className="flex flex-wrap items-center gap-3 mb-6">
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-card border rounded-lg">
+          <Building2 className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-medium">{getExamBoardById(examBoard)?.name || examBoard}</span>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-card border rounded-lg">
+          <GraduationCap className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-medium">{getLevelById(level)?.name || level}</span>
+        </div>
+        <Link 
+          href="/resources/topical-questions" 
+          className="text-sm text-primary hover:underline"
+        >
+          Change selection →
+        </Link>
       </div>
 
       {/* Header */}
