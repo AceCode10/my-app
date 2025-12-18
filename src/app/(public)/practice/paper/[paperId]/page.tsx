@@ -92,15 +92,35 @@ export default function PracticePaperPage({
     setIsStarting(true);
     setPracticeMode(mode);
     
-    if (mode === 'timed') {
-      // Redirect to timed exam player
-      router.push(`/practice/paper/${paperId}/exam`);
-    } else {
-      // For untimed mode, open the PDF in a new tab
-      const pdfUrl = paper?.question_paper_url || paper?.paper_url;
-      if (pdfUrl) {
-        window.open(pdfUrl, '_blank');
+    try {
+      // Check if user is authenticated
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        // Redirect to login if not authenticated
+        router.push(`/login?redirect=/practice/paper/${paperId}`);
+        return;
       }
+
+      // Create a new attempt
+      const { data: attempt, error } = await supabase
+        .from('assessment_attempts')
+        .insert({
+          user_id: user.id,
+          paper_id: paperId,
+          practice_mode: mode,
+          status: 'in_progress',
+          started_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Navigate to the practice session with uploaded questions
+      router.push(`/student/papers/${paperId}/practice?attempt=${attempt.id}`);
+    } catch (err: any) {
+      console.error('Error starting practice:', err);
       setIsStarting(false);
       setPracticeMode(null);
     }

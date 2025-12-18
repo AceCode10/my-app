@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
     LayoutDashboard, BookCopy, BarChart3, Trophy, Users, Settings, ChevronDown, 
-    LogOut, Filter, Search, PanelLeft,
+    LogOut, Filter, Search, PanelLeft, FileText,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -41,6 +41,7 @@ const mockStudentNotifications: Notification[] = [
 const navItems = [
     { href: '/student', label: 'Dashboard', icon: <LayoutDashboard /> },
     { href: '/student/subjects', label: 'Subjects', icon: <BookCopy /> },
+    { href: '/student/papers', label: 'Past Papers', icon: <FileText /> },
     { href: '/student/classes', label: 'My Classes', icon: <Users /> },
     { href: '/student/progress', label: 'Progress', icon: <BarChart3 /> },
     { href: '/student/leaderboard', label: 'Leaderboard', icon: <Trophy /> },

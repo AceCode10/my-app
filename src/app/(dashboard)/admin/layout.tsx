@@ -22,7 +22,8 @@ import {
   Upload,
   Shield,
   BookMarked,
-  Target
+  Target,
+  ClipboardCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -80,6 +81,12 @@ const navigation: NavItem[] = [
     label: 'Approvals',
     href: '/admin/approvals',
     icon: ClipboardList,
+    roles: ['super_admin', 'content_moderator']
+  },
+  {
+    label: 'Submissions',
+    href: '/admin/submissions',
+    icon: ClipboardCheck,
     roles: ['super_admin', 'content_moderator']
   },
   {

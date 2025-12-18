@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -15,8 +16,10 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Save, Loader2, Upload, CheckCircle, Eye } from 'lucide-react';
+import { ArrowLeft, Upload, Save, FileText, CheckCircle } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
+import { logUpdate } from '@/lib/audit';
+import { Loader2 } from 'lucide-react';
 
 const EXAM_BOARDS = ['CIE', 'Edexcel', 'AQA', 'OCR', 'IB', 'AP'];
 
@@ -49,19 +52,31 @@ const EXAM_BOARD_SERIES: Record<string, { code: string; name: string }[]> = {
   ],
 };
 
-const RESOURCE_TYPES = [
-  { code: 'question_paper', name: 'Question Paper' },
-  { code: 'mark_scheme', name: 'Mark Scheme' },
+// Optional additional resources (beyond QP and MS which are always required)
+const OPTIONAL_RESOURCES = [
   { code: 'insert', name: 'Insert/Source Booklet' },
-  { code: 'source_files', name: 'Source Files' },
   { code: 'examiner_report', name: 'Examiner Report' },
   { code: 'grade_thresholds', name: 'Grade Thresholds' },
   { code: 'specimen', name: 'Specimen Paper' },
-  { code: 'syllabus', name: 'Syllabus' },
 ];
 
 const LEVELS = ['igcse', 'olevel', 'alevel', 'aslevel'];
 const STATUSES = ['draft', 'pending', 'published', 'archived'];
+
+interface PaperComponent {
+  component_code: string;
+  component_name: string;
+  component_description?: string;
+  duration_minutes?: number;
+  total_marks?: number;
+  is_practical?: boolean;
+  has_source_files?: boolean;
+}
+
+interface SubjectResourceType {
+  resource_type: string;
+  is_available: boolean;
+}
 
 export default function EditPastPaperPage() {
   const supabase = createClient();
@@ -73,50 +88,76 @@ export default function EditPastPaperPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [subjects, setSubjects] = useState<any[]>([]);
+  const [paperComponents, setPaperComponents] = useState<PaperComponent[]>([]);
+  const [subjectResourceTypes, setSubjectResourceTypes] = useState<SubjectResourceType[]>([]);
   const [uploadProgress, setUploadProgress] = useState<{
-    paper?: number;
+    questionPaper?: number;
     markScheme?: number;
-    examinerReport?: number;
+    optionalResource?: number;
+    sourceFiles?: number;
   }>({});
 
   const [formData, setFormData] = useState({
-    title: '',
     exam_board: 'CIE',
     subject_id: '',
     year: new Date().getFullYear(),
-    session: 'mj',
+    session: 'mj', // Default to May/June
+    component_code: '',
     paper_number: '',
     variant: '',
     level: 'igcse',
-    resource_type: 'question_paper',
     duration_minutes: 0,
     total_marks: 0,
-    status: 'draft'
+    status: 'published' // Default to published for convenience
   });
 
   // Get available series for selected exam board
   const availableSeries = EXAM_BOARD_SERIES[formData.exam_board] || [];
 
+  // Selected optional resource type
+  const [optionalResourceType, setOptionalResourceType] = useState<string>('');
+
+  // Filter optional resources based on subject configuration
+  const availableOptionalResources = subjectResourceTypes.length > 0
+    ? OPTIONAL_RESOURCES.filter(rt => {
+        const config = subjectResourceTypes.find(srt => srt.resource_type === rt.code);
+        return !config || config.is_available;
+      })
+    : OPTIONAL_RESOURCES;
+
   const [files, setFiles] = useState<{
-    paper: File | null;
+    questionPaper: File | null;
     markScheme: File | null;
-    examinerReport: File | null;
+    optionalResource: File | null;
+    sourceFiles: File[] | null;
   }>({
-    paper: null,
+    questionPaper: null,
     markScheme: null,
-    examinerReport: null
+    optionalResource: null,
+    sourceFiles: null
   });
 
   const [uploadedUrls, setUploadedUrls] = useState<{
-    paper?: string;
+    questionPaper?: string;
     markScheme?: string;
-    examinerReport?: string;
+    optionalResource?: string;
+    sourceFiles?: string;
   }>({});
 
   useEffect(() => {
     fetchSubjects();
     fetchPaper();
   }, [paperId]);
+
+  // Fetch subject-specific configuration when subject or exam board changes
+  useEffect(() => {
+    if (formData.subject_id && formData.exam_board) {
+      fetchSubjectConfig(formData.subject_id, formData.exam_board);
+    } else {
+      setPaperComponents([]);
+      setSubjectResourceTypes([]);
+    }
+  }, [formData.subject_id, formData.exam_board]);
 
   async function fetchPaper() {
     try {
@@ -130,25 +171,31 @@ export default function EditPastPaperPage() {
 
       if (data) {
         setFormData({
-          title: data.title || '',
           exam_board: data.exam_board || 'CIE',
           subject_id: data.subject_id || '',
           year: data.year || new Date().getFullYear(),
           session: data.session || 'mj',
+          component_code: data.component_code || '',
           paper_number: data.paper_number || '',
           variant: data.variant || '',
           level: data.level || 'igcse',
-          resource_type: data.resource_type || 'question_paper',
           duration_minutes: data.duration_minutes || 0,
           total_marks: data.total_marks || 0,
-          status: data.status || 'draft'
+          status: data.status || 'published'
         });
 
         setUploadedUrls({
-          paper: data.paper_url,
+          questionPaper: data.question_paper_url || data.paper_url,
           markScheme: data.mark_scheme_url || undefined,
-          examinerReport: data.examiner_report_url || undefined
+          optionalResource: data.insert_url || data.examiner_report_url || data.grade_thresholds_url || data.specimen_url || undefined,
+          sourceFiles: data.source_files_url || undefined
         });
+
+        // Determine which optional resource type is set
+        if (data.insert_url) setOptionalResourceType('insert');
+        else if (data.examiner_report_url) setOptionalResourceType('examiner_report');
+        else if (data.grade_thresholds_url) setOptionalResourceType('grade_thresholds');
+        else if (data.specimen_url) setOptionalResourceType('specimen');
       }
     } catch (error: any) {
       console.error('Error fetching paper:', error);
@@ -173,20 +220,63 @@ export default function EditPastPaperPage() {
     setSubjects(data || []);
   }
 
-  async function uploadFile(file: File, type: 'paper' | 'markScheme' | 'examinerReport') {
+  async function fetchSubjectConfig(subjectId: string, examBoard: string) {
+    // Fetch paper components for this subject
+    const { data: components } = await supabase
+      .from('subject_paper_components')
+      .select('component_code, component_name, component_description, duration_minutes, total_marks, is_practical, has_source_files')
+      .eq('subject_id', subjectId)
+      .eq('exam_board', examBoard)
+      .order('display_order');
+    
+    setPaperComponents(components || []);
+
+    // Fetch resource type availability for this subject
+    const { data: resourceTypes } = await supabase
+      .from('subject_resource_types')
+      .select('resource_type, is_available')
+      .eq('subject_id', subjectId)
+      .eq('exam_board', examBoard);
+    
+    setSubjectResourceTypes(resourceTypes || []);
+
+    // If we have components and none is selected, select the first one
+    if (components && components.length > 0 && !formData.component_code) {
+      const firstComponent = components[0];
+      setFormData(prev => ({
+        ...prev,
+        component_code: firstComponent.component_code,
+        paper_number: `Paper ${firstComponent.component_code}`,
+        duration_minutes: firstComponent.duration_minutes || prev.duration_minutes,
+        total_marks: firstComponent.total_marks || prev.total_marks
+      }));
+    }
+  }
+
+  async function uploadFile(file: File, type: 'questionPaper' | 'markScheme' | 'optionalResource' | 'sourceFiles') {
     try {
       const fileExt = file.name.split('.').pop();
       const timestamp = Date.now();
       const randomId = Math.random().toString(36).substring(7);
       
-      // Create organized file path: year/subject/type-timestamp-random.pdf
+      // Create organized file path: year/subject/component/type-timestamp-random.ext
       const year = formData.year || new Date().getFullYear();
       const subjectSlug = formData.subject_id ? 'subject' : 'general';
-      const typePrefix = type === 'paper' ? 'qp' : type === 'markScheme' ? 'ms' : 'er';
+      const component = formData.component_code || 'p1';
+      
+      // Type prefix based on file type
+      let typePrefix = 'qp';
+      if (type === 'markScheme') typePrefix = 'ms';
+      else if (type === 'optionalResource') typePrefix = optionalResourceType || 'other';
+      else if (type === 'sourceFiles') typePrefix = 'src';
+      
       const fileName = `${typePrefix}-${timestamp}-${randomId}.${fileExt}`;
-      const filePath = `${year}/${subjectSlug}/${fileName}`;
+      const filePath = `${year}/${subjectSlug}/${component}/${fileName}`;
 
       setUploadProgress(prev => ({ ...prev, [type]: 0 }));
+
+      // Determine content type
+      const contentType = file.type || 'application/octet-stream';
 
       // Upload to Supabase Storage
       const { data, error } = await supabase.storage
@@ -194,10 +284,11 @@ export default function EditPastPaperPage() {
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: false,
-          contentType: 'application/pdf'
+          contentType
         });
 
       if (error) {
+        // If bucket doesn't exist, show helpful error
         if (error.message.includes('Bucket not found') || error.message.includes('bucket')) {
           throw new Error('Storage bucket "past-papers" not configured. Please create it in Supabase Dashboard.');
         }
@@ -222,10 +313,50 @@ export default function EditPastPaperPage() {
     }
   }
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>, type: 'paper' | 'markScheme' | 'examinerReport') {
+  async function uploadSourceFilesZip(file: File) {
+    try {
+      const year = formData.year || new Date().getFullYear();
+      const subjectSlug = formData.subject_id ? 'subject' : 'general';
+      const component = formData.component_code || 'p1';
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(7);
+      const fileName = `source-files-${timestamp}-${randomId}.zip`;
+      const filePath = `${year}/${subjectSlug}/${component}/${fileName}`;
+
+      setUploadProgress(prev => ({ ...prev, sourceFiles: 0 }));
+
+      const { error } = await supabase.storage
+        .from('past-papers')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: 'application/zip'
+        });
+
+      if (error) throw error;
+
+      const { data: urlData } = supabase.storage
+        .from('past-papers')
+        .getPublicUrl(filePath);
+
+      setUploadProgress(prev => ({ ...prev, sourceFiles: 100 }));
+      setUploadedUrls(prev => ({ ...prev, sourceFiles: urlData.publicUrl }));
+      return urlData.publicUrl;
+    } catch (error: any) {
+      console.error('Error uploading source files:', error);
+      setUploadProgress(prev => ({ ...prev, sourceFiles: 0 }));
+      throw error;
+    }
+  }
+
+  async function handleFileChange(
+    e: React.ChangeEvent<HTMLInputElement>, 
+    type: 'questionPaper' | 'markScheme' | 'optionalResource'
+  ) {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validate file type
     if (file.type !== 'application/pdf') {
       toast({
         variant: 'destructive',
@@ -235,6 +366,7 @@ export default function EditPastPaperPage() {
       return;
     }
 
+    // Validate file size (max 50MB)
     if (file.size > 50 * 1024 * 1024) {
       toast({
         variant: 'destructive',
@@ -246,17 +378,69 @@ export default function EditPastPaperPage() {
 
     setFiles(prev => ({ ...prev, [type]: file }));
 
+    // Auto-upload
     try {
-      await uploadFile(file, type);
+      const url = await uploadFile(file, type);
+      console.log(`Upload successful for ${type}:`, url);
+      const typeNames: Record<string, string> = {
+        questionPaper: 'Question Paper',
+        markScheme: 'Mark Scheme',
+        optionalResource: OPTIONAL_RESOURCES.find(r => r.code === optionalResourceType)?.name || 'Resource'
+      };
       toast({
         title: 'Success',
-        description: `${type === 'paper' ? 'Paper' : type === 'markScheme' ? 'Mark scheme' : 'Examiner report'} uploaded successfully`
+        description: `${typeNames[type]} uploaded successfully`
+      });
+    } catch (error: any) {
+      console.error(`Upload failed for ${type}:`, error);
+      toast({
+        variant: 'destructive',
+        title: 'Upload failed',
+        description: error.message || 'Failed to upload file. Please try again.'
+      });
+    }
+  }
+
+  async function handleSourceFilesChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const fileList = e.target.files;
+    if (!fileList || fileList.length === 0) return;
+
+    const file = fileList[0];
+    
+    // Validate ZIP file
+    if (!file.name.endsWith('.zip') && file.type !== 'application/zip' && file.type !== 'application/x-zip-compressed') {
+      toast({
+        variant: 'destructive',
+        title: 'Invalid file type',
+        description: 'Please upload a ZIP file containing the source files'
+      });
+      return;
+    }
+
+    // Validate file size (max 100MB for ZIP)
+    if (file.size > 100 * 1024 * 1024) {
+      toast({
+        variant: 'destructive',
+        title: 'File too large',
+        description: 'Please upload a ZIP file smaller than 100MB'
+      });
+      return;
+    }
+
+    setFiles(prev => ({ ...prev, sourceFiles: [file] }));
+
+    // Auto-upload ZIP
+    try {
+      await uploadSourceFilesZip(file);
+      toast({
+        title: 'Success',
+        description: 'Source files ZIP uploaded successfully'
       });
     } catch (error) {
       toast({
         variant: 'destructive',
         title: 'Upload failed',
-        description: 'Failed to upload file. Please try again.'
+        description: 'Failed to upload source files. Please try again.'
       });
     }
   }
@@ -264,11 +448,20 @@ export default function EditPastPaperPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    if (!uploadedUrls.paper) {
+    if (!uploadedUrls.questionPaper) {
       toast({
         variant: 'destructive',
         title: 'Missing file',
-        description: 'Please upload the exam paper PDF'
+        description: 'Please upload the Question Paper PDF'
+      });
+      return;
+    }
+
+    if (!uploadedUrls.markScheme) {
+      toast({
+        variant: 'destructive',
+        title: 'Missing file',
+        description: 'Please upload the Mark Scheme PDF'
       });
       return;
     }
@@ -276,22 +469,33 @@ export default function EditPastPaperPage() {
     setSaving(true);
 
     try {
+      // Auto-generate title from form fields
+      const subjectName = subjects.find(s => s.id === formData.subject_id)?.name || 'Unknown Subject';
+      const seriesName = availableSeries.find(s => s.code === formData.session)?.name || formData.session;
+      const paperName = formData.paper_number || `Paper ${formData.component_code}`;
+      const variantText = formData.variant ? ` Variant ${formData.variant}` : '';
+      const generatedTitle = `${subjectName} ${paperName}${variantText} - ${seriesName} ${formData.year}`;
+
       const paperData = {
-        title: formData.title,
+        title: generatedTitle,
         exam_board: formData.exam_board,
         subject_id: formData.subject_id || null,
         year: formData.year,
         session: formData.session || null,
+        component_code: formData.component_code || null,
         paper_number: formData.paper_number || null,
         variant: formData.variant || null,
         level: formData.level || null,
-        resource_type: formData.resource_type || 'question_paper',
         duration_minutes: formData.duration_minutes || null,
         total_marks: formData.total_marks || null,
-        paper_url: uploadedUrls.paper,
-        question_paper_url: uploadedUrls.paper,
+        paper_url: uploadedUrls.questionPaper,
+        question_paper_url: uploadedUrls.questionPaper,
         mark_scheme_url: uploadedUrls.markScheme || null,
-        examiner_report_url: uploadedUrls.examinerReport || null,
+        insert_url: optionalResourceType === 'insert' ? uploadedUrls.optionalResource : null,
+        examiner_report_url: optionalResourceType === 'examiner_report' ? uploadedUrls.optionalResource : null,
+        grade_thresholds_url: optionalResourceType === 'grade_thresholds' ? uploadedUrls.optionalResource : null,
+        specimen_url: optionalResourceType === 'specimen' ? uploadedUrls.optionalResource : null,
+        source_files_url: uploadedUrls.sourceFiles || null,
         status: formData.status
       };
 
@@ -301,6 +505,19 @@ export default function EditPastPaperPage() {
         .eq('id', paperId);
 
       if (error) throw error;
+
+      // Log the update in audit logs
+      await logUpdate(
+        'past_paper',
+        paperId,
+        generatedTitle,
+        {
+          exam_board: formData.exam_board,
+          year: formData.year,
+          paper_number: formData.paper_number,
+          status: formData.status
+        }
+      );
 
       toast({
         title: 'Success',
@@ -330,38 +547,33 @@ export default function EditPastPaperPage() {
 
   return (
     <div className="space-y-6 max-w-4xl">
+      {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={() => router.back()}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => router.back()}
+        >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
         </Button>
         <div>
           <h1 className="text-3xl font-bold text-foreground">Edit Past Paper</h1>
           <p className="text-muted-foreground mt-1">
-            Update past paper details
+            Update past paper details and files
           </p>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Paper Details */}
         <Card>
           <CardHeader>
-            <CardTitle>Basic Information</CardTitle>
-            <CardDescription>Enter the paper details</CardDescription>
+            <CardTitle>Paper Details</CardTitle>
+            <CardDescription>Select the exam board, subject, year, series, and paper component</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="title">Paper Title *</Label>
-              <Input
-                id="title"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                placeholder="e.g., IGCSE Mathematics Paper 1 - May/June 2023"
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="exam_board">Exam Board *</Label>
                 <Select
@@ -385,7 +597,26 @@ export default function EditPastPaperPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="subject">Subject</Label>
+                <Label htmlFor="level">Level *</Label>
+                <Select
+                  value={formData.level}
+                  onValueChange={(value) => setFormData({ ...formData, level: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LEVELS.map(level => (
+                      <SelectItem key={level} value={level}>
+                        {level.toUpperCase()}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="subject">Subject *</Label>
                 <Select
                   value={formData.subject_id}
                   onValueChange={(value) => setFormData({ ...formData, subject_id: value })}
@@ -428,7 +659,7 @@ export default function EditPastPaperPage() {
                     <SelectValue placeholder="Select series" />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableSeries.map((series: { code: string; name: string }) => (
+                    {availableSeries.map(series => (
                       <SelectItem key={series.code} value={series.code}>
                         {series.name}
                       </SelectItem>
@@ -438,13 +669,48 @@ export default function EditPastPaperPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="paper_number">Paper Number</Label>
-                <Input
-                  id="paper_number"
-                  value={formData.paper_number}
-                  onChange={(e) => setFormData({ ...formData, paper_number: e.target.value })}
-                  placeholder="e.g., Paper 1"
-                />
+                <Label htmlFor="component">Paper Component *</Label>
+                {paperComponents.length > 0 ? (
+                  <Select
+                    value={formData.component_code}
+                    onValueChange={(value) => {
+                      const component = paperComponents.find(c => c.component_code === value);
+                      setFormData({ 
+                        ...formData, 
+                        component_code: value,
+                        paper_number: component?.component_name || `Paper ${value}`,
+                        duration_minutes: component?.duration_minutes || formData.duration_minutes,
+                        total_marks: component?.total_marks || formData.total_marks
+                      });
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select paper" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {paperComponents.map(comp => (
+                        <SelectItem key={comp.component_code} value={comp.component_code}>
+                          {comp.component_name}
+                          {comp.component_description && (
+                            <span className="text-muted-foreground ml-1">({comp.component_description})</span>
+                          )}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    id="paper_number"
+                    value={formData.paper_number}
+                    onChange={(e) => setFormData({ ...formData, paper_number: e.target.value, component_code: e.target.value })}
+                    placeholder="e.g., Paper 1"
+                  />
+                )}
+                {paperComponents.length === 0 && formData.subject_id && (
+                  <p className="text-xs text-muted-foreground">
+                    No paper components configured for this subject. Enter manually.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -455,46 +721,6 @@ export default function EditPastPaperPage() {
                   onChange={(e) => setFormData({ ...formData, variant: e.target.value })}
                   placeholder="e.g., Variant 1"
                 />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="level">Level</Label>
-                <Select
-                  value={formData.level}
-                  onValueChange={(value) => setFormData({ ...formData, level: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {LEVELS.map(level => (
-                      <SelectItem key={level} value={level}>
-                        {level.toUpperCase()}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="resource_type">Resource Type *</Label>
-                <Select
-                  value={formData.resource_type}
-                  onValueChange={(value) => setFormData({ ...formData, resource_type: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {RESOURCE_TYPES.map(type => (
-                      <SelectItem key={type.code} value={type.code}>
-                        {type.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
             </div>
 
@@ -526,50 +752,45 @@ export default function EditPastPaperPage() {
           </CardContent>
         </Card>
 
+        {/* File Uploads */}
         <Card>
           <CardHeader>
             <CardTitle>File Uploads</CardTitle>
-            <CardDescription>Upload or replace PDF files (max 50MB each)</CardDescription>
+            <CardDescription>Upload PDF files (max 50MB each). Question Paper and Mark Scheme are required.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Exam Paper */}
+            {/* Question Paper - Required */}
             <div className="space-y-3">
-              <Label htmlFor="paper-file">Exam Paper (PDF) *</Label>
+              <Label htmlFor="qp-file" className="flex items-center gap-2">
+                Question Paper (PDF) <span className="text-destructive">*</span>
+              </Label>
               <div className="flex items-center gap-4">
                 <Input
-                  id="paper-file"
+                  id="qp-file"
                   type="file"
                   accept=".pdf"
-                  onChange={(e) => handleFileChange(e, 'paper')}
+                  onChange={(e) => handleFileChange(e, 'questionPaper')}
                   className="flex-1"
                 />
-                {uploadedUrls.paper && (
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => window.open(uploadedUrls.paper, '_blank')}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                  </div>
+                {uploadedUrls.questionPaper && (
+                  <CheckCircle className="h-5 w-5 text-green-500" />
                 )}
               </div>
-              {uploadProgress.paper !== undefined && uploadProgress.paper < 100 && (
-                <Progress value={uploadProgress.paper} className="h-2" />
+              {uploadProgress.questionPaper !== undefined && uploadProgress.questionPaper < 100 && (
+                <Progress value={uploadProgress.questionPaper} className="h-2" />
               )}
-              {files.paper && (
+              {files.questionPaper && (
                 <p className="text-sm text-muted-foreground">
-                  {files.paper.name} ({(files.paper.size / 1024 / 1024).toFixed(2)} MB)
+                  {files.questionPaper.name} ({(files.questionPaper.size / 1024 / 1024).toFixed(2)} MB)
                 </p>
               )}
             </div>
 
-            {/* Mark Scheme */}
+            {/* Mark Scheme - Required */}
             <div className="space-y-3">
-              <Label htmlFor="ms-file">Mark Scheme (PDF)</Label>
+              <Label htmlFor="ms-file" className="flex items-center gap-2">
+                Mark Scheme (PDF) <span className="text-destructive">*</span>
+              </Label>
               <div className="flex items-center gap-4">
                 <Input
                   id="ms-file"
@@ -579,17 +800,7 @@ export default function EditPastPaperPage() {
                   className="flex-1"
                 />
                 {uploadedUrls.markScheme && (
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => window.open(uploadedUrls.markScheme, '_blank')}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  <CheckCircle className="h-5 w-5 text-green-500" />
                 )}
               </div>
               {uploadProgress.markScheme !== undefined && uploadProgress.markScheme < 100 && (
@@ -602,43 +813,110 @@ export default function EditPastPaperPage() {
               )}
             </div>
 
-            {/* Examiner Report */}
-            <div className="space-y-3">
-              <Label htmlFor="er-file">Examiner Report (PDF)</Label>
-              <div className="flex items-center gap-4">
-                <Input
-                  id="er-file"
-                  type="file"
-                  accept=".pdf"
-                  onChange={(e) => handleFileChange(e, 'examinerReport')}
-                  className="flex-1"
-                />
-                {uploadedUrls.examinerReport && (
+            {/* Optional Additional Resource */}
+            <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
+              <Label className="text-base font-medium">Additional Resource (Optional)</Label>
+              <p className="text-sm text-muted-foreground mb-3">
+                Select a resource type and upload the corresponding file.
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="optional-type">Resource Type</Label>
+                  <Select
+                    value={optionalResourceType}
+                    onValueChange={setOptionalResourceType}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableOptionalResources.map(type => (
+                        <SelectItem key={type.code} value={type.code}>
+                          {type.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="optional-file">File (PDF)</Label>
                   <div className="flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => window.open(uploadedUrls.examinerReport, '_blank')}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
+                    <Input
+                      id="optional-file"
+                      type="file"
+                      accept=".pdf"
+                      disabled={!optionalResourceType}
+                      onChange={(e) => handleFileChange(e, 'optionalResource')}
+                      className="flex-1"
+                    />
+                    {uploadedUrls.optionalResource && (
+                      <CheckCircle className="h-5 w-5 text-green-500" />
+                    )}
                   </div>
-                )}
+                </div>
               </div>
-              {uploadProgress.examinerReport !== undefined && uploadProgress.examinerReport < 100 && (
-                <Progress value={uploadProgress.examinerReport} className="h-2" />
+              {uploadProgress.optionalResource !== undefined && uploadProgress.optionalResource < 100 && (
+                <Progress value={uploadProgress.optionalResource} className="h-2" />
               )}
-              {files.examinerReport && (
+              {files.optionalResource && (
                 <p className="text-sm text-muted-foreground">
-                  {files.examinerReport.name} ({(files.examinerReport.size / 1024 / 1024).toFixed(2)} MB)
+                  {files.optionalResource.name} ({(files.optionalResource.size / 1024 / 1024).toFixed(2)} MB)
                 </p>
               )}
             </div>
+
+            {/* Source Files ZIP - Optional */}
+            <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
+              <Label className="text-base font-medium">Source Files ZIP (Optional)</Label>
+              <p className="text-sm text-muted-foreground mb-3">
+                For practical exams (e.g., Computer Science, ICT), upload a ZIP file with pre-release materials or data files. Max 100MB.
+              </p>
+              <div className="flex items-center gap-4">
+                <Input
+                  id="source-files"
+                  type="file"
+                  accept=".zip,application/zip,application/x-zip-compressed"
+                  onChange={handleSourceFilesChange}
+                  className="flex-1"
+                />
+                {uploadedUrls.sourceFiles && (
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                )}
+              </div>
+              {uploadProgress.sourceFiles !== undefined && uploadProgress.sourceFiles < 100 && (
+                <Progress value={uploadProgress.sourceFiles} className="h-2" />
+              )}
+              {files.sourceFiles && files.sourceFiles.length > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  {files.sourceFiles[0].name} ({(files.sourceFiles[0].size / 1024 / 1024).toFixed(2)} MB)
+                </p>
+              )}
+            </div>
+
+            <div className="p-4 bg-muted rounded-lg">
+              <p className="text-sm text-muted-foreground">
+                <strong>Note:</strong> Files are uploaded immediately when selected. 
+                Question Paper and Mark Scheme are required before saving.
+              </p>
+            </div>
+
+            {/* Debug: Upload Status */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200 mb-2">Debug: Upload Status</p>
+                <ul className="text-xs text-yellow-700 dark:text-yellow-300 space-y-1">
+                  <li>Question Paper: {uploadedUrls.questionPaper ? '✅ Uploaded' : '❌ Not uploaded'}</li>
+                  <li>Mark Scheme: {uploadedUrls.markScheme ? '✅ Uploaded' : '❌ Not uploaded'}</li>
+                  <li>Optional Resource: {uploadedUrls.optionalResource ? '✅ Uploaded' : '⚪ Not set'}</li>
+                  <li>Source Files: {uploadedUrls.sourceFiles ? '✅ Uploaded' : '⚪ Not set'}</li>
+                  <li>Button Enabled: {!loading && uploadedUrls.questionPaper && uploadedUrls.markScheme ? '✅ Yes' : '❌ No'}</li>
+                </ul>
+              </div>
+            )}
           </CardContent>
         </Card>
 
+        {/* Status */}
         <Card>
           <CardHeader>
             <CardTitle>Publication Status</CardTitle>
@@ -666,12 +944,39 @@ export default function EditPastPaperPage() {
           </CardContent>
         </Card>
 
+        {/* Manage Questions */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Paper Questions</CardTitle>
+            <CardDescription>Add and manage individual questions for this paper</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.push(`/admin/papers/${paperId}/questions`)}
+              className="w-full"
+            >
+              <FileText className="mr-2 h-4 w-4" />
+              Manage Paper Questions
+            </Button>
+            <p className="text-sm text-muted-foreground mt-2">
+              Add questions to enable interactive full paper practice for students
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Actions */}
         <div className="flex items-center gap-4">
-          <Button type="submit" disabled={saving || !uploadedUrls.paper}>
+          <Button type="submit" disabled={saving || !uploadedUrls.questionPaper || !uploadedUrls.markScheme}>
             <Save className="mr-2 h-4 w-4" />
             {saving ? 'Saving...' : 'Save Changes'}
           </Button>
-          <Button type="button" variant="outline" onClick={() => router.back()}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.back()}
+          >
             Cancel
           </Button>
         </div>

@@ -198,11 +198,19 @@ export default function SubjectPastPapersPage({
     })
     .map(group => ({
       ...group,
-      // Sort papers by component_code numerically, then by paper_number
+      // Sort papers by component_code numerically, then by variant numerically
       papers: group.papers.sort((a, b) => {
+        // First sort by component code (e.g., 1, 2, 3, 4)
         const aCode = parseInt(a.component_code || '0') || 0;
         const bCode = parseInt(b.component_code || '0') || 0;
         if (aCode !== bCode) return aCode - bCode;
+        
+        // Then sort by variant (e.g., 11, 12, 13 or 1, 2, 3)
+        const aVariant = parseInt(a.variant || '0') || 0;
+        const bVariant = parseInt(b.variant || '0') || 0;
+        if (aVariant !== bVariant) return aVariant - bVariant;
+        
+        // Finally by paper_number as fallback
         return (a.paper_number || '').localeCompare(b.paper_number || '');
       })
     }));
@@ -253,10 +261,10 @@ export default function SubjectPastPapersPage({
             <h1 className="text-3xl font-extrabold text-foreground">
               {subject?.name} Past Papers
             </h1>
-            <p className="text-muted-foreground mt-2">
-              {subject?.code && <Badge variant="outline" className="mr-2">{subject.code}</Badge>}
-              Download question papers and mark schemes for {subject?.name}
-            </p>
+            <div className="text-muted-foreground mt-2 flex items-center flex-wrap gap-2">
+              {subject?.code && <Badge variant="outline">{subject.code}</Badge>}
+              <span>Download question papers and mark schemes for {subject?.name}</span>
+            </div>
           </>
         )}
       </div>
@@ -497,17 +505,16 @@ export default function SubjectPastPapersPage({
                         </a>
                       )}
 
-                      {/* Source Files (if available) */}
+                      {/* Source Files ZIP (if available) - auto-download on click */}
                       {paper.source_files_url && (
                         <a 
                           href={paper.source_files_url} 
-                          target="_blank"
-                          rel="noopener noreferrer"
+                          download
                           className="flex justify-between items-center bg-muted/50 p-3 rounded-lg hover:bg-muted transition-colors"
                         >
                           <div className="flex items-center gap-3">
                             <FileArchive className="w-5 h-5 text-orange-500" />
-                            <span className="text-sm font-medium text-foreground">Source Files</span>
+                            <span className="text-sm font-medium text-foreground">Source Files (ZIP)</span>
                           </div>
                           <Download className="w-4 h-4 text-muted-foreground" />
                         </a>

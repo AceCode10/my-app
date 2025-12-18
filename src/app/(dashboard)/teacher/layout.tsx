@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/sidebar"
 import {
     LayoutDashboard, Users, BarChart3, Edit, Settings, ChevronDown, 
-    LogOut, Filter, Search, BookOpen, Layers, PanelLeft,
+    LogOut, Filter, Search, BookOpen, Layers, PanelLeft, ClipboardCheck,
 } from 'lucide-react';
 import { useUser } from '@/hooks/use-user';
 import { useSidebar } from '@/components/ui/sidebar';
@@ -54,6 +54,7 @@ const AppSidebar = () => {
     const navItems = [
         { href: '/teacher', label: 'Dashboard', icon: <LayoutDashboard /> },
         { href: '/teacher/classes', label: 'My Classes', icon: <Users /> },
+        { href: '/teacher/submissions', label: 'Submissions', icon: <ClipboardCheck /> },
         { href: '/teacher/notes', label: 'My Notes', icon: <BookOpen /> },
         { href: '/teacher/assessments', label: 'Assessments', icon: <Edit /> },
         { href: '/teacher/flashcards', label: 'Flashcards', icon: <Layers /> },

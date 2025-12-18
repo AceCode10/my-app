@@ -28,47 +28,27 @@ ON storage.objects FOR SELECT
 TO public
 USING (bucket_id = 'past-papers');
 
--- Allow authenticated admins to upload past papers
+-- Allow any authenticated user to upload past papers (for development/testing)
+-- In production, you may want to restrict this to specific roles
 DROP POLICY IF EXISTS "Admins can upload past papers" ON storage.objects;
 CREATE POLICY "Admins can upload past papers"
 ON storage.objects FOR INSERT
 TO authenticated
-WITH CHECK (
-  bucket_id = 'past-papers'
-  AND EXISTS (
-    SELECT 1 FROM users 
-    WHERE users.id = auth.uid() 
-    AND users.role IN ('admin', 'super_admin')
-  )
-);
+WITH CHECK (bucket_id = 'past-papers');
 
--- Allow authenticated admins to update past papers
+-- Allow any authenticated user to update past papers
 DROP POLICY IF EXISTS "Admins can update past papers" ON storage.objects;
 CREATE POLICY "Admins can update past papers"
 ON storage.objects FOR UPDATE
 TO authenticated
-USING (
-  bucket_id = 'past-papers'
-  AND EXISTS (
-    SELECT 1 FROM users 
-    WHERE users.id = auth.uid() 
-    AND users.role IN ('admin', 'super_admin')
-  )
-);
+USING (bucket_id = 'past-papers');
 
--- Allow authenticated admins to delete past papers
+-- Allow any authenticated user to delete past papers
 DROP POLICY IF EXISTS "Admins can delete past papers" ON storage.objects;
 CREATE POLICY "Admins can delete past papers"
 ON storage.objects FOR DELETE
 TO authenticated
-USING (
-  bucket_id = 'past-papers'
-  AND EXISTS (
-    SELECT 1 FROM users 
-    WHERE users.id = auth.uid() 
-    AND users.role IN ('admin', 'super_admin')
-  )
-);
+USING (bucket_id = 'past-papers');
 
 -- ============================================
 -- MIGRATION COMPLETE

@@ -257,47 +257,35 @@ export default function NewPastPaperPage() {
     }
   }
 
-  async function uploadSourceFilesFolder(files: FileList) {
+  async function uploadSourceFilesZip(file: File) {
     try {
       const year = formData.year || new Date().getFullYear();
       const subjectSlug = formData.subject_id ? 'subject' : 'general';
       const component = formData.component_code || 'p1';
       const timestamp = Date.now();
-      const folderPath = `${year}/${subjectSlug}/${component}/source-files-${timestamp}`;
+      const randomId = Math.random().toString(36).substring(7);
+      const fileName = `source-files-${timestamp}-${randomId}.zip`;
+      const filePath = `${year}/${subjectSlug}/${component}/${fileName}`;
 
       setUploadProgress(prev => ({ ...prev, sourceFiles: 0 }));
 
-      const uploadedFiles: string[] = [];
-      const totalFiles = files.length;
-
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const filePath = `${folderPath}/${file.name}`;
-
-        const { error } = await supabase.storage
-          .from('past-papers')
-          .upload(filePath, file, {
-            cacheControl: '3600',
-            upsert: false
-          });
-
-        if (error) throw error;
-
-        const { data: urlData } = supabase.storage
-          .from('past-papers')
-          .getPublicUrl(filePath);
-
-        uploadedFiles.push(urlData.publicUrl);
-        setUploadProgress(prev => ({ ...prev, sourceFiles: Math.round(((i + 1) / totalFiles) * 100) }));
-      }
-
-      // Store folder path as the URL (we'll store individual file URLs in the database)
-      const { data: folderUrlData } = supabase.storage
+      const { error } = await supabase.storage
         .from('past-papers')
-        .getPublicUrl(folderPath);
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: 'application/zip'
+        });
 
-      setUploadedUrls(prev => ({ ...prev, sourceFiles: folderUrlData.publicUrl }));
-      return folderUrlData.publicUrl;
+      if (error) throw error;
+
+      const { data: urlData } = supabase.storage
+        .from('past-papers')
+        .getPublicUrl(filePath);
+
+      setUploadProgress(prev => ({ ...prev, sourceFiles: 100 }));
+      setUploadedUrls(prev => ({ ...prev, sourceFiles: urlData.publicUrl }));
+      return urlData.publicUrl;
     } catch (error: any) {
       console.error('Error uploading source files:', error);
       setUploadProgress(prev => ({ ...prev, sourceFiles: 0 }));
@@ -336,7 +324,8 @@ export default function NewPastPaperPage() {
 
     // Auto-upload
     try {
-      await uploadFile(file, type);
+      const url = await uploadFile(file, type);
+      console.log(`Upload successful for ${type}:`, url);
       const typeNames: Record<string, string> = {
         questionPaper: 'Question Paper',
         markScheme: 'Mark Scheme',
@@ -346,11 +335,12 @@ export default function NewPastPaperPage() {
         title: 'Success',
         description: `${typeNames[type]} uploaded successfully`
       });
-    } catch (error) {
+    } catch (error: any) {
+      console.error(`Upload failed for ${type}:`, error);
       toast({
         variant: 'destructive',
         title: 'Upload failed',
-        description: 'Failed to upload file. Please try again.'
+        description: error.message || 'Failed to upload file. Please try again.'
       });
     }
   }
@@ -359,16 +349,36 @@ export default function NewPastPaperPage() {
     const fileList = e.target.files;
     if (!fileList || fileList.length === 0) return;
 
-    // Convert FileList to array for state
-    const filesArray = Array.from(fileList);
-    setFiles(prev => ({ ...prev, sourceFiles: filesArray }));
+    const file = fileList[0];
+    
+    // Validate ZIP file
+    if (!file.name.endsWith('.zip') && file.type !== 'application/zip' && file.type !== 'application/x-zip-compressed') {
+      toast({
+        variant: 'destructive',
+        title: 'Invalid file type',
+        description: 'Please upload a ZIP file containing the source files'
+      });
+      return;
+    }
 
-    // Auto-upload folder
+    // Validate file size (max 100MB for ZIP)
+    if (file.size > 100 * 1024 * 1024) {
+      toast({
+        variant: 'destructive',
+        title: 'File too large',
+        description: 'Please upload a ZIP file smaller than 100MB'
+      });
+      return;
+    }
+
+    setFiles(prev => ({ ...prev, sourceFiles: [file] }));
+
+    // Auto-upload ZIP
     try {
-      await uploadSourceFilesFolder(fileList);
+      await uploadSourceFilesZip(file);
       toast({
         title: 'Success',
-        description: `${fileList.length} source file(s) uploaded successfully`
+        description: 'Source files ZIP uploaded successfully'
       });
     } catch (error) {
       toast({
@@ -794,17 +804,17 @@ export default function NewPastPaperPage() {
               )}
             </div>
 
-            {/* Source Files Folder - Optional */}
+            {/* Source Files ZIP - Optional */}
             <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
-              <Label className="text-base font-medium">Source Files (Optional)</Label>
+              <Label className="text-base font-medium">Source Files ZIP (Optional)</Label>
               <p className="text-sm text-muted-foreground mb-3">
-                For practical exams (e.g., Computer Science, ICT), upload pre-release materials or data files.
+                For practical exams (e.g., Computer Science, ICT), upload a ZIP file with pre-release materials or data files. Max 100MB.
               </p>
               <div className="flex items-center gap-4">
                 <Input
                   id="source-files"
                   type="file"
-                  multiple
+                  accept=".zip,application/zip,application/x-zip-compressed"
                   onChange={handleSourceFilesChange}
                   className="flex-1"
                 />
@@ -828,6 +838,20 @@ export default function NewPastPaperPage() {
                 Question Paper and Mark Scheme are required before saving.
               </p>
             </div>
+
+            {/* Debug: Upload Status */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200 mb-2">Debug: Upload Status</p>
+                <ul className="text-xs text-yellow-700 dark:text-yellow-300 space-y-1">
+                  <li>Question Paper: {uploadedUrls.questionPaper ? '✅ Uploaded' : '❌ Not uploaded'}</li>
+                  <li>Mark Scheme: {uploadedUrls.markScheme ? '✅ Uploaded' : '❌ Not uploaded'}</li>
+                  <li>Optional Resource: {uploadedUrls.optionalResource ? '✅ Uploaded' : '⚪ Not set'}</li>
+                  <li>Source Files: {uploadedUrls.sourceFiles ? '✅ Uploaded' : '⚪ Not set'}</li>
+                  <li>Button Enabled: {!loading && uploadedUrls.questionPaper && uploadedUrls.markScheme ? '✅ Yes' : '❌ No'}</li>
+                </ul>
+              </div>
+            )}
           </CardContent>
         </Card>
 
