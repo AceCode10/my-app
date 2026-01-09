@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import type { User } from '@supabase/supabase-js';
 
 interface UserProfile {
   id: string;
@@ -12,62 +11,51 @@ interface UserProfile {
   role: 'student' | 'teacher' | 'content_moderator' | 'super_admin';
   subscription_tier: 'basic' | 'essential' | 'pro';
   leaderboard_opt_out?: boolean;
+  country?: string; // User's country code
+  exam_boards?: string[];
+  level?: string; // Single level for students
+  levels?: string[]; // Multiple levels for teachers
+  subjects_of_interest?: string[];
+  onboarding_completed?: boolean;
+  xp?: number;
+  streak_days?: number;
   created_at: string;
 }
 
+// Global cache for user profile to avoid refetching on every component mount
+let cachedUser: UserProfile | null = null;
+let cacheTimestamp = 0;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+const supabase = createClient();
+
 export function useUser() {
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const supabase = createClient();
+  const [user, setUser] = useState<UserProfile | null>(cachedUser);
+  const [loading, setLoading] = useState(!cachedUser);
+  const fetchingRef = useRef(false);
 
-  useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        fetchUserProfile(session.user.id);
-      } else {
-        setLoading(false);
-      }
-    });
+  const fetchUserProfile = useCallback(async (userId: string, forceRefresh = false) => {
+    // Check cache first
+    if (!forceRefresh && cachedUser && Date.now() - cacheTimestamp < CACHE_DURATION) {
+      setUser(cachedUser);
+      setLoading(false);
+      return;
+    }
 
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        await fetchUserProfile(session.user.id);
-      } else {
-        setUser(null);
-        setLoading(false);
-      }
-    });
+    // Prevent duplicate fetches
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
 
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  async function fetchUserProfile(userId: string) {
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('*')
+        .select('id, email, display_name, avatar_url, role, subscription_tier, leaderboard_opt_out, country, exam_boards, level, levels, subjects_of_interest, onboarding_completed, xp, streak_days, created_at')
         .eq('id', userId)
         .single();
 
       if (error) {
-        console.error('Error fetching user profile:', {
-          code: error.code,
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          userId: userId
-        });
-        
-        // If profile doesn't exist (PGRST116), create it manually
         if (error.code === 'PGRST116') {
-          console.warn('User profile not found. Attempting to create...');
-          // Try to get user data from auth
+          // Profile doesn't exist, create it
           const { data: { user: authUser } } = await supabase.auth.getUser();
           if (authUser) {
             const { error: insertError } = await supabase
@@ -80,17 +68,15 @@ export function useUser() {
                 subscription_tier: authUser.user_metadata?.role === 'teacher' ? 'pro' : 'basic',
               });
             
-            if (insertError) {
-              console.error('Failed to create user profile:', insertError);
-            } else {
-              console.log('User profile created successfully, retrying fetch...');
-              // Retry fetching the profile
+            if (!insertError) {
               const { data: newData } = await supabase
                 .from('users')
-                .select('*')
+                .select('id, email, display_name, avatar_url, role, subscription_tier, leaderboard_opt_out, country, exam_boards, level, levels, subjects_of_interest, onboarding_completed, xp, streak_days, created_at')
                 .eq('id', userId)
                 .single();
               if (newData) {
+                cachedUser = newData;
+                cacheTimestamp = Date.now();
                 setUser(newData);
                 setLoading(false);
                 return;
@@ -98,25 +84,54 @@ export function useUser() {
             }
           }
         }
-        
         setUser(null);
         setLoading(false);
         return;
       }
 
       if (data) {
+        cachedUser = data;
+        cacheTimestamp = Date.now();
         setUser(data);
       } else {
-        console.warn('User profile not found for authenticated user:', userId);
         setUser(null);
       }
     } catch (err) {
-      console.error('Unexpected error fetching user profile:', err);
+      console.error('Error fetching user profile:', err);
       setUser(null);
     } finally {
       setLoading(false);
+      fetchingRef.current = false;
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        fetchUserProfile(session.user.id);
+      } else {
+        setLoading(false);
+      }
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT') {
+        cachedUser = null;
+        cacheTimestamp = 0;
+        setUser(null);
+        setLoading(false);
+      } else if (session?.user) {
+        // Force refresh on sign in
+        await fetchUserProfile(session.user.id, event === 'SIGNED_IN');
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [fetchUserProfile]);
 
   return { user, loading };
 }

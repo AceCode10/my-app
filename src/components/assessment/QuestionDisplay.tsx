@@ -12,18 +12,20 @@ import { Flag, Image as ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getDifficultyColor, getQuestionTypeLabel } from '@/lib/assessment-utils';
 
-// Markdown component - install with: npm install react-markdown
-// For now, we'll use a simple div if not available
-const MarkdownRenderer = ({ children }: { children: string }) => {
-  // Try to import ReactMarkdown dynamically
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const ReactMarkdown = require('react-markdown');
-    return <ReactMarkdown>{children}</ReactMarkdown>;
-  } catch {
-    // Fallback to simple HTML rendering
-    return <div dangerouslySetInnerHTML={{ __html: children.replace(/\n/g, '<br />') }} />;
+// Simple markdown renderer - just handle basic formatting
+const MarkdownRenderer = ({ children }: { children: string | null | undefined }) => {
+  // Handle null/undefined children
+  if (!children) {
+    return <div className="text-muted-foreground italic">No content</div>;
   }
+  
+  // Simple fallback for now - just handle line breaks and basic formatting
+  const formatted = children
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold
+    .replace(/\*(.*?)\*/g, '<em>$1</em>') // Italic
+    .replace(/\n/g, '<br />'); // Line breaks
+  
+  return <div dangerouslySetInnerHTML={{ __html: formatted }} />;
 };
 
 interface QuestionDisplayProps {

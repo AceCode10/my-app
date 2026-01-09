@@ -1,7 +1,21 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Assessment, AssessmentAttempt, Question, SubmitAnswerRequest } from '@/types/assessment';
+import { Assessment, Question, SubmitAnswerRequest } from '@/types/assessment';
+
+interface TestAttempt {
+  id: string;
+  assignment_id: string;
+  test_id?: string;
+  paper_id?: string;
+  user_id: string;
+  status: string;
+  started_at: string;
+  submitted_at?: string;
+  answers: any;
+  score?: number;
+  max_score?: number;
+}
 import { Timer } from './Timer';
 import { QuestionDisplay } from './QuestionDisplay';
 import { QuestionNavigator } from './QuestionNavigator';
@@ -14,7 +28,7 @@ import { cn } from '@/lib/utils';
 
 interface TestInterfaceProps {
   assessment: Assessment;
-  attempt: AssessmentAttempt;
+  attempt: TestAttempt;
   questions: Question[];
   onSubmitAnswer: (answer: SubmitAnswerRequest) => Promise<void>;
   onSubmitAssessment: () => Promise<void>;

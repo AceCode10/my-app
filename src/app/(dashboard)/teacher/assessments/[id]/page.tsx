@@ -4,9 +4,9 @@ import { useParams, useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useFirestore, useUser, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, getDocs, setDoc, addDoc, collection, serverTimestamp, query, where, documentId, writeBatch, arrayUnion, arrayRemove, orderBy } from 'firebase/firestore';
-import type { Quiz, Question, Subject } from '@/types';
+import { createClient } from '@/lib/supabase/client';
+import { useUser } from '@/hooks/use-user';
+import type { Question } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
@@ -21,9 +21,18 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
-import { generateQuizQuestions } from '@/lib/ai-placeholders';
-import { allSubjects as localSubjects, type Subject as SubjectType} from '@/lib/subjects';
+import { allSubjects as localSubjects } from '@/lib/subjects';
 
+interface Assessment {
+    id: string;
+    title: string;
+    subject_id: string;
+    topic_id: string | null;
+    visibility: 'draft' | 'published' | 'archived';
+    created_by: string;
+    created_at: string;
+    updated_at: string;
+}
 
 const quizSchema = z.object({
     title: z.string().min(3, { message: "Title must be at least 3 characters." }),
@@ -40,11 +49,13 @@ const QuizEditorPage = () => {
     const { id: quizId } = params;
     const isNewQuiz = quizId === 'new';
 
-    const firestore = useFirestore();
+    const supabase = createClient();
     const { user } = useUser();
     const { toast } = useToast();
 
     const [isLoading, setIsLoading] = useState(false);
+    const [isFetchingQuiz, setIsFetchingQuiz] = useState(!isNewQuiz);
+    const [quizData, setQuizData] = useState<Assessment | null>(null);
     const [questions, setQuestions] = useState<Question[]>([]);
     const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -52,15 +63,8 @@ const QuizEditorPage = () => {
     const [isAiModalOpen, setIsAiModalOpen] = useState(false);
     const [numAiQuestions, setNumAiQuestions] = useState(5);
 
-    const [subjects, setSubjects] = useState(localSubjects);
+    const [subjects] = useState(localSubjects);
     const isLoadingSubjects = false;
-
-    const quizRef = useMemoFirebase(() => {
-        if (!firestore || isNewQuiz || typeof quizId !== 'string') return null;
-        return doc(firestore, 'quizzes', quizId);
-    }, [firestore, isNewQuiz, quizId]);
-
-    const { data: quizData, isLoading: isFetchingQuiz } = useDoc<Quiz>(quizRef);
 
     const form = useForm<QuizFormData>({
         resolver: zodResolver(quizSchema),
@@ -78,6 +82,32 @@ const QuizEditorPage = () => {
     const topics = useMemo(() => selectedSubject?.topics || [], [selectedSubject]);
     const isLoadingTopics = false;
 
+    // Fetch quiz data
+    useEffect(() => {
+        async function fetchQuiz() {
+            if (isNewQuiz || typeof quizId !== 'string') {
+                setIsFetchingQuiz(false);
+                return;
+            }
+            
+            try {
+                const { data, error } = await supabase
+                    .from('assessments')
+                    .select('*')
+                    .eq('id', quizId)
+                    .single();
+
+                if (error) throw error;
+                setQuizData(data);
+            } catch (error) {
+                console.error('Error fetching quiz:', error);
+                toast({ variant: 'destructive', title: 'Error', description: 'Could not load assessment.' });
+            } finally {
+                setIsFetchingQuiz(false);
+            }
+        }
+        fetchQuiz();
+    }, [quizId, isNewQuiz]);
 
     useEffect(() => {
         form.resetField('topic', { defaultValue: '' });
@@ -87,116 +117,88 @@ const QuizEditorPage = () => {
         if (quizData) {
             form.reset({
                 title: quizData.title,
-                subject: quizData.subject,
-                topic: quizData.topic,
+                subject: quizData.subject_id,
+                topic: quizData.topic_id || '',
                 visibility: quizData.visibility || 'draft',
             });
         }
     }, [quizData, form]);
 
+    // Fetch questions for this assessment
     useEffect(() => {
-        const fetchQuestions = async () => {
-            if (!firestore || !quizData || !quizData.questionIds || quizData.questionIds.length === 0) {
+        async function fetchQuestions() {
+            if (isNewQuiz || !quizId) {
                 setQuestions([]);
                 return;
             }
             setIsLoadingQuestions(true);
             try {
-                // Firestore 'in' query limit is 30. For larger quizzes, chunking is needed.
-                const questionIds = quizData.questionIds.slice(0, 30);
-                const questionsQuery = query(collection(firestore, 'questions'), where(documentId(), 'in', questionIds));
-                const querySnapshot = await getDocs(questionsQuery);
-                const fetchedQuestions = querySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Question));
-                
-                const orderedQuestions = questionIds
-                    .map(id => fetchedQuestions.find(q => q.id === id))
-                    .filter((q): q is Question => q !== undefined);
-                setQuestions(orderedQuestions);
+                const { data, error } = await supabase
+                    .from('questions')
+                    .select('*')
+                    .eq('assessment_id', quizId)
+                    .order('created_at', { ascending: true });
+
+                if (error) throw error;
+                setQuestions(data || []);
             } catch (error) {
                 console.error("Error fetching questions: ", error);
                 toast({ variant: 'destructive', title: 'Error', description: 'Could not load questions for this quiz.' });
             } finally {
                 setIsLoadingQuestions(false);
             }
-        };
+        }
         fetchQuestions();
-    }, [quizData, firestore, toast]);
+    }, [quizId, isNewQuiz]);
 
     const handleAiGenerate = async () => {
-        if (!firestore || !user || !topicValue) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Please select a topic first.' });
-            return;
-        }
-        setIsLoading(true);
+        // AI generation is disabled per instructions.md
+        toast({ 
+            variant: 'destructive', 
+            title: 'Feature Not Available', 
+            description: 'AI question generation is currently disabled. Please add questions manually.' 
+        });
         setIsAiModalOpen(false);
-        const topicName = topics?.find(t => t.name.toLowerCase().replace(/ /g, '-') === topicValue)?.name || topicValue;
-        toast({ title: 'AI Generating...', description: `Creating ${numAiQuestions} questions for ${topicName}. This may take a moment.` });
-
-        try {
-            const aiResult = await generateQuizQuestions({ topic: topicName, numQuestions: numAiQuestions });
-            const batch = writeBatch(firestore);
-            
-            const newQuestionIds: string[] = [];
-
-            for (const q of aiResult.questions) {
-                const questionRef = doc(collection(firestore, 'questions'));
-                const questionData = { 
-                    ...q,
-                    questionId: questionRef.id,
-                    authorId: user.uid,
-                    status: 'published',
-                    createdAt: serverTimestamp(),
-                    updatedAt: serverTimestamp(),
-                    version: 1,
-                    // Map explanation to markScheme for compatibility
-                    markScheme: { guidance: q.explanation }
-                };
-                batch.set(questionRef, questionData);
-                newQuestionIds.push(questionRef.id);
-            }
-            
-            const currentQuizRef = doc(firestore, 'quizzes', quizId as string);
-            batch.update(currentQuizRef, {
-                questionIds: arrayUnion(...newQuestionIds),
-                updatedAt: serverTimestamp(),
-            });
-
-            await batch.commit();
-
-            const newQuestions = aiResult.questions.map((q, i) => ({
-                ...q,
-                id: newQuestionIds[i],
-            })) as Question[];
-
-            setQuestions(prev => [...prev, ...newQuestions]);
-
-            toast({ title: 'AI Questions Added!', description: `${numAiQuestions} new questions have been added to your quiz.` });
-
-        } catch (error) {
-            console.error('Error generating AI quiz:', error);
-            toast({ variant: 'destructive', title: 'AI Generation Failed', description: 'There was an error generating questions.' });
-        } finally {
-            setIsLoading(false);
-        }
     };
 
 
     const onSubmit = async (data: QuizFormData) => {
-        if (!firestore || !user) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Authentication or database service is not ready.' });
+        if (!user) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Authentication is not ready.' });
             return;
         }
         setIsLoading(true);
 
         try {
             if (isNewQuiz) {
-                const newQuizData: Partial<Quiz> = { ...data, createdBy: user.uid, createdAt: serverTimestamp(), updatedAt: serverTimestamp(), questionIds: [] };
-                const newDocRef = await addDoc(collection(firestore, 'quizzes'), newQuizData);
+                const { data: newQuiz, error } = await supabase
+                    .from('assessments')
+                    .insert({
+                        title: data.title,
+                        subject_id: data.subject,
+                        topic_id: data.topic || null,
+                        visibility: data.visibility,
+                        created_by: user.id,
+                    })
+                    .select()
+                    .single();
+
+                if (error) throw error;
                 toast({ title: 'Quiz Created', description: 'The new quiz has been saved successfully. You can now add questions.' });
-                router.push(`/teacher/assessments/${newDocRef.id}`);
+                router.push(`/teacher/assessments/${newQuiz.id}`);
             } else {
-                const currentQuizRef = doc(firestore, 'quizzes', quizId as string);
-                await setDoc(currentQuizRef, { ...data, updatedAt: serverTimestamp() }, { merge: true });
+                const { error } = await supabase
+                    .from('assessments')
+                    .update({
+                        title: data.title,
+                        subject_id: data.subject,
+                        topic_id: data.topic || null,
+                        visibility: data.visibility,
+                        updated_at: new Date().toISOString(),
+                    })
+                    .eq('id', quizId);
+
+                if (error) throw error;
                 toast({ title: 'Quiz Updated', description: 'Your changes have been saved.' });
             }
         } catch (error) {
@@ -213,17 +215,15 @@ const QuizEditorPage = () => {
     };
 
     const handleDeleteConfirm = async () => {
-        if (!firestore || !questionToDelete || !quizRef) return;
+        if (!questionToDelete) return;
         setIsLoading(true);
         try {
-            const batch = writeBatch(firestore);
-            
-            batch.update(quizRef, { questionIds: arrayRemove(questionToDelete.id) });
-            
-            const questionDocRef = doc(firestore, 'questions', questionToDelete.id);
-            batch.delete(questionDocRef);
+            const { error } = await supabase
+                .from('questions')
+                .delete()
+                .eq('id', questionToDelete.id);
 
-            await batch.commit();
+            if (error) throw error;
 
             setQuestions(prev => prev.filter(q => q.id !== questionToDelete.id));
             toast({ title: 'Question Deleted', description: 'The question has been removed from this quiz.' });

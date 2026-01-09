@@ -1,0 +1,19 @@
+# PDF Question Extractor Dependencies
+
+# PDF text extraction (choose one or both)
+pdfplumber>=0.10.0
+PyMuPDF>=1.23.0
+
+# API server
+Flask>=3.0.0
+Flask-CORS>=4.0.0
+Werkzeug>=3.0.0
+
+# AI-powered extraction (required for AI mode)
+openai>=1.0.0
+
+# Database upload (required for direct upload)
+supabase>=2.0.0
+
+# Environment variable support
+python-dotenv>=1.0.0

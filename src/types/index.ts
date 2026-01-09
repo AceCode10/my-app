@@ -11,8 +11,8 @@ export interface UserProfile {
     xp?: number;
     streak?: number;
     activeSubjects?: string[];
-    createdAt: any; // Firestore Timestamp
-    updatedAt: any; // Firestore Timestamp
+    createdAt: any;
+    updatedAt: any;
     subscriptionTier?: 'free' | 'essential' | 'pro';
     savedNoteIds?: string[];
 }
@@ -101,15 +101,15 @@ export interface Quiz {
     aiGenerated?: boolean;
     visibility: 'draft' | 'published' | 'archived';
     createdBy: string;
-    createdAt: any; // Firestore Timestamp
-    updatedAt: any; // Firestore Timestamp
+    createdAt: any;
+    updatedAt: any;
     syllabusCodes?: string[];
     questionIds?: string[];
 }
 
 export type Question = {
-  id: string; // The existing Firestore document ID
-  questionId: string; // New field from spec (UUID)
+  id: string;
+  questionId: string;
   type: 'mcq' | 'short_answer' | 'structured' | 'essay' | 'matching' | 'tf' | 'data_response';
   stem: string; // The question text, can include HTML/Markdown
   options?: { id: string, label: string }[]; // For MCQ/matching
@@ -120,8 +120,8 @@ export type Question = {
   authorId: string; // User ID of the creator
   version: number;
   status: 'draft' | 'published' | 'archived';
-  createdAt: any; // Firestore Timestamp
-  updatedAt: any; // Firestore Timestamp
+  createdAt: any;
+  updatedAt: any;
   // These are from the old model, keep for compatibility for now.
   prompt?: string;
   correctAnswer?: string | string[];
@@ -160,8 +160,8 @@ export interface Class {
     schedule?: string[];
     meetingLink?: string;
     thumbnailUrl?: string;
-    createdAt: any; // Firestore Timestamp
-    updatedAt: any; // Firestore Timestamp
+    createdAt: any;
+    updatedAt: any;
 }
 
 export interface Media {
@@ -192,7 +192,7 @@ export interface QuizAttempt {
     topic: string;
     score: number;
     totalQuestions: number;
-    completedAt: any; // Firestore Timestamp
+    completedAt: any;
 }
 
 export interface Assignment {
@@ -204,9 +204,9 @@ export interface Assignment {
   subjectSlug: string;
   topicSlug: string;
   questionIds: string[];
-  dueDate: any; // Firestore Timestamp
-  timeLimit?: number; // Time limit in minutes
-  assignedAt: any; // Firestore Timestamp
+  dueDate: any;
+  timeLimit?: number;
+  assignedAt: any;
 }
 
 export interface Announcement {
@@ -214,7 +214,7 @@ export interface Announcement {
   message: string;
   authorId: string;
   authorName: string;
-  createdAt: any; // Firestore Timestamp
+  createdAt: any;
   noteId?: string;
   noteTitle?: string;
   notePath?: string;

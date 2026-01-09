@@ -1,53 +1,37 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { SubjectsGrid } from '@/components/subjects-grid';
-import { FileText, Download, Calendar, Building2, GraduationCap } from 'lucide-react';
+import { FileText, Building2, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { EXAM_BOARDS, getLevelsForBoard, getExamBoardById, getLevelById } from '@/lib/exam-boards';
 import { createClient } from '@/lib/supabase/client';
 
-interface DbExamBoard {
-  id: string;
-  code: string;
-  name: string;
-  color: string;
-  is_active: boolean;
-  display_order: number;
-}
+const supabase = createClient();
 
 export default function PastPapersPage() {
-  const supabase = createClient();
   const [selectedBoard, setSelectedBoard] = useState<string>('cambridge');
   const [selectedLevel, setSelectedLevel] = useState<string>('igcse');
-  const [dbExamBoards, setDbExamBoards] = useState<DbExamBoard[]>([]);
-  const [selectedBoardId, setSelectedBoardId] = useState<string>('');
 
-  // Fetch exam boards from database
-  useEffect(() => {
-    async function fetchExamBoards() {
+  // Cached exam boards query
+  const { data: dbExamBoards = [] } = useQuery({
+    queryKey: ['exam-boards'],
+    queryFn: async () => {
       const { data } = await supabase
         .from('exam_boards')
-        .select('*')
+        .select('id, code, name, color, is_active, display_order')
         .eq('is_active', true)
         .order('display_order');
-      
-      if (data) {
-        setDbExamBoards(data);
-        // Set initial board ID
-        const cieBoard = data.find(b => b.code === 'CIE');
-        if (cieBoard) {
-          setSelectedBoardId(cieBoard.id);
-        }
-      }
-    }
-    fetchExamBoards();
-  }, []);
+      return data || [];
+    },
+    staleTime: 30 * 60 * 1000, // Cache for 30 minutes
+  });
 
-  // Update selectedBoardId when selectedBoard changes
-  useEffect(() => {
+  // Compute selectedBoardId from cached data
+  const selectedBoardId = useMemo(() => {
     const codeMap: Record<string, string> = {
       'cambridge': 'CIE',
       'ib': 'IB',
@@ -57,10 +41,8 @@ export default function PastPapersPage() {
       'ap': 'AP'
     };
     const dbCode = codeMap[selectedBoard] || selectedBoard.toUpperCase();
-    const board = dbExamBoards.find(b => b.code === dbCode);
-    if (board) {
-      setSelectedBoardId(board.id);
-    }
+    const board = dbExamBoards.find((b: any) => b.code === dbCode);
+    return board?.id || '';
   }, [selectedBoard, dbExamBoards]);
 
   // Get available levels for the selected board
@@ -154,27 +136,6 @@ export default function PastPapersPage() {
             <Badge variant="secondary" className="font-medium">
               {selectedLevelData?.name}
             </Badge>
-          </div>
-        </div>
-      </div>
-
-      {/* Features highlight */}
-      <div className="max-w-4xl mx-auto mb-12">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-card p-6 rounded-xl border text-center">
-            <FileText className="w-8 h-8 text-blue-500 mx-auto mb-3" />
-            <h3 className="font-semibold text-foreground">Question Papers</h3>
-            <p className="text-sm text-muted-foreground mt-1">Original exam papers in PDF format</p>
-          </div>
-          <div className="bg-card p-6 rounded-xl border text-center">
-            <Download className="w-8 h-8 text-green-500 mx-auto mb-3" />
-            <h3 className="font-semibold text-foreground">Mark Schemes</h3>
-            <p className="text-sm text-muted-foreground mt-1">Official marking guidelines included</p>
-          </div>
-          <div className="bg-card p-6 rounded-xl border text-center">
-            <Calendar className="w-8 h-8 text-purple-500 mx-auto mb-3" />
-            <h3 className="font-semibold text-foreground">Multiple Years</h3>
-            <p className="text-sm text-muted-foreground mt-1">Papers from various exam sessions</p>
           </div>
         </div>
       </div>

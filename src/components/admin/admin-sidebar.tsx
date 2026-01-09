@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useState } from 'react';
 import {
   LayoutDashboard,
   Users,
@@ -15,8 +16,30 @@ import {
   FolderTree,
   ScrollText,
   Activity,
+  Upload,
+  Target,
+  ChevronDown,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+
+interface MenuItem {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  children?: MenuItem[];
+}
+
+interface MenuGroup {
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  items: MenuItem[];
+  defaultOpen?: boolean;
+}
 
 interface AdminSidebarProps {
   adminRole: {
@@ -31,34 +54,84 @@ export default function AdminSidebar({ adminRole }: AdminSidebarProps) {
   const isSuperAdmin = adminRole.code === 'super_admin';
   const isContentModerator = adminRole.code === 'content_moderator';
 
-  // Super Admin menu items
-  const superAdminItems = [
-    { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/admin/users', label: 'User Management', icon: Users },
-    { href: '/admin/content', label: 'Content Management', icon: FileText },
-    { href: '/admin/settings', label: 'System Settings', icon: Settings },
-    { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
-    { href: '/admin/audit-logs', label: 'Audit Logs', icon: Activity },
-  ];
+  // Track which groups are open
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    main: true,
+    content: true,
+    system: false,
+  });
 
-  // Content Moderator menu items
-  const contentModeratorItems = [
-    { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  const toggleGroup = (group: string) => {
+    setOpenGroups(prev => ({ ...prev, [group]: !prev[group] }));
+  };
+
+  // Super Admin menu groups
+  const superAdminGroups: MenuGroup[] = [
     {
-      href: '/admin/content',
-      label: 'Content',
-      icon: FileText,
-      children: [
-        { href: '/admin/content/questions', label: 'Question Bank', icon: FileQuestion },
-        { href: '/admin/content/past-papers', label: 'Past Papers', icon: ScrollText },
-        { href: '/admin/content/flashcards', label: 'Flashcards', icon: Layers },
-        { href: '/admin/content/subjects', label: 'Subjects & Topics', icon: FolderTree },
+      label: 'Main',
+      icon: LayoutDashboard,
+      defaultOpen: true,
+      items: [
+        { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        { href: '/admin/users', label: 'User Management', icon: Users },
       ],
     },
-    { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
+    {
+      label: 'Content Management',
+      icon: FileText,
+      defaultOpen: true,
+      items: [
+        { href: '/admin/content', label: 'All Content', icon: FileText },
+        { href: '/admin/topical-questions', label: 'Topical Questions', icon: Target },
+        { href: '/admin/papers', label: 'Past Papers', icon: ScrollText },
+        { href: '/admin/bulk-import', label: 'Bulk Import', icon: Upload },
+      ],
+    },
+    {
+      label: 'System',
+      icon: Settings,
+      defaultOpen: false,
+      items: [
+        { href: '/admin/settings', label: 'System Settings', icon: Settings },
+        { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
+        { href: '/admin/audit-logs', label: 'Audit Logs', icon: Activity },
+      ],
+    },
   ];
 
-  const menuItems = isSuperAdmin ? superAdminItems : contentModeratorItems;
+  // Content Moderator menu groups
+  const contentModeratorGroups: MenuGroup[] = [
+    {
+      label: 'Main',
+      icon: LayoutDashboard,
+      defaultOpen: true,
+      items: [
+        { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      ],
+    },
+    {
+      label: 'Content Management',
+      icon: FileText,
+      defaultOpen: true,
+      items: [
+        { href: '/admin/topical-questions', label: 'Topical Questions', icon: Target },
+        { href: '/admin/papers', label: 'Past Papers', icon: ScrollText },
+        { href: '/admin/content/flashcards', label: 'Flashcards', icon: Layers },
+        { href: '/admin/content/subjects', label: 'Subjects & Topics', icon: FolderTree },
+        { href: '/admin/bulk-import', label: 'Bulk Import', icon: Upload },
+      ],
+    },
+    {
+      label: 'Reports',
+      icon: BarChart3,
+      defaultOpen: false,
+      items: [
+        { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
+      ],
+    },
+  ];
+
+  const menuGroups = isSuperAdmin ? superAdminGroups : contentModeratorGroups;
 
   return (
     <aside className="w-64 bg-card border-r border-border flex flex-col">
@@ -74,62 +147,63 @@ export default function AdminSidebar({ adminRole }: AdminSidebarProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-        {menuItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-
-          if ('children' in item && item.children) {
-            return (
-              <div key={item.href} className="space-y-1">
-                <div
-                  className={cn(
-                    'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium',
-                    'text-muted-foreground hover:bg-muted'
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                  <span>{item.label}</span>
-                </div>
-                <div className="ml-4 space-y-1">
-                  {item.children.map((child) => {
-                    const ChildIcon = child.icon;
-                    const isChildActive = pathname === child.href;
-                    return (
-                      <Link
-                        key={child.href}
-                        href={child.href}
-                        className={cn(
-                          'flex items-center gap-3 px-3 py-2 rounded-lg text-sm',
-                          isChildActive
-                            ? 'bg-primary text-primary-foreground font-medium'
-                            : 'text-muted-foreground hover:bg-muted'
-                        )}
-                      >
-                        <ChildIcon className="h-4 w-4" />
-                        <span>{child.label}</span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          }
+      <nav className="flex-1 p-4 space-y-4 overflow-y-auto">
+        {menuGroups.map((group) => {
+          const GroupIcon = group.icon;
+          const isGroupOpen = openGroups[group.label.toLowerCase().replace(/\s+/g, '-')] ?? group.defaultOpen;
+          const hasActiveItem = group.items.some(
+            item => pathname === item.href || pathname.startsWith(item.href + '/')
+          );
 
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-muted'
-              )}
+            <Collapsible
+              key={group.label}
+              open={isGroupOpen}
+              onOpenChange={() => toggleGroup(group.label.toLowerCase().replace(/\s+/g, '-'))}
             >
-              <Icon className="h-4 w-4" />
-              <span>{item.label}</span>
-            </Link>
+              <CollapsibleTrigger className="w-full">
+                <div
+                  className={cn(
+                    'flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                    'text-muted-foreground hover:bg-muted',
+                    hasActiveItem && 'text-foreground'
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <GroupIcon className="h-4 w-4" />
+                    <span>{group.label}</span>
+                  </div>
+                  <ChevronDown 
+                    className={cn(
+                      "h-4 w-4 transition-transform duration-200",
+                      isGroupOpen && "rotate-180"
+                    )} 
+                  />
+                </div>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-1 space-y-1">
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={cn(
+                        'flex items-center gap-3 px-3 py-2 ml-2 rounded-lg text-sm transition-colors',
+                        isActive
+                          ? 'bg-primary text-primary-foreground font-medium'
+                          : 'text-muted-foreground hover:bg-muted'
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </CollapsibleContent>
+            </Collapsible>
           );
         })}
       </nav>

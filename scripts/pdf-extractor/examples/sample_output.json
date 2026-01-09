@@ -1,0 +1,187 @@
+[
+  {
+    "question_number": 1,
+    "question_text": "Which of the following is the chemical formula for water?",
+    "question_type": "mcq",
+    "marks": 1,
+    "difficulty": "easy",
+    "options": [
+      {
+        "label": "A",
+        "text": "H2O",
+        "is_correct": true
+      },
+      {
+        "label": "B",
+        "text": "CO2",
+        "is_correct": false
+      },
+      {
+        "label": "C",
+        "text": "NaCl",
+        "is_correct": false
+      },
+      {
+        "label": "D",
+        "text": "O2",
+        "is_correct": false
+      }
+    ]
+  },
+  {
+    "question_number": 2,
+    "question_text": "What is the atomic number of carbon?",
+    "question_type": "mcq",
+    "marks": 1,
+    "difficulty": "easy",
+    "options": [
+      {
+        "label": "A",
+        "text": "6",
+        "is_correct": true
+      },
+      {
+        "label": "B",
+        "text": "8",
+        "is_correct": false
+      },
+      {
+        "label": "C",
+        "text": "12",
+        "is_correct": false
+      },
+      {
+        "label": "D",
+        "text": "14",
+        "is_correct": false
+      }
+    ]
+  },
+  {
+    "question_number": 3,
+    "question_text": "Balance the equation: Fe + O2 → Fe2O3",
+    "question_type": "calculation",
+    "marks": 2,
+    "difficulty": "medium",
+    "correct_answer": "4Fe + 3O2 → 2Fe2O3"
+  },
+  {
+    "question_number": 4,
+    "question_text": "Describe the process of photosynthesis. Include the balanced chemical equation.",
+    "question_type": "structured",
+    "marks": 4,
+    "difficulty": "medium",
+    "correct_answer": "Photosynthesis is the process by which plants convert light energy into chemical energy. They use carbon dioxide, water, and light energy to produce glucose and oxygen.\n\nBalanced equation: 6CO2 + 6H2O → C6H12O6 + 6O2",
+    "mark_scheme": "1 mark: Definition of photosynthesis\n1 mark: Mention of reactants (CO2, H2O, light)\n1 mark: Mention of products (glucose, O2)\n1 mark: Correct balanced equation",
+    "examiner_tips": "Common mistakes: Forgetting the light energy, incorrect balancing of equation, missing the 6 in front of CO2 and H2O"
+  },
+  {
+    "question_number": 5,
+    "question_text": "Calculate the molar mass of CaCO3.",
+    "question_type": "calculation",
+    "marks": 3,
+    "difficulty": "medium",
+    "correct_answer": "100 g/mol",
+    "mark_scheme": "1 mark: Correct atomic masses\n1 mark: Correct calculation setup\n1 mark: Final answer with units",
+    "examiner_tips": "Remember to add the atomic masses: Ca(40) + C(12) + 3×O(16) = 100"
+  },
+  {
+    "question_number": 6,
+    "section_name": "Section B",
+    "part_label": "a",
+    "question_text": "Define the term 'element'.",
+    "question_type": "short_answer",
+    "marks": 1,
+    "difficulty": "easy",
+    "correct_answer": "An element is a pure substance consisting of only one type of atom, which cannot be broken down into simpler substances by chemical means."
+  },
+  {
+    "question_number": 6,
+    "section_name": "Section B",
+    "part_label": "b",
+    "question_text": "Explain why the periodic table is arranged in the way it is.",
+    "question_type": "structured",
+    "marks": 3,
+    "difficulty": "medium",
+    "correct_answer": "The periodic table is arranged by increasing atomic number. Elements with similar properties are placed in the same vertical columns (groups) because they have the same number of valence electrons. Horizontal rows (periods) show elements with the same number of electron shells.",
+    "mark_scheme": "1 mark: Arranged by atomic number\n1 mark: Similar properties in groups\n1 mark: Same number of electron shells in periods"
+  },
+  {
+    "question_number": 7,
+    "section_name": "Section B",
+    "part_label": "a",
+    "question_text": "Which solution is acidic?",
+    "question_type": "mcq",
+    "marks": 1,
+    "difficulty": "easy",
+    "options": [
+      {
+        "label": "A",
+        "text": "Solution A (pH 2)",
+        "is_correct": true
+      },
+      {
+        "label": "B",
+        "text": "Solution B (pH 7)",
+        "is_correct": false
+      },
+      {
+        "label": "C",
+        "text": "Solution C (pH 13)",
+        "is_correct": false
+      }
+    ]
+  },
+  {
+    "question_number": 7,
+    "section_name": "Section B",
+    "part_label": "b",
+    "question_text": "Which solution is neutral?",
+    "question_type": "mcq",
+    "marks": 1,
+    "difficulty": "easy",
+    "options": [
+      {
+        "label": "A",
+        "text": "Solution A (pH 2)",
+        "is_correct": false
+      },
+      {
+        "label": "B",
+        "text": "Solution B (pH 7)",
+        "is_correct": true
+      },
+      {
+        "label": "C",
+        "text": "Solution C (pH 13)",
+        "is_correct": false
+      }
+    ]
+  },
+  {
+    "question_number": 7,
+    "section_name": "Section B",
+    "part_label": "c",
+    "question_text": "Which solution is alkaline?",
+    "question_type": "mcq",
+    "marks": 1,
+    "difficulty": "easy",
+    "options": [
+      {
+        "label": "A",
+        "text": "Solution A (pH 2)",
+        "is_correct": false
+      },
+      {
+        "label": "B",
+        "text": "Solution B (pH 7)",
+        "is_correct": false
+      },
+      {
+        "label": "C",
+        "text": "Solution C (pH 13)",
+        "is_correct": true
+      }
+    ]
+  }
+]

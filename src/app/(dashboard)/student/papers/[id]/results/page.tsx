@@ -44,6 +44,7 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { PastPaper, PaperQuestion, PaperAttemptAnswer } from '@/types/paper-practice';
+import { QuestionTextRenderer } from '@/components/questions/question-text-renderer';
 
 export default function PaperResultsPage() {
   const supabase = createClient();
@@ -434,9 +435,9 @@ export default function PaperResultsPage() {
                     {/* Question */}
                     <div>
                       <h4 className="font-medium mb-2">Question</h4>
-                      <p className="whitespace-pre-wrap text-sm bg-muted p-3 rounded">
-                        {question.question_text}
-                      </p>
+                      <div className="text-sm bg-muted p-3 rounded">
+                        <QuestionTextRenderer text={question.question_text || ''} size="sm" />
+                      </div>
                       {question.image_url && (
                         <img 
                           src={question.image_url} 
@@ -489,8 +490,8 @@ export default function PaperResultsPage() {
                     {showMarkScheme && question.mark_scheme && (
                       <div>
                         <h4 className="font-medium mb-2 text-purple-700">Mark Scheme</h4>
-                        <div className="p-3 rounded bg-purple-50 border border-purple-200">
-                          <p className="whitespace-pre-wrap text-sm">{question.mark_scheme}</p>
+                        <div className="p-3 rounded bg-purple-50 border border-purple-200 text-sm">
+                          <QuestionTextRenderer text={question.mark_scheme} size="sm" />
                         </div>
                       </div>
                     )}
@@ -499,8 +500,8 @@ export default function PaperResultsPage() {
                     {showMarkScheme && question.correct_answer && question.question_type !== 'mcq' && (
                       <div>
                         <h4 className="font-medium mb-2 text-green-700">Model Answer</h4>
-                        <div className="p-3 rounded bg-green-50 border border-green-200">
-                          <p className="whitespace-pre-wrap text-sm">{question.correct_answer}</p>
+                        <div className="p-3 rounded bg-green-50 border border-green-200 text-sm">
+                          <QuestionTextRenderer text={question.correct_answer} size="sm" />
                         </div>
                       </div>
                     )}
@@ -509,8 +510,8 @@ export default function PaperResultsPage() {
                     {showMarkScheme && question.examiner_tips && (
                       <div>
                         <h4 className="font-medium mb-2 text-amber-700">Examiner Tips</h4>
-                        <div className="p-3 rounded bg-amber-50 border border-amber-200">
-                          <p className="whitespace-pre-wrap text-sm">{question.examiner_tips}</p>
+                        <div className="p-3 rounded bg-amber-50 border border-amber-200 text-sm">
+                          <QuestionTextRenderer text={question.examiner_tips} size="sm" />
                         </div>
                       </div>
                     )}

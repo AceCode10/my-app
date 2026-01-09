@@ -90,7 +90,7 @@ const TeacherNotesPage = () => {
     };
 
     return (
-        <>
+        <div>
              <div className="flex items-center justify-between mb-6">
                 <div>
                     <h2 className="text-3xl font-bold text-foreground">My Revision Notes</h2>
@@ -223,7 +223,7 @@ const TeacherNotesPage = () => {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-        </>
+        </div>
     );
 };
 

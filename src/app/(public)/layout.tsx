@@ -58,7 +58,6 @@ export default function PublicLayout({
                         <Link href="/" className="text-2xl font-bold text-foreground">Revision<span className="text-primary">Plus</span></Link>
                     </div>
                     <nav className="hidden md:flex items-center space-x-1">
-                        <NavLink href="/subjects">Subjects</NavLink>
                         {isClient && (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -145,7 +144,6 @@ export default function PublicLayout({
             {isMobileMenuOpen && (
                 <div className="md:hidden border-t">
                     <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-                        <Link href="/subjects" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:text-primary-foreground hover:bg-primary">Subjects</Link>
                         <Link href="/resources/topical-questions" className="block px-3 py-2 rounded-md text-base font-medium text-primary hover:text-primary-foreground hover:bg-primary">⭐ Topical Questions</Link>
                         <Link href="/resources/past-papers" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:text-primary-foreground hover:bg-primary">Past Papers</Link>
                         <Link href="/resources/revision-notes" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:text-primary-foreground hover:bg-primary">Revision Notes</Link>

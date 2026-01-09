@@ -1,16 +1,19 @@
 'use client';
 
-import React, { useEffect, useState, use } from 'react';
+import React, { useEffect, useState, use, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { ChevronRight, ChevronLeft, CheckCircle, XCircle, Clock, RotateCcw, Home, AlertCircle, Download, FileText, Play, Flag, BookOpen, Eye, EyeOff } from 'lucide-react';
+import { ChevronRight, ChevronLeft, CheckCircle, XCircle, Clock, RotateCcw, Home, AlertCircle, Download, FileText, Play, Flag, BookOpen, Eye, EyeOff, Keyboard, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { useProgress } from '@/hooks/use-progress';
+import { SessionSummary } from '@/components/practice/session-summary';
+import { Stopwatch } from '@/components/practice/question-timer';
 
 interface Question {
   id: string;
@@ -42,7 +45,7 @@ interface Subject {
   code?: string;
 }
 
-type ViewMode = 'landing' | 'practice';
+type ViewMode = 'landing' | 'practice' | 'summary';
 type SelfAssessment = 'correct' | 'incorrect' | 'flagged' | null;
 
 interface QuestionStatus {
@@ -71,6 +74,9 @@ export default function TopicPracticePage({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [questionStatuses, setQuestionStatuses] = useState<Record<string, QuestionStatus>>({});
   const [error, setError] = useState<string | null>(null);
+  const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
+  const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
+  const [totalTimeSpent, setTotalTimeSpent] = useState(0);
 
   useEffect(() => {
     fetchData();
@@ -175,9 +181,24 @@ export default function TopicPracticePage({
   const currentQuestion = questions[currentIndex];
   const estimatedTime = topic?.estimated_time || Math.max(60, questions.length * 4);
 
-  const handleStartPractice = () => {
+  const handleStartPractice = useCallback(() => {
     setViewMode('practice');
     setCurrentIndex(0);
+    setSessionStartTime(Date.now());
+    // Try to restore session from localStorage
+    const savedSession = localStorage.getItem(`practice-${subjectSlug}-${topicSlug}`);
+    if (savedSession) {
+      try {
+        const parsed = JSON.parse(savedSession);
+        if (parsed.questionStatuses && Object.keys(parsed.questionStatuses).length === questions.length) {
+          setQuestionStatuses(parsed.questionStatuses);
+          setCurrentIndex(parsed.currentIndex || 0);
+          setTotalTimeSpent(parsed.totalTimeSpent || 0);
+        }
+      } catch (e) {
+        console.error('Error restoring session:', e);
+      }
+    }
     // Mark first question as viewed
     if (questions.length > 0) {
       setQuestionStatuses(prev => ({
@@ -194,7 +215,102 @@ export default function TopicPracticePage({
         completionPercentage: 0
       });
     }
-  };
+  }, [questions, subject, topic, subjectSlug, topicSlug, trackProgress]);
+
+  // Save session to localStorage periodically
+  useEffect(() => {
+    if (viewMode !== 'practice' || questions.length === 0) return;
+    
+    const saveSession = () => {
+      const sessionData = {
+        questionStatuses,
+        currentIndex,
+        totalTimeSpent,
+        savedAt: Date.now()
+      };
+      localStorage.setItem(`practice-${subjectSlug}-${topicSlug}`, JSON.stringify(sessionData));
+    };
+    
+    const interval = setInterval(saveSession, 5000); // Save every 5 seconds
+    return () => {
+      clearInterval(interval);
+      saveSession(); // Save on unmount
+    };
+  }, [viewMode, questionStatuses, currentIndex, totalTimeSpent, subjectSlug, topicSlug, questions.length]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    if (viewMode !== 'practice') return;
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't capture if user is typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      
+      switch (e.key) {
+        case 'ArrowLeft':
+        case 'h':
+          e.preventDefault();
+          goToPrevQuestion();
+          break;
+        case 'ArrowRight':
+        case 'l':
+          e.preventDefault();
+          goToNextQuestion();
+          break;
+        case '1':
+          e.preventDefault();
+          if (currentQuestion) handleSelfAssessment('correct');
+          break;
+        case '2':
+          e.preventDefault();
+          if (currentQuestion) handleSelfAssessment('incorrect');
+          break;
+        case '3':
+          e.preventDefault();
+          if (currentQuestion) handleSelfAssessment('flagged');
+          break;
+        case 's':
+        case 'a':
+          e.preventDefault();
+          toggleShowAnswer();
+          break;
+        case 'Escape':
+          e.preventDefault();
+          setViewMode('landing');
+          break;
+        case '?':
+          e.preventDefault();
+          setShowKeyboardHelp(prev => !prev);
+          break;
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [viewMode, currentIndex, currentQuestion, questions.length]);
+
+  // Check if session is complete
+  const isSessionComplete = Object.values(questionStatuses).length > 0 && 
+    Object.values(questionStatuses).every(s => s.assessment !== null);
+
+  const handleFinishSession = useCallback(() => {
+    setViewMode('summary');
+    // Clear saved session
+    localStorage.removeItem(`practice-${subjectSlug}-${topicSlug}`);
+  }, [subjectSlug, topicSlug]);
+
+  const handleRestartSession = useCallback(() => {
+    const statuses: Record<string, QuestionStatus> = {};
+    questions.forEach(q => {
+      statuses[q.id] = { viewed: false, assessment: null, showAnswer: false };
+    });
+    setQuestionStatuses(statuses);
+    setCurrentIndex(0);
+    setTotalTimeSpent(0);
+    setViewMode('practice');
+    setSessionStartTime(Date.now());
+    localStorage.removeItem(`practice-${subjectSlug}-${topicSlug}`);
+  }, [questions, subjectSlug, topicSlug]);
 
   const handleQuestionSelect = (index: number) => {
     setCurrentIndex(index);
@@ -395,20 +511,84 @@ export default function TopicPracticePage({
     );
   }
 
+  // Summary view
+  if (viewMode === 'summary') {
+    const viewedCount = Object.values(questionStatuses).filter(s => s.viewed).length;
+    return (
+      <div className="py-8 max-w-4xl mx-auto px-4">
+        <SessionSummary
+          stats={{
+            correct: correctCount,
+            incorrect: incorrectCount,
+            flagged: flaggedCount,
+            viewed: viewedCount,
+            unanswered: questions.length - (correctCount + incorrectCount + flaggedCount),
+            totalTimeSpent,
+            isComplete: isSessionComplete
+          }}
+          totalQuestions={questions.length}
+          topicName={topic?.name || ''}
+          subjectName={subject?.name || ''}
+          subjectSlug={subjectSlug}
+          onRestart={handleRestartSession}
+        />
+      </div>
+    );
+  }
+
   // Practice view - SaveMyExams style question display
   return (
     <div className="py-6 max-w-4xl mx-auto px-4">
+      {/* Keyboard Help Modal */}
+      {showKeyboardHelp && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowKeyboardHelp(false)}>
+          <Card className="max-w-md w-full" onClick={e => e.stopPropagation()}>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Keyboard className="w-5 h-5 text-primary" />
+                <h3 className="font-bold text-lg">Keyboard Shortcuts</h3>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between"><span className="text-muted-foreground">Next question</span><kbd className="px-2 py-1 bg-muted rounded">→ or L</kbd></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Previous question</span><kbd className="px-2 py-1 bg-muted rounded">← or H</kbd></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Mark correct</span><kbd className="px-2 py-1 bg-muted rounded">1</kbd></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Mark incorrect</span><kbd className="px-2 py-1 bg-muted rounded">2</kbd></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Flag for review</span><kbd className="px-2 py-1 bg-muted rounded">3</kbd></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Show/hide answer</span><kbd className="px-2 py-1 bg-muted rounded">A or S</kbd></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Back to overview</span><kbd className="px-2 py-1 bg-muted rounded">Esc</kbd></div>
+              </div>
+              <Button className="w-full mt-4" onClick={() => setShowKeyboardHelp(false)}>Close</Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Header with navigation */}
       <div className="flex items-center justify-between mb-6">
         <Button variant="ghost" size="sm" onClick={() => setViewMode('landing')}>
           <ChevronLeft className="w-4 h-4 mr-1" />
           Back to overview
         </Button>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span className="text-green-600 font-medium">{correctCount} ✓</span>
-          <span className="text-red-600 font-medium">{incorrectCount} ✗</span>
-          {flaggedCount > 0 && <span className="text-orange-500 font-medium">{flaggedCount} 🚩</span>}
+        <div className="flex items-center gap-4">
+          <Stopwatch isRunning={viewMode === 'practice'} onTimeUpdate={(s) => setTotalTimeSpent(s)} />
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="text-green-600 font-medium">{correctCount} ✓</span>
+            <span className="text-red-600 font-medium">{incorrectCount} ✗</span>
+            {flaggedCount > 0 && <span className="text-orange-500 font-medium">{flaggedCount} 🚩</span>}
+          </div>
+          <Button variant="ghost" size="sm" onClick={() => setShowKeyboardHelp(true)} title="Keyboard shortcuts">
+            <Keyboard className="w-4 h-4" />
+          </Button>
         </div>
+      </div>
+
+      {/* Progress Bar */}
+      <div className="mb-4">
+        <div className="flex justify-between text-xs text-muted-foreground mb-1">
+          <span>Progress</span>
+          <span>{correctCount + incorrectCount + flaggedCount} / {questions.length} answered</span>
+        </div>
+        <Progress value={((correctCount + incorrectCount + flaggedCount) / questions.length) * 100} className="h-2" />
       </div>
 
       {/* Question Navigator */}
@@ -597,16 +777,28 @@ export default function TopicPracticePage({
           <ChevronLeft className="w-4 h-4 mr-2" />
           Previous
         </Button>
-        <span className="text-sm text-muted-foreground">
-          {currentIndex + 1} of {questions.length}
-        </span>
-        <Button
-          onClick={goToNextQuestion}
-          disabled={currentIndex === questions.length - 1}
-        >
-          Next
-          <ChevronRight className="w-4 h-4 ml-2" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">
+            {currentIndex + 1} of {questions.length}
+          </span>
+          {isSessionComplete && (
+            <Button size="sm" onClick={handleFinishSession}>
+              <Trophy className="w-4 h-4 mr-1" />
+              View Results
+            </Button>
+          )}
+        </div>
+        {currentIndex === questions.length - 1 ? (
+          <Button onClick={handleFinishSession}>
+            Finish
+            <Trophy className="w-4 h-4 ml-2" />
+          </Button>
+        ) : (
+          <Button onClick={goToNextQuestion}>
+            Next
+            <ChevronRight className="w-4 h-4 ml-2" />
+          </Button>
+        )}
       </div>
     </div>
   );

@@ -90,7 +90,7 @@ function SettingsPage() {
     return (
         <div>
             <h2 className="text-3xl font-bold text-foreground mb-8">Settings</h2>
-            <div className="max-w-3xl space-y-8">
+            <div className="space-y-8">
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center"><User className="mr-2 h-5 w-5" /> Profile Information</CardTitle>

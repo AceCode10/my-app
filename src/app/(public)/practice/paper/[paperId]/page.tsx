@@ -253,7 +253,7 @@ export default function PracticePaperPage({
                     <div>
                       <h4 className="font-semibold text-foreground">Timed Exam</h4>
                       <p className="text-xs text-muted-foreground">
-                        {paper?.duration_minutes ? `${paper.duration_minutes} minutes` : 'Standard time'}
+                        {paper?.duration_minutes ? (paper.duration_minutes >= 60 ? `${Math.floor(paper.duration_minutes / 60)}h ${paper.duration_minutes % 60 > 0 ? `${paper.duration_minutes % 60}m` : ''}` : `${paper.duration_minutes} minutes`) : 'Standard time'}
                       </p>
                     </div>
                   </div>

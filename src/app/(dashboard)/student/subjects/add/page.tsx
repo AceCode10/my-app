@@ -1,115 +1,211 @@
-
 'use client';
 
 import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft } from 'lucide-react';
-import { useFirestore, useUser } from '@/firebase';
-import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { useUser } from '@/hooks/use-user';
+import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { allSubjects } from '@/lib/subjects';
 import { cn } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { getIconComponent } from '@/lib/icon-mapper';
+
+const supabase = createClient();
+
+interface DbSubject {
+  id: string;
+  name: string;
+  slug: string;
+  code: string;
+  icon_url?: string;
+  color?: string;
+  display_name?: string;
+}
 
 export default function AddSubjectsPage() {
-    const router = useRouter();
-    const { user, profile } = useUser();
-    const firestore = useFirestore();
-    const { toast } = useToast();
-    
-    // Initialize selected subjects from the user's current list
-    const [selectedSubjects, setSelectedSubjects] = useState<string[]>(profile?.activeSubjects || []);
-    const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+  const { user } = useUser();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>([]);
 
-    const handleCheckboxChange = (subjectSlug: string) => {
-        setSelectedSubjects(prev =>
-            prev.includes(subjectSlug)
-                ? prev.filter(slug => slug !== subjectSlug)
-                : [...prev, subjectSlug]
+  // Fetch available subjects
+  const { data: availableSubjects = [], isLoading: isFetching } = useQuery({
+    queryKey: ['subjects-all'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('subjects')
+        .select('id, name, slug, code, icon_url, color, display_name')
+        .eq('status', 'published')
+        .order('name');
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  // Fetch user's selected subjects
+  const { data: userSubjects } = useQuery({
+    queryKey: ['user-subjects', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data, error } = await supabase
+        .from('user_subjects')
+        .select('subject_id')
+        .eq('user_id', user.id);
+      if (error) throw error;
+      
+      const selectedIds = (data || []).map((us: any) => us.subject_id);
+      setSelectedSubjectIds(selectedIds);
+      return data || [];
+    },
+    enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Mutation for saving subjects
+  const saveMutation = useMutation({
+    mutationFn: async (subjectIds: string[]) => {
+      if (!user?.id) throw new Error('Not authenticated');
+
+      // Get current subjects
+      const { data: currentSubjects } = await supabase
+        .from('user_subjects')
+        .select('subject_id')
+        .eq('user_id', user.id);
+
+      const currentIds = (currentSubjects || []).map((s: any) => s.subject_id);
+      const toAdd = subjectIds.filter(id => !currentIds.includes(id));
+      const toRemove = currentIds.filter(id => !subjectIds.includes(id));
+
+      // Execute deletions and insertions in parallel
+      const operations = [];
+      
+      if (toRemove.length > 0) {
+        operations.push(
+          supabase
+            .from('user_subjects')
+            .delete()
+            .eq('user_id', user.id)
+            .in('subject_id', toRemove)
         );
-    };
+      }
 
-    const handleSaveChanges = async () => {
-        if (!user || !firestore) {
-            toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to manage subjects.' });
-            return;
-        }
-        
-        setIsLoading(true);
-        try {
-            const userRef = doc(firestore, 'users', user.uid);
-            // This is a simplified approach. For large arrays, a more complex transaction would be better.
-            // But for this use case, we just set the array to the new selection.
-            await updateDoc(userRef, {
-                activeSubjects: selectedSubjects
-            });
+      if (toAdd.length > 0) {
+        operations.push(
+          supabase
+            .from('user_subjects')
+            .insert(toAdd.map(subject_id => ({ user_id: user.id, subject_id })))
+        );
+      }
 
-            toast({ title: 'Subjects Updated!', description: 'Your dashboard has been updated.' });
-            router.push('/student');
-        } catch (error) {
-            console.error("Error updating subjects:", error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not save your subject preferences.' });
-        } finally {
-            setIsLoading(false);
-        }
-    };
+      if (operations.length > 0) {
+        const results = await Promise.all(operations);
+        const errors = results.filter(r => r.error);
+        if (errors.length > 0) throw errors[0].error;
+      }
 
-    return (
-        <div>
-            <div className="mb-8">
-                <Button variant="ghost" asChild className="mb-4">
-                    <Link href="/dashboard">
-                        <ArrowLeft className="mr-2 h-4 w-4" />
-                        Back to Dashboard
-                    </Link>
-                </Button>
-                <h2 className="text-3xl font-bold text-foreground">Manage My Subjects</h2>
-                <p className="text-muted-foreground mt-1">Select the subjects you want to see on your dashboard.</p>
-            </div>
+      return subjectIds;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-subjects'] });
+      toast({ title: 'Success!', description: 'Your subjects have been saved.' });
+      router.push('/student/subjects');
+    },
+    onError: (error: any) => {
+      console.error('Error saving subjects:', error);
+      toast({ 
+        variant: 'destructive', 
+        title: 'Error', 
+        description: error.message || 'Could not save subjects. Please try again.' 
+      });
+    },
+  });
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>Available Subjects</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {allSubjects.map(subject => {
-                            const Icon = subject.icon;
-                            return (
-                                <Label
-                                    key={subject.slug}
-                                    htmlFor={subject.slug}
-                                    className={cn(
-                                        "flex items-center p-4 rounded-lg border bg-background hover:bg-muted/50 transition-colors cursor-pointer",
-                                        selectedSubjects.includes(subject.slug) && "border-primary bg-primary/5"
-                                    )}
-                                >
-                                    <Checkbox
-                                        id={subject.slug}
-                                        checked={selectedSubjects.includes(subject.slug)}
-                                        onCheckedChange={() => handleCheckboxChange(subject.slug)}
-                                        className="mr-4 h-5 w-5"
-                                    />
-                                    <div className="flex items-center space-x-3">
-                                        <div className="bg-muted p-2 rounded-lg"><Icon className={cn('w-6 h-6', subject.color)} /></div>
-                                        <span className="font-semibold text-foreground">{subject.name}</span>
-                                    </div>
-                                </Label>
-                            )
-                        })}
-                    </div>
-                </CardContent>
-            </Card>
-
-            <div className="mt-8 flex justify-end">
-                <Button onClick={handleSaveChanges} disabled={isLoading}>
-                    {isLoading ? 'Saving...' : 'Save Changes'}
-                </Button>
-            </div>
-        </div>
+  const handleCheckboxChange = (subjectId: string) => {
+    setSelectedSubjectIds(prev =>
+      prev.includes(subjectId)
+        ? prev.filter(id => id !== subjectId)
+        : [...prev, subjectId]
     );
+  };
+
+  const handleSaveChanges = () => {
+    saveMutation.mutate(selectedSubjectIds);
+  };
+
+  return (
+    <div>
+      <div className="mb-8">
+        <Button variant="ghost" asChild className="mb-4">
+          <Link href="/student">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Dashboard
+          </Link>
+        </Button>
+        <h2 className="text-3xl font-bold text-foreground">Manage My Subjects</h2>
+        <p className="text-muted-foreground mt-1">Select the subjects you want to see on your dashboard.</p>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Available Subjects</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isFetching ? (
+            <div className="text-center py-8 text-muted-foreground">Loading subjects...</div>
+          ) : availableSubjects.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">No subjects available</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {availableSubjects.map(subject => {
+                const IconComponent = getIconComponent(subject.icon_url);
+                return (
+                  <Label
+                    key={subject.id}
+                    htmlFor={subject.id}
+                    className={cn(
+                      "flex items-center p-4 rounded-lg border bg-background hover:bg-muted/50 transition-colors cursor-pointer",
+                      selectedSubjectIds.includes(subject.id) && "border-primary bg-primary/5"
+                    )}
+                  >
+                    <Checkbox
+                      id={subject.id}
+                      checked={selectedSubjectIds.includes(subject.id)}
+                      onCheckedChange={() => handleCheckboxChange(subject.id)}
+                      className="mr-4 h-5 w-5"
+                    />
+                    <div className="flex items-center space-x-3">
+                      <div 
+                        className="p-2 rounded-lg text-white flex items-center justify-center w-10 h-10"
+                        style={{ backgroundColor: subject.color || '#3b82f6' }}
+                      >
+                        <IconComponent className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <span className="font-semibold text-foreground block">{subject.name}</span>
+                        <span className="text-xs text-muted-foreground">{subject.code}</span>
+                      </div>
+                    </div>
+                  </Label>
+                )
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="mt-8 flex justify-end">
+        <Button onClick={handleSaveChanges} disabled={saveMutation.isPending}>
+          {saveMutation.isPending ? 'Saving...' : 'Save Changes'}
+        </Button>
+      </div>
+    </div>
+  );
 }

@@ -2,9 +2,11 @@
 
 import { SubjectCard } from './subject-card';
 import { Skeleton } from './ui/skeleton';
-import { useEffect, useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
+import { memo } from 'react';
 
 interface Subject {
   id: string;
@@ -18,22 +20,24 @@ interface Subject {
   level?: string;
   status?: string;
   display_order?: number;
+  display_name?: string;
 }
 
 interface SubjectsGridProps {
     basePath?: string;
     pathSuffix?: string;
-    showAll?: boolean; // For admin view
-    examBoard?: string; // Filter by exam board (name like 'cambridge')
-    examBoardId?: string; // Filter by exam board UUID
-    level?: string; // Filter by qualification level
-    showAlphaFilter?: boolean; // Show alphabetic filter
+    showAll?: boolean;
+    examBoard?: string;
+    examBoardId?: string;
+    level?: string;
+    showAlphaFilter?: boolean;
 }
 
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 const STORAGE_KEY = 'subjects-alpha-filter';
+const supabase = createClient();
 
-export function SubjectsGrid({ 
+export const SubjectsGrid = memo(function SubjectsGrid({ 
   basePath = '/subjects', 
   pathSuffix = '', 
   showAll = false,
@@ -42,87 +46,89 @@ export function SubjectsGrid({
   level,
   showAlphaFilter = true
 }: SubjectsGridProps) {
-  const supabase = createClient();
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedLetter, setSelectedLetter] = useState<string>('A');
-
-  // Load saved letter from localStorage on mount
-  useEffect(() => {
-    if (showAlphaFilter && typeof window !== 'undefined') {
-      const savedLetter = localStorage.getItem(STORAGE_KEY);
-      if (savedLetter && ALPHABET.includes(savedLetter)) {
-        setSelectedLetter(savedLetter);
-      }
+  const [selectedLetter, setSelectedLetter] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved && ALPHABET.includes(saved)) return saved;
     }
-  }, [showAlphaFilter]);
+    return 'A';
+  });
+  
+  const isStudentDashboard = basePath.includes('/student/');
 
-  // Save selected letter to localStorage
-  const handleLetterSelect = (letter: string) => {
+  // Cached subjects query
+  const { data: subjects = [], isLoading, error, refetch } = useQuery({
+    queryKey: ['subjects-grid', examBoardId, level, showAll],
+    queryFn: async () => {
+      let query = supabase
+        .from('subjects')
+        .select('id, name, slug, code, icon_url, color, exam_board, exam_board_id, level, status, display_order, display_name')
+        .order('display_order', { ascending: true });
+
+      if (examBoardId) {
+        query = query.or(`exam_board_id.eq.${examBoardId},exam_board_id.is.null`);
+      }
+      if (level) {
+        query = query.or(`level.eq.${level},level.is.null`);
+      }
+      if (!showAll) {
+        query = query.eq('status', 'published');
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 10 * 60 * 1000, // Cache for 10 minutes
+  });
+
+  // Cached user progress query (only for student dashboard)
+  const { data: userProgress = new Map() } = useQuery({
+    queryKey: ['user-progress', isStudentDashboard],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return new Map();
+
+      const { data } = await supabase
+        .from('user_subject_progress')
+        .select('subject_id, progress_percentage')
+        .eq('user_id', user.id);
+
+      const progressMap = new Map<string, number>();
+      data?.forEach((item: any) => {
+        progressMap.set(item.subject_id, item.progress_percentage);
+      });
+      return progressMap;
+    },
+    enabled: isStudentDashboard,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const handleLetterSelect = useCallback((letter: string) => {
     setSelectedLetter(letter);
     if (typeof window !== 'undefined') {
       localStorage.setItem(STORAGE_KEY, letter);
     }
-  };
+  }, []);
 
-  useEffect(() => {
-    fetchSubjects();
-  }, [showAll, examBoard, examBoardId, level]);
-
-  async function fetchSubjects() {
-    try {
-      setIsLoading(true);
-      
-      // Build query with optional filters
-      // Use OR filter to include subjects with matching exam_board_id OR null (unassigned)
-      let query = supabase
-        .from('subjects')
-        .select('*');
-
-      // Filter by exam_board_id if provided - include both matching and unassigned subjects
-      if (examBoardId) {
-        query = query.or(`exam_board_id.eq.${examBoardId},exam_board_id.is.null`);
-      }
-
-      // Filter by level if provided - include both matching and unassigned subjects
-      if (level) {
-        query = query.or(`level.eq.${level},level.is.null`);
-      }
-
-      const { data, error: fetchError } = await query;
-
-      if (fetchError) {
-        console.error('Error fetching subjects:', fetchError);
-        throw fetchError;
-      }
-
-      console.log('Subjects loaded:', data?.length || 0);
-      setSubjects(data || []);
-      setError(null);
-    } catch (err: any) {
-      console.error('Failed to load subjects:', err);
-      setError(err.message || 'Failed to load subjects');
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  // Filter subjects by selected letter
+  // Memoized filtered subjects to prevent recalculation
   const filteredSubjects = useMemo(() => {
-    if (!showAlphaFilter || !selectedLetter) return subjects;
-    return subjects.filter(s => 
-      s.name.toUpperCase().startsWith(selectedLetter)
-    );
+    if (!showAlphaFilter || selectedLetter === 'All') {
+      return subjects;
+    }
+    return subjects.filter(subject => {
+      const displayName = subject.display_name || subject.name;
+      return displayName.toUpperCase().startsWith(selectedLetter);
+    });
   }, [subjects, selectedLetter, showAlphaFilter]);
 
-  // Get letters that have subjects
+  // Memoized available letters
   const availableLetters = useMemo(() => {
     const letters = new Set<string>();
-    subjects.forEach(s => {
-      const firstLetter = s.name.charAt(0).toUpperCase();
-      if (ALPHABET.includes(firstLetter)) {
-        letters.add(firstLetter);
+    subjects.forEach(subject => {
+      const displayName = subject.display_name || subject.name;
+      if (displayName && displayName.length > 0) {
+        letters.add(displayName.toUpperCase()[0]);
       }
     });
     return letters;
@@ -132,9 +138,9 @@ export function SubjectsGrid({
     return (
       <div className="max-w-6xl mx-auto">
         <div className="text-center py-10">
-          <p className="text-destructive mb-4">Error loading subjects: {error}</p>
+          <p className="text-destructive mb-4">Error loading subjects: {(error as Error).message}</p>
           <button 
-            onClick={fetchSubjects}
+            onClick={() => refetch()}
             className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
           >
             Retry
@@ -212,14 +218,22 @@ export function SubjectsGrid({
                     if (level) params.set('level', level);
                     if (params.toString()) path += `?${params.toString()}`;
                     
+                    const progress = userProgress.get(subject.id) || 0;
+                    
+                    // Format subject name with syllabus code
+                    const displayName = subject.display_name || subject.name;
+                    const syllabusCode = subject.code || '';
+                    
                     return (
                         <SubjectCard 
                             key={subject.id}
-                            name={subject.name}
-                            code={subject.code || subject.exam_board || ''}
+                            name={syllabusCode ? `${displayName} (${syllabusCode})` : displayName}
+                            code={subject.exam_board || ''}
                             icon={subject.icon_url}
                             path={path}
                             color={subject.color || '#3b82f6'}
+                            progress={progress}
+                            showProgress={isStudentDashboard}
                         />
                     )
                 })
@@ -227,4 +241,4 @@ export function SubjectsGrid({
         </div>
     </div>
   );
-}
+});

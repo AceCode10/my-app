@@ -54,6 +54,9 @@ export interface PaperQuestion {
   question_number: number;
   section_name: string | null; // e.g., "Section A", "Section B"
   part_label: string | null; // e.g., "a", "b", "c"
+  display_order: number | null; // Numeric ordering for consistent sorting
+  parent_question_id: string | null; // Reference to parent question for multi-part questions
+  needs_answer: boolean; // Whether this part requires a student answer (has answer lines in paper)
   
   // Question content
   question_text: string | null;
@@ -68,9 +71,34 @@ export interface PaperQuestion {
   // MCQ options
   options: MCQOption[] | null;
   
+  // Multiple sub-inputs for questions with multiple answer fields
+  sub_inputs: string[] | null; // e.g., ["Way 1", "Way 2", "Way 3", "Way 4"]
+  
   // Media
   image_url: string | null;
   diagram_url: string | null;
+  image_position?: 'before_text' | 'after_text' | 'inline' | null;
+  
+  // Full question image mode (like SaveMyExams)
+  use_image_question?: boolean;
+  question_image_url?: string | null;
+  
+  // Vision extraction fields (for questions with diagrams/images)
+  has_image?: boolean;
+  question_image_data?: string | null; // Base64 image data for DIAGRAM only (not whole question)
+  image_metadata?: {
+    page_number?: number;
+    width?: number;
+    height?: number;
+    format?: string;
+    extraction_method?: 'gpt4-vision' | 'manual';
+  } | null;
+  
+  // Structured table data for clean HTML rendering
+  table_data?: {
+    headers: string[];
+    rows: string[][];
+  } | null;
   
   // Metadata
   difficulty: 'easy' | 'medium' | 'hard' | null;

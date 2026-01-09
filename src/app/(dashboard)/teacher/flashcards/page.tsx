@@ -1,172 +1,197 @@
 'use client';
-import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, orderBy, doc, deleteDoc, where } from 'firebase/firestore';
-import type { FlashcardDeck } from '@/types';
+import { useState, useEffect } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { useUser } from '@/hooks/use-user';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { PlusCircle, MoreHorizontal } from 'lucide-react';
-import { format } from 'date-fns';
+import { Input } from '@/components/ui/input';
+import { Layers, Search, Eye, BookOpen, Users } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+interface FlashcardDeck {
+    id: string;
+    title: string;
+    subject_id: string;
+    topic_id: string | null;
+    created_by: string;
+    created_at: string;
+    card_count?: number;
+    subjects?: { name: string };
+    topics?: { name: string };
+}
+
+interface Subject {
+    id: string;
+    name: string;
+}
 
 const TeacherFlashcardsPage = () => {
-    const firestore = useFirestore();
+    const supabase = createClient();
     const { user } = useUser();
     const { toast } = useToast();
-    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-    const [selectedDeckId, setSelectedDeckId] = useState<string | null>(null);
+    const [decks, setDecks] = useState<FlashcardDeck[]>([]);
+    const [subjects, setSubjects] = useState<Subject[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedSubject, setSelectedSubject] = useState<string>('all');
 
-    const decksQuery = useMemoFirebase(() => {
-        if (!firestore || !user) return null;
-        return query(collection(firestore, 'flashcardDecks'), where('createdBy', '==', user.uid), orderBy('createdAt', 'desc'));
-    }, [firestore, user]);
+    useEffect(() => {
+        fetchDecks();
+        fetchSubjects();
+    }, []);
 
-    const { data: decks, isLoading, error } = useCollection<FlashcardDeck>(decksQuery);
+    async function fetchSubjects() {
+        const { data } = await supabase
+            .from('subjects')
+            .select('id, name')
+            .order('name');
+        setSubjects(data || []);
+    }
 
-    const handleDeleteClick = (deckId: string) => {
-        setSelectedDeckId(deckId);
-        setIsDeleteDialogOpen(true);
-    };
-    
-    const handleDeleteConfirm = async () => {
-        if (!firestore || !selectedDeckId) return;
-        // Note: Deleting subcollections like cards requires a Cloud Function for production.
-        // For this demo, we'll just delete the deck document itself.
+    async function fetchDecks() {
         try {
-            await deleteDoc(doc(firestore, "flashcardDecks", selectedDeckId));
-            toast({
-                title: "Deck Deleted",
-                description: "The flashcard deck has been successfully deleted.",
-            });
+            // Fetch all public flashcard decks (created by content moderators/admins)
+            const { data, error } = await supabase
+                .from('flashcard_decks')
+                .select('*, subjects(name), topics(name)')
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            
+            // Get card counts for each deck
+            const decksWithCounts = await Promise.all(
+                (data || []).map(async (deck) => {
+                    const { count } = await supabase
+                        .from('flashcards')
+                        .select('*', { count: 'exact', head: true })
+                        .eq('deck_id', deck.id);
+                    return { ...deck, card_count: count || 0 };
+                })
+            );
+            
+            setDecks(decksWithCounts);
         } catch (error) {
-            console.error("Error deleting deck: ", error);
-            toast({
-                variant: "destructive",
-                title: "Error",
-                description: "There was a problem deleting the deck.",
-            });
+            console.error('Error fetching decks:', error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not load flashcard decks.' });
         } finally {
-            setIsDeleteDialogOpen(false);
-            setSelectedDeckId(null);
+            setIsLoading(false);
         }
-    };
+    }
+
+    const filteredDecks = decks.filter(deck => {
+        const matchesSearch = deck.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            deck.subjects?.name?.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesSubject = selectedSubject === 'all' || deck.subject_id === selectedSubject;
+        return matchesSearch && matchesSubject;
+    });
 
     return (
-        <>
+        <div className="space-y-6">
+            <div>
+                <h2 className="text-3xl font-bold text-foreground">Flashcard Library</h2>
+                <p className="text-muted-foreground mt-1">Browse flashcard decks and assign them to your classes.</p>
+            </div>
+
+            {/* Filters */}
             <Card>
-                <CardHeader>
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <CardTitle>My Flashcard Decks</CardTitle>
-                            <CardDescription>Manage all flashcard decks you have created.</CardDescription>
+                <CardContent className="pt-6">
+                    <div className="flex flex-col sm:flex-row gap-4">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Search flashcard decks..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="pl-10"
+                            />
                         </div>
-                        <Button asChild>
-                            <Link href="/teacher/flashcards/new">
-                                <PlusCircle className="mr-2 h-4 w-4" />
-                                Create New Deck
-                            </Link>
-                        </Button>
+                        <Select value={selectedSubject} onValueChange={setSelectedSubject}>
+                            <SelectTrigger className="w-full sm:w-[200px]">
+                                <SelectValue placeholder="Filter by subject" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Subjects</SelectItem>
+                                {subjects.map(subject => (
+                                    <SelectItem key={subject.id} value={subject.id}>
+                                        {subject.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Title</TableHead>
-                                <TableHead>Subject</TableHead>
-                                <TableHead>Topic</TableHead>
-                                <TableHead>Created At</TableHead>
-                                <TableHead><span className="sr-only">Actions</span></TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {isLoading ? (
-                                Array.from({ length: 3 }).map((_, i) => (
-                                    <TableRow key={i}>
-                                        <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                                        <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                                        <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                                        <TableCell><Skeleton className="h-5 w-28" /></TableCell>
-                                        <TableCell><Skeleton className="h-8 w-8" /></TableCell>
-                                    </TableRow>
-                                ))
-                            ) : error ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="h-24 text-center text-destructive">
-                                        Error loading decks: {error.message}
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                decks?.map(deck => (
-                                    <TableRow key={deck.id}>
-                                        <TableCell className="font-medium">{deck.title}</TableCell>
-                                        <TableCell>{deck.subject}</TableCell>
-                                        <TableCell>{deck.topic}</TableCell>
-                                        <TableCell>
-                                            {deck.createdAt ? format(deck.createdAt.toDate(), 'PPP') : 'N/A'}
-                                        </TableCell>
-                                        <TableCell>
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button aria-haspopup="true" size="icon" variant="ghost">
-                                                        <MoreHorizontal className="h-4 w-4" />
-                                                        <span className="sr-only">Toggle menu</span>
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem asChild><Link href={`/teacher/flashcards/${deck.id}`}>Edit</Link></DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => handleDeleteClick(deck.id)}>Delete</DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                             {!isLoading && decks?.length === 0 && (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="h-24 text-center">
-                                        No flashcard decks found. Get started by creating one.
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
                 </CardContent>
             </Card>
-            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete the flashcard deck. Note: The cards inside the deck need to be deleted separately via a script.
-                    </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDeleteConfirm}>Delete</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-        </>
+
+            {/* Decks Grid */}
+            {isLoading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                        <Card key={i}>
+                            <CardHeader>
+                                <Skeleton className="h-6 w-3/4" />
+                                <Skeleton className="h-4 w-1/2" />
+                            </CardHeader>
+                            <CardContent>
+                                <Skeleton className="h-4 w-full" />
+                                <Skeleton className="h-10 w-full mt-4" />
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+            ) : filteredDecks.length === 0 ? (
+                <Card className="text-center p-12 border-dashed">
+                    <Layers className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="font-semibold text-foreground mb-2">No Flashcard Decks Found</h3>
+                    <p className="text-muted-foreground text-sm">
+                        {searchQuery || selectedSubject !== 'all' 
+                            ? 'Try adjusting your search or filter criteria.'
+                            : 'Flashcard decks will appear here once created by content moderators.'}
+                    </p>
+                </Card>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredDecks.map(deck => (
+                        <Card key={deck.id} className="hover:border-primary/50 transition-colors">
+                            <CardHeader>
+                                <div className="flex items-start justify-between">
+                                    <div>
+                                        <CardTitle className="text-lg">{deck.title}</CardTitle>
+                                        <CardDescription className="mt-1">
+                                            {deck.subjects?.name || 'Unknown Subject'}
+                                            {deck.topics?.name && ` • ${deck.topics.name}`}
+                                        </CardDescription>
+                                    </div>
+                                    <Badge variant="secondary">
+                                        <Layers className="h-3 w-3 mr-1" />
+                                        {deck.card_count} cards
+                                    </Badge>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="flex gap-2">
+                                    <Button variant="outline" className="flex-1" asChild>
+                                        <Link href={`/teacher/flashcards/${deck.id}`}>
+                                            <Eye className="h-4 w-4 mr-2" />
+                                            Preview
+                                        </Link>
+                                    </Button>
+                                    <Button variant="default" className="flex-1" asChild>
+                                        <Link href={`/teacher/flashcards/${deck.id}/assign`}>
+                                            <Users className="h-4 w-4 mr-2" />
+                                            Assign
+                                        </Link>
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+            )}
+        </div>
     );
 };
 

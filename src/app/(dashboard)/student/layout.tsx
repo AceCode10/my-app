@@ -1,50 +1,35 @@
-
-
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-    LayoutDashboard, BookCopy, BarChart3, Trophy, Users, Settings, ChevronDown, 
-    LogOut, Filter, Search, PanelLeft, FileText,
+    LayoutDashboard, BookCopy, BarChart3, Trophy, Users, Settings,
+    LogOut, Menu, X, FileText, BookOpen, ChevronLeft, ChevronRight,
 } from 'lucide-react';
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-  SidebarFooter,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar"
 import { useUser } from '@/hooks/use-user';
 import { createClient } from '@/lib/supabase/client';
-import { NotificationBell, Notification } from '@/components/notification-bell';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
+import { NotificationBell } from '@/components/gamification';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { KodiAssistant } from '@/components/kodi-assistant';
+import { ErrorBoundary } from '@/components/error-boundary';
 import { cn } from '@/lib/utils';
-
-
-const mockStudentNotifications: Notification[] = [
-  { id: 1, type: 'streak', message: 'You are on a 3-day streak! Keep it up.', timestamp: '2h ago', read: false },
-  { id: 2, type: 'approval', message: 'Your request to join Grade 10 - Core Mathematics has been approved!', timestamp: '5h ago', read: false },
-  { id: 3, type: 'submission', message: 'Your Biology quiz has been graded.', timestamp: '1d ago', read: false },
-  { id: 4, type: 'badge', message: 'New Badge Unlocked: "Science Whiz"!', timestamp: '3d ago', read: true },
-];
-
+import { KodiLoadingGif } from '@/components/ui/kodi-loading-gif';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 const navItems = [
-    { href: '/student', label: 'Dashboard', icon: <LayoutDashboard /> },
-    { href: '/student/subjects', label: 'Subjects', icon: <BookCopy /> },
-    { href: '/student/papers', label: 'Past Papers', icon: <FileText /> },
-    { href: '/student/classes', label: 'My Classes', icon: <Users /> },
-    { href: '/student/progress', label: 'Progress', icon: <BarChart3 /> },
-    { href: '/student/leaderboard', label: 'Leaderboard', icon: <Trophy /> },
+    { href: '/student', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/student/subjects', label: 'Subjects', icon: BookCopy },
+    { href: '/student/notes', label: 'Revision Notes', icon: BookOpen },
+    { href: '/student/papers', label: 'Past Papers', icon: FileText },
+    { href: '/student/classes', label: 'My Classes', icon: Users },
+    { href: '/student/progress', label: 'Progress', icon: BarChart3 },
+    { href: '/student/leaderboard', label: 'Leaderboard', icon: Trophy },
 ];
 
 const searchItems = [
@@ -55,187 +40,239 @@ const searchItems = [
     { name: 'Forces Flashcards', category: 'flashcards', path: '/subjects/physics' },
 ];
 
-const AppSidebar = () => {
-    const pathname = usePathname();
-    const { user } = useUser();
-    const isSubscribed = user?.subscription_tier === 'pro' || user?.subscription_tier === 'essential';
-
-    return (
-        <Sidebar collapsible="icon">
-            <SidebarHeader className="flex items-center justify-between">
-                 <div className="text-2xl font-bold">
-                    IGCSE <span className="text-primary">Simplified</span>
-                </div>
-                 <SidebarTrigger>
-                    <Button variant="ghost" size="icon" className="p-2 md:flex group-data-[collapsible=icon]:hidden">
-                        <PanelLeft className="h-5 w-5"/>
-                        <span className="sr-only">Toggle Sidebar</span>
-                    </Button>
-                </SidebarTrigger>
-            </SidebarHeader>
-            <SidebarContent>
-                <SidebarMenu>
-                    {navItems.map(item => (
-                        <SidebarMenuItem key={item.label}>
-                            <Link href={item.href}>
-                                <SidebarMenuButton 
-                                    tooltip={item.label} 
-                                    isActive={pathname === item.href || (item.href !== '/student' && pathname.startsWith(item.href))}
-                                >
-                                    {item.icon}
-                                    <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
-                                </SidebarMenuButton>
-                            </Link>
-                        </SidebarMenuItem>
-                    ))}
-                </SidebarMenu>
-            </SidebarContent>
-            <SidebarFooter>
-                 <SidebarMenu>
-                    <SidebarMenuItem>
-                        <Link href="/student/settings">
-                            <SidebarMenuButton tooltip="Settings" isActive={pathname === '/student/settings'}>
-                                <Settings />
-                                <span className="group-data-[collapsible=icon]:hidden">Settings</span>
-                            </SidebarMenuButton>
-                        </Link>
-                    </SidebarMenuItem>
-                 </SidebarMenu>
-            </SidebarFooter>
-        </Sidebar>
-    );
-};
-
-const AppHeader = () => {
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useUser();
-  const supabase = createClient();
   const router = useRouter();
-  const username = user?.display_name || user?.email || 'Learner';
-  const isSubscribed = user?.subscription_tier === 'pro' || user?.subscription_tier === 'essential';
-  const [filter, setFilter] = React.useState('all');
-  const [searchQuery, setSearchQuery] = React.useState('');
-  const [filteredItems, setFilteredItems] = React.useState(searchItems);
+  const pathname = usePathname();
+  const supabase = createClient();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('student-sidebar-collapsed');
+      return stored === 'true';
+    }
+    return false;
+  });
 
-  React.useEffect(() => {
-    const results = searchItems.filter(item => {
-        const queryMatch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
-        const filterMatch = filter === 'all' || item.category === filter;
-        return queryMatch && filterMatch;
-    });
-    setFilteredItems(results);
-  }, [searchQuery, filter]);
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('student-sidebar-collapsed', String(sidebarCollapsed));
+    }
+  }, [sidebarCollapsed]);
 
   const handleLogout = async () => {
-      await supabase.auth.signOut();
-      router.push('/');
+    await supabase.auth.signOut();
+    router.push('/');
   };
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (filteredItems.length > 0) {
-        router.push(filteredItems[0].path);
-    }
-  };
-  
+  if (loading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background">
+        <KodiLoadingGif />
+      </div>
+    );
+  }
+
+  const username = user?.display_name || user?.email || 'Student';
+  const isSubscribed = user?.subscription_tier === 'pro' || user?.subscription_tier === 'essential';
+
   return (
-    <header className="h-16 bg-background border-b flex items-center justify-between px-4 sm:px-6">
-        <div className="flex items-center gap-2 md:w-1/3">
-             <SidebarTrigger className="md:hidden" />
-        </div>
-        <div className="w-full md:w-1/3 flex justify-center">
-            <form onSubmit={handleSearchSubmit} className="relative w-full max-w-sm">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <Input 
-                    placeholder="Search for anything..." 
-                    className="pl-10" 
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                />
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8">
-                            <Filter className="w-4 h-4" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Filter by</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuRadioGroup value={filter} onValueChange={setFilter}>
-                            <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
-                            <DropdownMenuRadioItem value="subjects">Subjects</DropdownMenuRadioItem>
-                            <DropdownMenuRadioItem value="quizzes">Quizzes</DropdownMenuRadioItem>
-                            <DropdownMenuRadioItem value="flashcards">Flashcards</DropdownMenuRadioItem>
-                        </DropdownMenuRadioGroup>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-                {searchQuery && (
-                    <div className="absolute mt-1 w-full rounded-md bg-background shadow-lg z-10 border">
-                        <ul>
-                            {filteredItems.length > 0 ? filteredItems.map(item => (
-                                <li key={item.name}>
-                                    <Link href={item.path} className="block px-4 py-2 text-sm text-foreground hover:bg-muted">
-                                        {item.name} <span className="text-xs text-muted-foreground">in {item.category}</span>
-                                    </Link>
-                                </li>
-                            )) : (
-                                <li className="px-4 py-2 text-sm text-muted-foreground">No results found.</li>
-                            )}
-                        </ul>
-                    </div>
-                )}
-            </form>
-        </div>
-        <div className="flex justify-end items-center space-x-2 sm:space-x-5 md:w-1/3">
-          {!isSubscribed && (
-            <Button asChild size="sm">
-                <Link href="/pricing">Upgrade</Link>
-            </Button>
+    <TooltipProvider>
+      <div className="flex h-screen bg-background">
+        {/* Sidebar */}
+        <aside
+          className={cn(
+            'fixed inset-y-0 left-0 z-50 bg-card border-r transform transition-all duration-200 ease-in-out lg:translate-x-0 lg:static lg:inset-0',
+            sidebarOpen ? 'translate-x-0' : '-translate-x-full',
+            sidebarCollapsed ? 'w-20' : 'w-64'
           )}
-          <NotificationBell initialNotifications={mockStudentNotifications} />
-          <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                  <div className="flex items-center space-x-3 cursor-pointer">
-                      <img className="h-10 w-10 rounded-full object-cover" data-ai-hint="avatar" src={user?.avatar_url || `https://placehold.co/100x100/00bf8f/ffffff?text=${username.charAt(0)}`} alt="User avatar" />
-                      <div className="hidden sm:block">
-                          <p className="text-sm font-semibold text-foreground">{username}</p>
-                          <p className="text-xs text-muted-foreground">{isSubscribed ? 'Pro Plan' : 'Basic Plan'}</p>
-                      </div>
-                      <ChevronDown className="h-5 w-5 text-muted-foreground hidden sm:block" />
+        >
+          <div className="flex flex-col h-full">
+            {/* Logo */}
+            <div className="flex items-center justify-between h-16 px-4 border-b">
+              <Link href="/student" className="flex items-center space-x-2 min-w-0">
+                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center flex-shrink-0">
+                  <span className="text-primary-foreground font-bold text-sm">R+</span>
+                </div>
+                {!sidebarCollapsed && (
+                  <div className="min-w-0">
+                    <h1 className="text-sm font-bold text-foreground truncate">RevisionPlus</h1>
+                    <p className="text-xs text-muted-foreground">Student</p>
                   </div>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-48">
-                  <DropdownMenuItem>
-                    <Link href="/student/settings" className="flex items-center">
-                        <Settings className="mr-2 h-4 w-4" />
-                        <span>Settings</span>
+                )}
+              </Link>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="lg:hidden p-2 rounded-md hover:bg-muted flex-shrink-0"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Collapse Toggle Button - Desktop only */}
+            <div className="hidden lg:flex justify-end px-2 py-2 border-b">
+              <button
+                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                className="p-1.5 rounded-md hover:bg-muted transition-colors"
+                title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              >
+                {sidebarCollapsed ? (
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+                )}
+              </button>
+            </div>
+
+            {/* Navigation */}
+            <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = pathname === item.href || (item.href !== '/student' && pathname.startsWith(item.href));
+                
+                const linkContent = (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setSidebarOpen(false)}
+                    className={cn(
+                      'flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                      sidebarCollapsed ? 'justify-center' : 'space-x-3',
+                      isActive
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    )}
+                  >
+                    <Icon className="h-5 w-5 flex-shrink-0" />
+                    {!sidebarCollapsed && <span>{item.label}</span>}
+                  </Link>
+                );
+
+                if (sidebarCollapsed) {
+                  return (
+                    <Tooltip key={item.href} delayDuration={0}>
+                      <TooltipTrigger asChild>
+                        {linkContent}
+                      </TooltipTrigger>
+                      <TooltipContent side="right">
+                        <p>{item.label}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  );
+                }
+
+                return linkContent;
+              })}
+            </nav>
+
+            {/* Footer with Settings */}
+            <div className="p-2 border-t space-y-1">
+              {sidebarCollapsed ? (
+                <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <Link
+                      href="/student/settings"
+                      onClick={() => setSidebarOpen(false)}
+                      className={cn(
+                        'flex items-center justify-center px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                        pathname === '/student/settings'
+                          ? 'bg-primary text-primary-foreground'
+                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                      )}
+                    >
+                      <Settings className="h-5 w-5" />
                     </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout}>
-                      <LogOut className="mr-2 h-4 w-4" />
-                      <span>Log out</span>
-                  </DropdownMenuItem>
-              </DropdownMenuContent>
-          </DropdownMenu>
-      </div>
-    </header>
-  );
-};
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    <p>Settings</p>
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <Link
+                  href="/student/settings"
+                  onClick={() => setSidebarOpen(false)}
+                  className={cn(
+                    'flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                    pathname === '/student/settings'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  )}
+                >
+                  <Settings className="h-5 w-5" />
+                  <span>Settings</span>
+                </Link>
+              )}
+              
+              {!sidebarCollapsed && (
+                <>
+                  <div className="flex items-center space-x-3 px-3 py-2">
+                    <img 
+                      className="h-10 w-10 rounded-full object-cover flex-shrink-0" 
+                      src={user?.avatar_url || `https://placehold.co/100x100/00bf8f/ffffff?text=${username.charAt(0)}`} 
+                      alt="User avatar" 
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{username}</p>
+                      <p className="text-xs text-muted-foreground">{isSubscribed ? 'Pro Plan' : 'Basic Plan'}</p>
+                    </div>
+                  </div>
+                  <Button onClick={handleLogout} variant="outline" size="sm" className="w-full">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Logout
+                  </Button>
+                </>
+              )}
+              
+              {sidebarCollapsed && (
+                <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={handleLogout}
+                      className="w-full flex items-center justify-center px-3 py-2 rounded-lg text-sm font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground"
+                    >
+                      <LogOut className="h-5 w-5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    <p>Logout</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+          </div>
+        </aside>
 
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Mobile Header */}
+        <header className="lg:hidden flex items-center justify-between h-16 px-4 border-b bg-card">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-2 rounded-md hover:bg-muted"
+          >
+            <Menu className="h-6 w-6" />
+          </button>
+          <h1 className="text-lg font-semibold">RevisionPlus</h1>
+          <NotificationBell />
+        </header>
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <SidebarProvider>
-      <div className="flex h-screen bg-muted/50 font-sans">
-        <AppSidebar />
-        <div className="flex-1 flex flex-col">
-          <AppHeader />
-          <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto w-full">
+        {/* Page Content */}
+        <main className="flex-1 overflow-y-auto p-6">
+          <ErrorBoundary>
             {children}
-          </main>
-          <KodiAssistant />
-        </div>
+          </ErrorBoundary>
+        </main>
+        <KodiAssistant />
       </div>
-    </SidebarProvider>
+
+      {/* Mobile Overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+      </div>
+    </TooltipProvider>
   );
 }

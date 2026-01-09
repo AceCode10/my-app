@@ -1,23 +1,21 @@
 'use client';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, getDoc, setDoc, addDoc, collection, serverTimestamp, writeBatch, query, orderBy, deleteDoc } from 'firebase/firestore';
-import type { FlashcardDeck, Flashcard } from '@/types';
+import { createClient } from '@/lib/supabase/client';
+import { useUser } from '@/hooks/use-user';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { ArrowLeft, Loader2, PlusCircle, Trash2 } from 'lucide-react';
-import { allSubjects, Subject as SubjectType } from '@/lib/subjects';
 
 const deckSchema = z.object({
     title: z.string().min(3, { message: "Title must be at least 3 characters." }),
@@ -33,31 +31,33 @@ const deckSchema = z.object({
 
 type DeckFormData = z.infer<typeof deckSchema>;
 
+interface Subject {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+interface Topic {
+  id: string;
+  name: string;
+  subject_id: string;
+}
+
 const FlashcardDeckEditorPage = () => {
     const router = useRouter();
     const params = useParams();
     const { id: deckId } = params;
     const isNewDeck = deckId === 'new';
 
-    const firestore = useFirestore();
+    const supabase = createClient();
     const { user } = useUser();
     const { toast } = useToast();
 
     const [isLoading, setIsLoading] = useState(false);
-    const [selectedSubject, setSelectedSubject] = useState<SubjectType | null>(null);
-
-    const deckRef = useMemoFirebase(() => {
-        if (!firestore || isNewDeck) return null;
-        return doc(firestore, 'flashcardDecks', deckId as string);
-    }, [firestore, isNewDeck, deckId]);
-    
-    const cardsQuery = useMemoFirebase(() => {
-        if (!deckRef) return null;
-        return query(collection(deckRef, 'cards'), orderBy('order'));
-    }, [deckRef]);
-
-    const { data: deckData, isLoading: isFetchingDeck } = useDoc<FlashcardDeck>(deckRef);
-    const { data: cardData, isLoading: isFetchingCards } = useCollection<Flashcard>(cardsQuery);
+    const [isFetching, setIsFetching] = useState(!isNewDeck);
+    const [subjects, setSubjects] = useState<Subject[]>([]);
+    const [topics, setTopics] = useState<Topic[]>([]);
+    const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
     
     const form = useForm<DeckFormData>({
         resolver: zodResolver(deckSchema),
@@ -67,66 +67,142 @@ const FlashcardDeckEditorPage = () => {
     });
 
     const { fields, append, remove } = useFieldArray({ control: form.control, name: "cards" });
-    const subjectSlugValue = form.watch('subject');
+    const subjectValue = form.watch('subject');
 
+    // Fetch subjects on mount
     useEffect(() => {
-        if (subjectSlugValue) {
-            const subject = allSubjects.find(s => s.slug === subjectSlugValue) || null;
-            setSelectedSubject(subject);
-            form.resetField('topic', { defaultValue: '' });
-        } else {
-            setSelectedSubject(null);
+        async function fetchSubjects() {
+            const { data } = await supabase
+                .from('subjects')
+                .select('id, name, slug')
+                .order('name');
+            if (data) setSubjects(data);
         }
-    }, [subjectSlugValue, form]);
+        fetchSubjects();
+    }, []);
 
+    // Fetch topics when subject changes
     useEffect(() => {
-        if (deckData && cardData) {
-            form.reset({
-                title: deckData.title,
-                subject: deckData.subject,
-                topic: deckData.topic,
-                description: deckData.description,
-                cards: cardData.length > 0 ? cardData.map(c => ({ id: c.id, front: c.front, back: c.back })) : [{ front: '', back: '' }],
-            });
+        async function fetchTopics() {
+            if (!selectedSubjectId) {
+                setTopics([]);
+                return;
+            }
+            const { data } = await supabase
+                .from('topics')
+                .select('id, name, subject_id')
+                .eq('subject_id', selectedSubjectId)
+                .order('name');
+            if (data) setTopics(data);
         }
-    }, [deckData, cardData, form]);
+        fetchTopics();
+    }, [selectedSubjectId]);
+
+    // Update selected subject when form value changes
+    useEffect(() => {
+        if (subjectValue) {
+            const subject = subjects.find(s => s.id === subjectValue);
+            if (subject) {
+                setSelectedSubjectId(subject.id);
+            }
+        }
+    }, [subjectValue, subjects]);
+
+    // Fetch existing deck data
+    useEffect(() => {
+        async function fetchDeck() {
+            if (isNewDeck || !user) return;
+            
+            setIsFetching(true);
+            try {
+                const { data: deck, error } = await supabase
+                    .from('flashcard_decks')
+                    .select('*, flashcards(*)')
+                    .eq('id', deckId)
+                    .single();
+
+                if (error) throw error;
+
+                if (deck) {
+                    setSelectedSubjectId(deck.subject_id || '');
+                    form.reset({
+                        title: deck.title,
+                        subject: deck.subject_id || '',
+                        topic: deck.topic_id || '',
+                        description: deck.description || '',
+                        cards: deck.flashcards?.length > 0 
+                            ? deck.flashcards.map((c: any) => ({ id: c.id, front: c.front, back: c.back }))
+                            : [{ front: '', back: '' }],
+                    });
+                }
+            } catch (error) {
+                console.error('Error fetching deck:', error);
+                toast({ variant: 'destructive', title: 'Error', description: 'Failed to load deck' });
+            } finally {
+                setIsFetching(false);
+            }
+        }
+        fetchDeck();
+    }, [deckId, isNewDeck, user]);
 
     const onSubmit = async (data: DeckFormData) => {
-        if (!firestore || !user) return;
+        if (!user) return;
         setIsLoading(true);
 
         try {
-            const batch = writeBatch(firestore);
-            let targetDeckId = isNewDeck ? doc(collection(firestore, 'flashcardDecks')).id : deckId as string;
-            const deckRef = doc(firestore, 'flashcardDecks', targetDeckId);
+            let targetDeckId = deckId as string;
 
-            const deckPayload: Omit<FlashcardDeck, 'id'> = {
-                title: data.title,
-                subject: data.subject,
-                topic: data.topic,
-                description: data.description,
-                createdBy: user.uid,
-                updatedAt: serverTimestamp(),
-                ...(isNewDeck && { createdAt: serverTimestamp() })
-            };
-            batch.set(deckRef, deckPayload, { merge: true });
+            if (isNewDeck) {
+                // Create new deck
+                const { data: newDeck, error: deckError } = await supabase
+                    .from('flashcard_decks')
+                    .insert({
+                        title: data.title,
+                        subject_id: data.subject || null,
+                        topic_id: data.topic || null,
+                        description: data.description || null,
+                        created_by: user.id,
+                    })
+                    .select()
+                    .single();
 
-            // This is a simplified upsert. A more robust solution might handle deletions better.
-            data.cards.forEach((card, index) => {
-                const cardRef = card.id 
-                    ? doc(firestore, 'flashcardDecks', targetDeckId, 'cards', card.id)
-                    : doc(collection(firestore, 'flashcardDecks', targetDeckId, 'cards'));
-                
-                const cardPayload: Omit<Flashcard, 'id'> = {
-                    front: card.front,
-                    back: card.back,
-                    order: index,
-                    createdAt: serverTimestamp(),
-                };
-                batch.set(cardRef, cardPayload, { merge: true });
-            });
+                if (deckError) throw deckError;
+                targetDeckId = newDeck.id;
+            } else {
+                // Update existing deck
+                const { error: updateError } = await supabase
+                    .from('flashcard_decks')
+                    .update({
+                        title: data.title,
+                        subject_id: data.subject || null,
+                        topic_id: data.topic || null,
+                        description: data.description || null,
+                    })
+                    .eq('id', deckId);
+
+                if (updateError) throw updateError;
+
+                // Delete existing cards
+                await supabase
+                    .from('flashcards')
+                    .delete()
+                    .eq('deck_id', deckId);
+            }
+
+            // Insert cards
+            const cardsToInsert = data.cards.map((card, index) => ({
+                deck_id: targetDeckId,
+                front: card.front,
+                back: card.back,
+                order_index: index,
+            }));
+
+            const { error: cardsError } = await supabase
+                .from('flashcards')
+                .insert(cardsToInsert);
+
+            if (cardsError) throw cardsError;
             
-            await batch.commit();
             toast({ title: `Deck ${isNewDeck ? 'Created' : 'Updated'}` });
             router.push('/teacher/flashcards');
 
@@ -138,7 +214,7 @@ const FlashcardDeckEditorPage = () => {
         }
     };
     
-    if (isFetchingDeck || isFetchingCards) return <p>Loading...</p>
+    if (isFetching) return <div className="flex items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin" /></div>
 
     return (
         <>
@@ -159,15 +235,15 @@ const FlashcardDeckEditorPage = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                            <FormField control={form.control} name="subject" render={({ field }) => (
                                 <FormItem><FormLabel>Subject</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a subject" /></SelectTrigger></FormControl>
-                                        <SelectContent>{allSubjects.map(s => <SelectItem key={s.slug} value={s.slug}>{s.name}</SelectItem>)}</SelectContent>
+                                    <Select onValueChange={(value) => { field.onChange(value); setSelectedSubjectId(value); }} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a subject" /></SelectTrigger></FormControl>
+                                        <SelectContent>{subjects.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                                     </Select><FormMessage />
                                 </FormItem>
                             )} />
                             <FormField control={form.control} name="topic" render={({ field }) => (
                                 <FormItem><FormLabel>Topic</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value} disabled={!selectedSubject}><FormControl><SelectTrigger><SelectValue placeholder={selectedSubject ? "Select a topic" : "Select a subject first"} /></SelectTrigger></FormControl>
-                                        <SelectContent>{selectedSubject?.topics?.map(t => <SelectItem key={t.name} value={t.name.toLowerCase().replace(/ /g, '-')}>{t.name}</SelectItem>)}</SelectContent>
+                                    <Select onValueChange={field.onChange} value={field.value} disabled={!selectedSubjectId}><FormControl><SelectTrigger><SelectValue placeholder={selectedSubjectId ? "Select a topic" : "Select a subject first"} /></SelectTrigger></FormControl>
+                                        <SelectContent>{topics.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
                                     </Select><FormMessage />
                                 </FormItem>
                             )} />

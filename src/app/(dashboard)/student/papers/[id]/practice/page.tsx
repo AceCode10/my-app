@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -47,6 +47,8 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { PastPaper, PaperQuestion, PaperAttemptAnswer } from '@/types/paper-practice';
+import { QuestionTextRenderer } from '@/components/questions/question-text-renderer';
+import { FullQuestionView } from '@/components/questions/full-question-view';
 
 export default function PaperPracticePage() {
   const supabase = createClient();
@@ -65,12 +67,20 @@ export default function PaperPracticePage() {
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Navigation
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [flaggedQuestions, setFlaggedQuestions] = useState<Set<string>>(new Set());
+  // Group questions by question number for full-question view
+  const questionGroups = useMemo(() => {
+    const groups = new Map<number, PaperQuestion[]>();
+    questions.forEach(q => {
+      const num = q.question_number;
+      if (!groups.has(num)) groups.set(num, []);
+      groups.get(num)!.push(q);
+    });
+    return Array.from(groups.entries()).sort((a, b) => a[0] - b[0]);
+  }, [questions]);
 
-  // Local answer state (not saved until navigation)
-  const [localAnswer, setLocalAnswer] = useState<{ text: string | null; option: string | null }>({ text: null, option: null });
+  // Navigation - now by question number, not individual parts
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [flaggedQuestions, setFlaggedQuestions] = useState<Set<string>>(new Set());
 
   // Timer
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
@@ -117,6 +127,13 @@ export default function PaperPracticePage() {
     };
   }, [timeRemaining, attempt?.practice_mode]);
 
+  // Prevent accessing closed attempts
+  useEffect(() => {
+    if (attempt && (attempt.status === 'submitted' || attempt.status === 'completed' || attempt.status === 'closed')) {
+      router.push(`/student/papers/${paperId}/results?attempt=${attemptId}`);
+    }
+  }, [attempt, paperId, attemptId, router]);
+
   async function fetchData() {
     try {
       // Fetch paper
@@ -129,12 +146,13 @@ export default function PaperPracticePage() {
       if (paperError) throw paperError;
       setPaper(paperData as any);
 
-      // Fetch questions
+      // Fetch questions with optimized ordering
       const { data: questionsData, error: questionsError } = await supabase
         .from('paper_questions')
         .select('*')
         .eq('paper_id', paperId)
         .order('question_number', { ascending: true })
+        .order('display_order', { ascending: true })
         .order('part_label', { ascending: true });
 
       if (questionsError) throw questionsError;
@@ -150,8 +168,8 @@ export default function PaperPracticePage() {
       if (attemptError) throw attemptError;
       setAttempt(attemptData);
 
-      // Check if attempt is already submitted - redirect to results
-      if (attemptData.status === 'submitted' || attemptData.status === 'completed') {
+      // Check if attempt is already submitted/closed - redirect to results
+      if (attemptData.status === 'submitted' || attemptData.status === 'completed' || attemptData.status === 'closed') {
         router.push(`/student/papers/${paperId}/results?attempt=${attemptId}`);
         return;
       }
@@ -254,39 +272,43 @@ export default function PaperPracticePage() {
     }
   }
 
-  // Save current answer and navigate
-  async function saveAndNavigate(newIndex: number) {
-    if (currentQuestion) {
-      await saveAnswerToDb(currentQuestion.id, localAnswer.text, localAnswer.option);
-    }
-    setCurrentIndex(newIndex);
-    // Reset local answer for new question
-    const nextQuestion = questions[newIndex];
-    if (nextQuestion) {
-      const existingAnswer = answers.get(nextQuestion.id);
-      setLocalAnswer({
-        text: existingAnswer?.answer_text || null,
-        option: existingAnswer?.selected_option || null
-      });
+  // Save all current question's answers to database
+  async function saveCurrentQuestionAnswers() {
+    if (!currentQuestionParts.length) return;
+    
+    setSaving(true);
+    try {
+      // Save each part's answer
+      for (const part of currentQuestionParts) {
+        const answer = answers.get(part.id);
+        if (answer && (answer.answer_text || answer.selected_option)) {
+          await saveAnswerToDb(part.id, answer.answer_text, answer.selected_option);
+        }
+      }
+    } catch (error) {
+      console.error('Error saving answers:', error);
+    } finally {
+      setSaving(false);
     }
   }
 
-  // Update local answer (no database call)
-  function updateLocalAnswer(answerText: string | null, selectedOption: string | null) {
-    setLocalAnswer({ text: answerText, option: selectedOption });
+  // Navigate to a different question group (saves current answers first)
+  async function navigateToQuestion(newIndex: number) {
+    // Save current question's answers before navigating
+    await saveCurrentQuestionAnswers();
+    setCurrentQuestionIndex(newIndex);
   }
 
-  // Initialize local answer when question changes
-  useEffect(() => {
-    const question = questions[currentIndex];
-    if (question) {
-      const existingAnswer = answers.get(question.id);
-      setLocalAnswer({
-        text: existingAnswer?.answer_text || null,
-        option: existingAnswer?.selected_option || null
-      });
-    }
-  }, [currentIndex, questions, answers]);
+  // Handle answer change - only updates local state, does NOT save to DB
+  function handleAnswerChange(questionId: string, text: string | null, option: string | null) {
+    // Update local state only - saving happens on navigation
+    setAnswers(prev => {
+      const newMap = new Map(prev);
+      const existing = newMap.get(questionId) || {};
+      newMap.set(questionId, { ...existing, answer_text: text, selected_option: option });
+      return newMap;
+    });
+  }
 
   function toggleFlag(questionId: string) {
     setFlaggedQuestions(prev => {
@@ -311,14 +333,76 @@ export default function PaperPracticePage() {
     setSubmitting(true);
 
     try {
-      // Save current answer first
-      if (currentQuestion) {
-        await saveAnswerToDb(currentQuestion.id, localAnswer.text, localAnswer.option);
-      }
+      // Save current question's answers before submitting
+      await saveCurrentQuestionAnswers();
 
       // Calculate time spent
       const startTime = new Date(attempt.started_at).getTime();
       const timeSpent = Math.floor((Date.now() - startTime) / 1000);
+
+      // Auto-grade MCQ questions and assign 0 marks to unattempted questions
+      let totalScore = 0;
+      let maxScore = 0;
+      let allMcq = true;
+      let gradedCount = 0;
+
+      for (const question of questions) {
+        if (question.marks <= 0) continue; // Skip context questions
+        
+        maxScore += question.marks;
+        const answer = answers.get(question.id);
+        const hasAnswer = answer && (answer.answer_text || answer.selected_option);
+        
+        // Check if this is an MCQ with a correct answer set
+        if (question.question_type === 'mcq' && question.correct_answer) {
+          // Auto-grade MCQ
+          const isCorrect = answer?.selected_option === question.correct_answer;
+          const earnedMarks = isCorrect ? question.marks : 0;
+          totalScore += earnedMarks;
+          gradedCount++;
+          
+          // Update the answer record with grading
+          await supabase
+            .from('assessment_answers')
+            .upsert({
+              attempt_id: attemptId,
+              question_id: question.id,
+              selected_option: answer?.selected_option || null,
+              answer_text: answer?.answer_text || null,
+              is_correct: isCorrect,
+              marks_awarded: earnedMarks,
+              graded_at: new Date().toISOString(),
+              auto_graded: true
+            }, {
+              onConflict: 'attempt_id,question_id'
+            });
+        } else {
+          allMcq = false;
+          
+          // For non-MCQ questions without answers, assign 0 marks
+          if (!hasAnswer) {
+            await supabase
+              .from('assessment_answers')
+              .upsert({
+                attempt_id: attemptId,
+                question_id: question.id,
+                selected_option: null,
+                answer_text: null,
+                is_correct: false,
+                marks_awarded: 0,
+                graded_at: new Date().toISOString(),
+                auto_graded: true
+              }, {
+                onConflict: 'attempt_id,question_id'
+              });
+          }
+        }
+      }
+
+      // Determine if this needs manual review (has non-MCQ questions)
+      const needsReview = !allMcq;
+      const reviewStatus = needsReview ? 'pending' : 'completed';
+      const isFullyGraded = allMcq && gradedCount > 0;
 
       // Update attempt status
       const { error } = await supabase
@@ -326,18 +410,42 @@ export default function PaperPracticePage() {
         .update({
           status: 'submitted',
           submitted_at: new Date().toISOString(),
-          time_spent_seconds: timeSpent
+          time_spent_seconds: timeSpent,
+          review_status: reviewStatus,
+          // Store score for fully MCQ papers
+          ...(isFullyGraded && {
+            score: totalScore,
+            max_score: maxScore,
+            percentage: maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0,
+            graded_at: new Date().toISOString()
+          })
         })
         .eq('id', attemptId);
 
       if (error) throw error;
 
+      // Mark as closed to prevent re-entry
+      await supabase
+        .from('assessment_attempts')
+        .update({
+          status: 'closed',
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', attemptId)
+        .eq('status', 'submitted');
+
       // Clear flags from local storage
       localStorage.removeItem(`flags_${attemptId}`);
 
+      const submissionMessage = isFullyGraded
+        ? `Your answers have been graded. Score: ${totalScore}/${maxScore} (${Math.round((totalScore / maxScore) * 100)}%)`
+        : needsReview 
+          ? 'Your answers have been submitted for review. MCQ questions were auto-graded.'
+          : 'Your answers have been saved.';
+
       toast({
-        title: 'Submitted!',
-        description: 'Your answers have been saved.'
+        title: isFullyGraded ? 'Graded!' : 'Submitted!',
+        description: submissionMessage
       });
 
       // Navigate to results
@@ -367,13 +475,21 @@ export default function PaperPracticePage() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   }
 
-  const currentQuestion = questions[currentIndex];
-  const currentAnswer = currentQuestion ? answers.get(currentQuestion.id) : null;
-  const answeredCount = questions.filter(q => {
+  // Current question group (all parts of current question number)
+  const currentGroup = questionGroups[currentQuestionIndex];
+  const currentQuestionNumber = currentGroup?.[0];
+  const currentQuestionParts = currentGroup?.[1] || [];
+  
+  // Count answered questions - use needs_answer field if available, fallback to marks > 0
+  const answerableQuestions = questions.filter(q => 
+    q.needs_answer === true || (q.needs_answer !== false && q.marks > 0)
+  );
+  const answeredCount = answerableQuestions.filter(q => {
     const ans = answers.get(q.id);
     return ans && (ans.answer_text || ans.selected_option);
   }).length;
-  const progress = questions.length > 0 ? (answeredCount / questions.length) * 100 : 0;
+  const totalAnswerableParts = answerableQuestions.length;
+  const progress = totalAnswerableParts > 0 ? (answeredCount / totalAnswerableParts) * 100 : 0;
 
   if (loading) {
     return (
@@ -384,7 +500,7 @@ export default function PaperPracticePage() {
     );
   }
 
-  if (!paper || !currentQuestion) {
+  if (!paper || questionGroups.length === 0) {
     return (
       <div className="text-center py-12">
         <AlertCircle className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
@@ -436,7 +552,7 @@ export default function PaperPracticePage() {
               <div className="hidden md:flex items-center gap-3">
                 <div className="text-right">
                   <span className="text-sm font-medium">
-                    {answeredCount}/{questions.length}
+                    {answeredCount}/{totalAnswerableParts}
                   </span>
                   <p className="text-xs text-muted-foreground">answered</p>
                 </div>
@@ -458,36 +574,41 @@ export default function PaperPracticePage() {
       </div>
 
       <div className="container mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Question Navigator (Sidebar) */}
-          <div className="hidden lg:block">
-            <Card className="sticky top-24">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Questions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-5 gap-2">
-                  {questions.map((q, idx) => {
-                    const ans = answers.get(q.id);
-                    const isAnswered = ans && (ans.answer_text || ans.selected_option);
-                    const isFlagged = flaggedQuestions.has(q.id);
-                    const isCurrent = idx === currentIndex;
+        {/* Horizontal Question Navigator - At the top like topical questions */}
+        <Card className="mb-6">
+          <CardContent className="py-3">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-muted-foreground shrink-0">Questions</span>
+              <div className="flex-1 overflow-x-auto">
+                <div className="flex gap-2 pb-1">
+                  {questionGroups.map(([qNum, parts], idx) => {
+                    const isAnyAnswered = parts.some(p => {
+                      const ans = answers.get(p.id);
+                      return ans && (ans.answer_text || ans.selected_option);
+                    });
+                    const answerableParts = parts.filter(p => p.marks > 0);
+                    const allAnswered = answerableParts.length > 0 && answerableParts.every(p => {
+                      const ans = answers.get(p.id);
+                      return ans && (ans.answer_text || ans.selected_option);
+                    });
+                    const isFlagged = parts.some(p => flaggedQuestions.has(p.id));
+                    const isCurrent = idx === currentQuestionIndex;
 
                     return (
                       <button
-                        key={q.id}
-                        onClick={() => saveAndNavigate(idx)}
+                        key={qNum}
+                        onClick={() => navigateToQuestion(idx)}
                         disabled={saving}
                         className={cn(
-                          "w-8 h-8 rounded text-sm font-medium transition-colors relative",
-                          isCurrent && "ring-2 ring-primary",
-                          isAnswered && !isCurrent && "bg-green-100 text-green-700",
-                          !isAnswered && !isCurrent && "bg-muted hover:bg-muted-foreground/20",
-                          isFlagged && "ring-2 ring-yellow-500"
+                          "w-9 h-9 rounded border text-sm font-medium transition-colors relative shrink-0",
+                          isCurrent && "border-primary bg-primary/10 text-primary ring-1 ring-primary",
+                          allAnswered && !isCurrent && "bg-green-50 border-green-200 text-green-700",
+                          isAnyAnswered && !allAnswered && !isCurrent && "bg-yellow-50 border-yellow-200 text-yellow-700",
+                          !isAnyAnswered && !isCurrent && "bg-background border-muted-foreground/20 hover:border-muted-foreground/40",
+                          isFlagged && "ring-1 ring-yellow-500"
                         )}
                       >
-                        {q.question_number}
-                        {q.part_label && <span className="text-xs">{q.part_label}</span>}
+                        {qNum}
                         {isFlagged && (
                           <Flag className="absolute -top-1 -right-1 h-3 w-3 text-yellow-500 fill-yellow-500" />
                         )}
@@ -495,159 +616,25 @@ export default function PaperPracticePage() {
                     );
                   })}
                 </div>
-                <div className="mt-4 space-y-1 text-xs text-muted-foreground">
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 bg-green-100 rounded" />
-                    <span>Answered</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 bg-muted rounded" />
-                    <span>Not answered</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Flag className="h-4 w-4 text-yellow-500 fill-yellow-500" />
-                    <span>Flagged for review</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-          {/* Main Question Area */}
-          <div className="lg:col-span-3">
+        {/* Main Question Area - Full width now */}
+        <div>
             <Card className="shadow-lg border-2">
-              <CardHeader className="bg-muted/30">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Badge variant="default" className="text-base px-3 py-1">
-                        Q{currentQuestion.question_number}
-                        {currentQuestion.part_label && ` (${currentQuestion.part_label})`}
-                      </Badge>
-                      <Badge variant="secondary" className="bg-blue-100 text-blue-700">
-                        {currentQuestion.marks} {currentQuestion.marks === 1 ? 'mark' : 'marks'}
-                      </Badge>
-                      {currentQuestion.section_name && (
-                        <Badge variant="outline">{currentQuestion.section_name}</Badge>
-                      )}
-                    </div>
-                  </div>
-                  <Button
-                    variant={flaggedQuestions.has(currentQuestion.id) ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => toggleFlag(currentQuestion.id)}
-                    className={cn(
-                      "transition-all",
-                      flaggedQuestions.has(currentQuestion.id) 
-                        ? "bg-yellow-500 hover:bg-yellow-600 text-white" 
-                        : "hover:bg-yellow-50 hover:text-yellow-600 hover:border-yellow-300"
-                    )}
-                  >
-                    <Flag className={cn("h-4 w-4", flaggedQuestions.has(currentQuestion.id) && "fill-white")} />
-                    <span className="ml-1 hidden sm:inline">
-                      {flaggedQuestions.has(currentQuestion.id) ? 'Flagged' : 'Flag'}
-                    </span>
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6 pt-6">
-                {/* Question Text */}
-                <div className="prose prose-lg max-w-none">
-                  <p className="whitespace-pre-wrap text-foreground leading-relaxed">{currentQuestion.question_text}</p>
-                </div>
-
-                {/* Question Image */}
-                {currentQuestion.image_url && (
-                  <div className="rounded-lg border overflow-hidden">
-                    <img
-                      src={currentQuestion.image_url}
-                      alt="Question diagram"
-                      className="w-full h-auto max-h-96 object-contain"
-                    />
-                  </div>
-                )}
-
-                {/* Answer Input */}
-                <div className="pt-4 border-t">
-                  {currentQuestion.question_type === 'mcq' && currentQuestion.options ? (
-                    <RadioGroup
-                      value={localAnswer.option || ''}
-                      onValueChange={(value) => updateLocalAnswer(null, value)}
-                      className="space-y-3"
-                    >
-                      {currentQuestion.options.map((option, idx) => (
-                        <div
-                          key={idx}
-                          className={cn(
-                            "flex items-start space-x-3 p-4 rounded-lg border-2 transition-colors cursor-pointer",
-                            localAnswer.option === option.label
-                              ? "border-primary bg-primary/5"
-                              : "border-muted hover:border-muted-foreground/50"
-                          )}
-                          onClick={() => updateLocalAnswer(null, option.label)}
-                        >
-                          <RadioGroupItem value={option.label} id={`option-${idx}`} />
-                          <Label htmlFor={`option-${idx}`} className="flex-1 cursor-pointer font-normal">
-                            <span className="font-medium mr-2">{option.label}.</span>
-                            {option.text}
-                          </Label>
-                        </div>
-                      ))}
-                    </RadioGroup>
-                  ) : currentQuestion.question_type === 'true_false' ? (
-                    <RadioGroup
-                      value={localAnswer.text || ''}
-                      onValueChange={(value) => updateLocalAnswer(value, null)}
-                      className="space-y-3"
-                    >
-                      {['True', 'False'].map((option) => (
-                        <div
-                          key={option}
-                          className={cn(
-                            "flex items-center space-x-3 p-4 rounded-lg border-2 transition-colors cursor-pointer",
-                            localAnswer.text === option
-                              ? "border-primary bg-primary/5"
-                              : "border-muted hover:border-muted-foreground/50"
-                          )}
-                          onClick={() => updateLocalAnswer(option, null)}
-                        >
-                          <RadioGroupItem value={option} id={option} />
-                          <Label htmlFor={option} className="cursor-pointer font-medium">
-                            {option}
-                          </Label>
-                        </div>
-                      ))}
-                    </RadioGroup>
-                  ) : currentQuestion.question_type === 'short_answer' || currentQuestion.question_type === 'calculation' ? (
-                    <div className="space-y-2">
-                      <Label>Your Answer</Label>
-                      <Input
-                        value={localAnswer.text || ''}
-                        onChange={(e) => updateLocalAnswer(e.target.value, null)}
-                        placeholder="Type your answer here"
-                        className="text-lg"
-                      />
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <Label>Your Answer</Label>
-                      <Textarea
-                        value={localAnswer.text || ''}
-                        onChange={(e) => updateLocalAnswer(e.target.value, null)}
-                        placeholder="Write your answer here..."
-                        rows={8}
-                        className="resize-none"
-                      />
-                      <p className="text-sm text-muted-foreground">
-                        {(localAnswer.text || '').length} characters
-                      </p>
-                    </div>
-                  )}
-                </div>
+              <CardContent className="pt-6">
+                {/* Full Question with All Parts */}
+                <FullQuestionView
+                  questionParts={currentQuestionParts}
+                  answers={answers}
+                  onAnswerChange={handleAnswerChange}
+                />
 
                 {/* Saving indicator */}
                 {saving && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mt-4">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Saving...
                   </div>
@@ -658,8 +645,8 @@ export default function PaperPracticePage() {
                   <Button
                     variant="outline"
                     size="lg"
-                    onClick={() => saveAndNavigate(Math.max(0, currentIndex - 1))}
-                    disabled={currentIndex === 0 || saving}
+                    onClick={() => navigateToQuestion(Math.max(0, currentQuestionIndex - 1))}
+                    disabled={currentQuestionIndex === 0 || saving}
                     className="min-w-[120px]"
                   >
                     <ChevronLeft className="h-5 w-5 mr-2" />
@@ -668,12 +655,12 @@ export default function PaperPracticePage() {
 
                   <div className="flex flex-col items-center">
                     <span className="text-lg font-semibold">
-                      {currentIndex + 1} / {questions.length}
+                      Question {currentQuestionNumber} of {questionGroups.length}
                     </span>
-                    <Progress value={((currentIndex + 1) / questions.length) * 100} className="w-24 h-1 mt-1" />
+                    <Progress value={((currentQuestionIndex + 1) / questionGroups.length) * 100} className="w-24 h-1 mt-1" />
                   </div>
 
-                  {currentIndex === questions.length - 1 ? (
+                  {currentQuestionIndex === questionGroups.length - 1 ? (
                     <Button
                       size="lg"
                       onClick={() => setSubmitDialogOpen(true)}
@@ -687,7 +674,7 @@ export default function PaperPracticePage() {
                     <Button
                       variant="default"
                       size="lg"
-                      onClick={() => saveAndNavigate(Math.min(questions.length - 1, currentIndex + 1))}
+                      onClick={() => navigateToQuestion(Math.min(questionGroups.length - 1, currentQuestionIndex + 1))}
                       disabled={saving}
                       className="min-w-[120px]"
                     >
@@ -698,40 +685,6 @@ export default function PaperPracticePage() {
                 </div>
               </CardContent>
             </Card>
-
-            {/* Mobile Question Navigator */}
-            <div className="lg:hidden mt-4">
-              <Card>
-                <CardContent className="pt-4">
-                  <div className="flex flex-wrap gap-2">
-                    {questions.map((q, idx) => {
-                      const ans = answers.get(q.id);
-                      const isAnswered = ans && (ans.answer_text || ans.selected_option);
-                      const isFlagged = flaggedQuestions.has(q.id);
-                      const isCurrent = idx === currentIndex;
-
-                      return (
-                        <button
-                          key={q.id}
-                          onClick={() => saveAndNavigate(idx)}
-                          disabled={saving}
-                          className={cn(
-                            "w-8 h-8 rounded text-sm font-medium transition-colors relative",
-                            isCurrent && "ring-2 ring-primary",
-                            isAnswered && !isCurrent && "bg-green-100 text-green-700",
-                            !isAnswered && !isCurrent && "bg-muted",
-                            isFlagged && "ring-2 ring-yellow-500"
-                          )}
-                        >
-                          {q.question_number}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -741,15 +694,15 @@ export default function PaperPracticePage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Submit your answers?</AlertDialogTitle>
             <AlertDialogDescription>
-              You have answered {answeredCount} of {questions.length} questions.
+              You have answered {answeredCount} of {totalAnswerableParts} question parts.
               {flaggedQuestions.size > 0 && (
                 <span className="block mt-2 text-yellow-600">
                   You have {flaggedQuestions.size} flagged question(s) for review.
                 </span>
               )}
-              {answeredCount < questions.length && (
+              {answeredCount < totalAnswerableParts && (
                 <span className="block mt-2 text-red-600">
-                  {questions.length - answeredCount} question(s) are unanswered.
+                  {totalAnswerableParts - answeredCount} question part(s) are unanswered.
                 </span>
               )}
             </AlertDialogDescription>

@@ -7,14 +7,18 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, query, orderBy } from 'firebase/firestore';
-import type { Subject } from '@/types';
-import { allSubjects } from "@/lib/subjects";
+import { createClient } from "@/lib/supabase/client";
+
+interface Subject {
+  id: string;
+  name: string;
+  slug: string;
+  code?: string;
+}
 
 interface NewClassInfo {
   name: string;
-  subject: string;
+  subject: string; // This is now the subject UUID
   classCode: string;
 }
 
@@ -25,31 +29,50 @@ interface CreateClassModalProps {
   isCreating: boolean;
 }
 
-const generateClassCode = (subject: string): string => {
-    const subjectPrefix = subject.substring(0, 4).toUpperCase().replace(/[^A-Z]/g, 'X');
+const generateClassCode = (subjectName: string): string => {
+    const subjectPrefix = subjectName.substring(0, 4).toUpperCase().replace(/[^A-Z]/g, 'X');
     const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase();
     return `${subjectPrefix}-${randomPart}`;
 }
 
 export function CreateClassModal({ isOpen, onClose, onClassCreated, isCreating }: CreateClassModalProps) {
+  const supabase = createClient();
   const [className, setClassName] = useState('');
-  const [subject, setSubject] = useState('');
-  const [subjects, setSubjects] = useState(allSubjects);
-  const isLoadingSubjects = false;
+  const [subjectId, setSubjectId] = useState('');
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [isLoadingSubjects, setIsLoadingSubjects] = useState(true);
 
+  // Fetch subjects from Supabase
+  useEffect(() => {
+    async function fetchSubjects() {
+      setIsLoadingSubjects(true);
+      const { data, error } = await supabase
+        .from('subjects')
+        .select('id, name, slug, code')
+        .order('name');
+      
+      if (data && !error) {
+        setSubjects(data);
+      }
+      setIsLoadingSubjects(false);
+    }
+    
+    if (isOpen) {
+      fetchSubjects();
+    }
+  }, [isOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!className || !subject) {
-        // Basic validation, can be replaced with toasts or form validation library
+    if (!className || !subjectId) {
         alert("Please provide a class name and select a subject.");
         return;
     }
-    const selectedSubjectName = subjects?.find(s => s.slug === subject)?.name || subject;
-    const newCode = generateClassCode(selectedSubjectName);
+    const selectedSubject = subjects.find(s => s.id === subjectId);
+    const newCode = generateClassCode(selectedSubject?.name || 'CLASS');
     const newClass = {
         name: className,
-        subject: selectedSubjectName,
+        subject: subjectId, // Pass the UUID, not the name
         classCode: newCode
     };
     
@@ -57,7 +80,7 @@ export function CreateClassModal({ isOpen, onClose, onClassCreated, isCreating }
     
     if (!isCreating) {
       setClassName('');
-      setSubject('');
+      setSubjectId('');
     }
   };
   
@@ -65,7 +88,7 @@ export function CreateClassModal({ isOpen, onClose, onClassCreated, isCreating }
   useEffect(() => {
     if (isOpen) {
         setClassName('');
-        setSubject('');
+        setSubjectId('');
     }
   }, [isOpen]);
 
@@ -97,13 +120,13 @@ export function CreateClassModal({ isOpen, onClose, onClassCreated, isCreating }
               <Label htmlFor="subject" className="text-right">
                 Subject
               </Label>
-               <Select onValueChange={setSubject} required value={subject}>
+               <Select onValueChange={setSubjectId} required value={subjectId}>
                 <SelectTrigger className="col-span-3">
                   <SelectValue placeholder={isLoadingSubjects ? 'Loading...' : 'Select a subject'} />
                 </SelectTrigger>
                 <SelectContent>
                   {subjects?.map(s => (
-                    <SelectItem key={s.slug} value={s.slug}>{s.name} ({s.code})</SelectItem>
+                    <SelectItem key={s.id} value={s.id}>{s.name}{s.code ? ` (${s.code})` : ''}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

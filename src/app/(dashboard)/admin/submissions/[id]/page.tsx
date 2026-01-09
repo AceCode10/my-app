@@ -99,7 +99,7 @@ export default function AdminSubmissionReviewPage() {
       // Fetch user
       const { data: userData } = await supabase
         .from('users')
-        .select('id, full_name, email')
+        .select('id, display_name, email')
         .eq('id', attemptData.user_id)
         .single();
 
@@ -305,7 +305,7 @@ export default function AdminSubmissionReviewPage() {
           <div>
             <h1 className="text-2xl font-bold">Review Submission</h1>
             <p className="text-muted-foreground">
-              {submission.user?.full_name} - {submission.paper?.title}
+              {submission.user?.display_name} - {submission.paper?.title}
             </p>
           </div>
         </div>
@@ -326,7 +326,7 @@ export default function AdminSubmissionReviewPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <p><span className="text-muted-foreground">Name:</span> {submission.user?.full_name}</p>
+              <p><span className="text-muted-foreground">Name:</span> {submission.user?.display_name}</p>
               <p><span className="text-muted-foreground">Email:</span> {submission.user?.email}</p>
               <p><span className="text-muted-foreground">Practice Type:</span> Self-Practice</p>
             </div>

@@ -54,8 +54,9 @@ export function useOnboardingCheck() {
 
         if (!userRecord?.onboarding_completed) {
           setNeedsOnboarding(true);
-          // Redirect to onboarding
-          router.push('/onboarding/exam-board');
+          // Onboarding is now handled during signup, so we don't redirect
+          // Users can update preferences in settings later
+          // This check is kept for legacy users who might not have completed onboarding
         }
       } catch (error) {
         console.error('Error in onboarding check:', error);

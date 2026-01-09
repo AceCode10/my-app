@@ -1,16 +1,18 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useUser, useFirestore } from '@/firebase';
+import { useUser } from '@/hooks/use-user';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
-import { Sun, Moon, ShieldCheck, Bell, User, Upload, CreditCard, Loader2 } from 'lucide-react';
+import { Sun, Moon, ShieldCheck, Bell, User, Upload, CreditCard, Loader2, GraduationCap, Check } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { doc, updateDoc } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription } from '@/components/ui/card';
-import { ExamBoardSettings } from '@/components/exam-board';
+import { createClient } from '@/lib/supabase/client';
+import { ExamBoardSelector } from '@/components/exam-board-selector';
+import { EXAM_BOARDS } from '@/lib/exam-boards';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const avatars = [
     'https://placehold.co/128x128/00bf8f/ffffff?text=S',
@@ -21,31 +23,32 @@ const avatars = [
 
 
 export default function SettingsPage() {
-    const { user, profile, isSubscribed, isUserLoading } = useUser();
-    const firestore = useFirestore();
+    const { user, loading: isUserLoading } = useUser();
+    const supabase = createClient();
     const { toast } = useToast();
     const { theme, setTheme } = useTheme();
 
     const [displayName, setDisplayName] = useState('');
     const [avatarUrl, setAvatarUrl] = useState('');
+    const [selectedExamBoards, setSelectedExamBoards] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [isSavingExamBoards, setIsSavingExamBoards] = useState(false);
     const [notifications, setNotifications] = useState({ newBadges: true, quizReminders: true });
     const [mounted, setMounted] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         setMounted(true);
-        if (profile) {
-            setDisplayName(profile.displayName || '');
-            setAvatarUrl(profile.photoURL || `https://placehold.co/128x128/00bf8f/ffffff?text=${(profile.displayName || 'S').charAt(0)}`);
+        if (user) {
+            setDisplayName(user.display_name || '');
+            setAvatarUrl(user.avatar_url || `https://placehold.co/128x128/00bf8f/ffffff?text=${(user.display_name || 'S').charAt(0)}`);
+            setSelectedExamBoards(user.exam_boards || []);
         }
-    }, [profile]);
+    }, [user]);
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         if (event.target.files && event.target.files[0]) {
             const file = event.target.files[0];
-            // In a real app, you would upload this file to Firebase Storage
-            // and get a URL back. For this demo, we'll use a local data URL.
             const reader = new FileReader();
             reader.onloadend = () => {
                 setAvatarUrl(reader.result as string);
@@ -54,20 +57,24 @@ export default function SettingsPage() {
         }
     };
     
-    const handleSaveChanges = async (e: React.FormEvent) => {
+    const handleSaveProfile = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!user || !firestore) {
+        if (!user) {
             toast({ variant: 'destructive', title: 'Error', description: 'Not authenticated.' });
             return;
         }
 
         setIsLoading(true);
         try {
-            const userRef = doc(firestore, 'users', user.uid);
-            await updateDoc(userRef, {
-                displayName: displayName,
-                photoURL: avatarUrl
-            });
+            const { error } = await supabase
+                .from('users')
+                .update({
+                    display_name: displayName,
+                    avatar_url: avatarUrl
+                })
+                .eq('id', user.id);
+
+            if (error) throw error;
             toast({ title: 'Success', description: 'Your profile has been updated.' });
         } catch (error) {
             console.error('Error updating profile:', error);
@@ -77,13 +84,59 @@ export default function SettingsPage() {
         }
     };
 
+    const handleSaveExamBoards = async () => {
+        if (!user) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Not authenticated.' });
+            return;
+        }
 
-    if (!mounted || isUserLoading || !profile) {
-        return null; // or a loading skeleton
+        if (selectedExamBoards.length === 0) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Please select at least one exam board.' });
+            return;
+        }
+
+        setIsSavingExamBoards(true);
+        try {
+            const { error } = await supabase
+                .from('users')
+                .update({
+                    exam_boards: selectedExamBoards,
+                    onboarding_completed: true
+                })
+                .eq('id', user.id);
+
+            if (error) throw error;
+            toast({ title: 'Success', description: 'Your exam board preferences have been saved.' });
+        } catch (error) {
+            console.error('Error updating exam boards:', error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to update exam boards.' });
+        } finally {
+            setIsSavingExamBoards(false);
+        }
+    };
+
+
+    if (!mounted || isUserLoading) {
+        return (
+            <div className="space-y-8">
+                <Skeleton className="h-10 w-48" />
+                <Skeleton className="h-64 w-full" />
+                <Skeleton className="h-48 w-full" />
+            </div>
+        );
     }
 
-    const email = profile.email || user?.email || 'student@example.com';
+    if (!user) {
+        return (
+            <div className="text-center py-12">
+                <p className="text-muted-foreground">Please log in to view settings.</p>
+            </div>
+        );
+    }
+
+    const email = user.email || 'student@example.com';
     const usernameInitial = (displayName || 'S').charAt(0);
+    const isSubscribed = user.subscription_tier === 'pro' || user.subscription_tier === 'essential';
 
 
     return (
@@ -95,7 +148,7 @@ export default function SettingsPage() {
                         <CardTitle className="flex items-center"><User className="mr-2 h-5 w-5" /> Profile Information</CardTitle>
                         <CardDescription>Manage your public profile and account details.</CardDescription>
                     </CardHeader>
-                     <form onSubmit={handleSaveChanges}>
+                     <form onSubmit={handleSaveProfile}>
                         <CardContent className="space-y-6">
                             <div className="flex items-center space-x-6">
                                 <Avatar className="h-24 w-24">
@@ -153,7 +206,39 @@ export default function SettingsPage() {
                 </Card>
 
                 {/* Exam Board Preference */}
-                <ExamBoardSettings />
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center">
+                            <GraduationCap className="mr-2 h-5 w-5" /> 
+                            Exam Board Preferences
+                        </CardTitle>
+                        <CardDescription>
+                            Select the exam boards you're studying. Content will be filtered based on your selection.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <ExamBoardSelector
+                            selectedBoards={selectedExamBoards}
+                            onSelectionChange={setSelectedExamBoards}
+                        />
+                        {selectedExamBoards.length > 0 && (
+                            <p className="text-sm text-muted-foreground">
+                                <Check className="inline h-4 w-4 text-green-500 mr-1" />
+                                {selectedExamBoards.length} exam board{selectedExamBoards.length > 1 ? 's' : ''} selected: {' '}
+                                {selectedExamBoards.map(id => EXAM_BOARDS.find(b => b.id === id)?.shortName).join(', ')}
+                            </p>
+                        )}
+                    </CardContent>
+                    <CardFooter>
+                        <Button 
+                            onClick={handleSaveExamBoards} 
+                            disabled={isSavingExamBoards || selectedExamBoards.length === 0}
+                        >
+                            {isSavingExamBoards ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            {isSavingExamBoards ? 'Saving...' : 'Save Exam Boards'}
+                        </Button>
+                    </CardFooter>
+                </Card>
 
                 <Card>
                      <CardHeader>

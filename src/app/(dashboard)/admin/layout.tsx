@@ -7,6 +7,7 @@ import { useUser } from '@/hooks/use-user';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { ErrorBoundary } from '@/components/error-boundary';
 import {
   LayoutDashboard,
   Users,
@@ -26,6 +27,7 @@ import {
   ClipboardCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { KodiLoadingGif } from '@/components/ui/kodi-loading-gif';
 
 interface NavItem {
   label: string;
@@ -48,8 +50,8 @@ const navigation: NavItem[] = [
     roles: ['super_admin', 'content_moderator']
   },
   {
-    label: 'Lesson Notes',
-    href: '/admin/dashboard/notes',
+    label: 'Revision Notes',
+    href: '/admin/notes',
     icon: BookMarked,
     roles: ['super_admin', 'content_moderator']
   },
@@ -145,7 +147,7 @@ export default function AdminLayout({
   if (loading) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
-        <p className="text-muted-foreground animate-pulse">Loading...</p>
+        <KodiLoadingGif />
       </div>
     );
   }
@@ -258,7 +260,9 @@ export default function AdminLayout({
 
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto p-6">
-          {children}
+          <ErrorBoundary>
+            {children}
+          </ErrorBoundary>
         </main>
       </div>
 

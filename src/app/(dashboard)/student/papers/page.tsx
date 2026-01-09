@@ -66,50 +66,42 @@ export default function StudentPapersPage() {
 
   async function fetchPapers() {
     try {
-      // Fetch published papers with question counts
+      // Fetch published papers with subjects in a single query
       const { data: papersData, error } = await supabase
         .from('past_papers')
-        .select('*')
+        .select(`
+          *,
+          subjects(id, name, slug)
+        `)
         .eq('status', 'published')
         .order('year', { ascending: false })
         .order('session', { ascending: true });
 
       if (error) throw error;
 
-      // Get question counts for each paper
-      const paperIds = papersData?.map(p => p.id) || [];
-      let questionCounts: Record<string, number> = {};
-
-      if (paperIds.length > 0) {
-        const { data: counts } = await supabase
-          .from('paper_questions')
-          .select('paper_id')
-          .in('paper_id', paperIds);
-
-        (counts || []).forEach((q: any) => {
-          questionCounts[q.paper_id] = (questionCounts[q.paper_id] || 0) + 1;
-        });
+      if (!papersData || papersData.length === 0) {
+        setPapers([]);
+        setLoading(false);
+        return;
       }
 
-      // Get subject names
-      const subjectIds = [...new Set(papersData?.filter(p => p.subject_id).map(p => p.subject_id) || [])];
-      let subjectMap: Record<string, Subject> = {};
+      // Get question counts in a single query
+      const paperIds = papersData.map(p => p.id);
+      const { data: counts } = await supabase
+        .from('paper_questions')
+        .select('paper_id')
+        .in('paper_id', paperIds);
 
-      if (subjectIds.length > 0) {
-        const { data: subjectsData } = await supabase
-          .from('subjects')
-          .select('id, name, slug')
-          .in('id', subjectIds);
+      // Count questions per paper
+      const questionCounts: Record<string, number> = {};
+      (counts || []).forEach((q: any) => {
+        questionCounts[q.paper_id] = (questionCounts[q.paper_id] || 0) + 1;
+      });
 
-        (subjectsData || []).forEach((s: Subject) => {
-          subjectMap[s.id] = s;
-        });
-      }
-
-      const papersWithCounts = (papersData || []).map(p => ({
+      const papersWithCounts = papersData.map(p => ({
         ...p,
         question_count: questionCounts[p.id] || 0,
-        subject: p.subject_id ? subjectMap[p.subject_id] : null
+        subject: p.subjects
       }));
 
       // Only show papers that have questions

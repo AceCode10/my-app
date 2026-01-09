@@ -1,0 +1,55 @@
+{
+  "exam_boards": {
+    "cambridge": {
+      "subjects": {
+        "chemistry": {
+          "subject_id": "00000000-0000-0000-0000-000000000000",
+          "pdf_directory": "./pdfs/cambridge/igcse/chemistry",
+          "years": [2021, 2022, 2023],
+          "sessions": ["mj", "on"]
+        },
+        "physics": {
+          "subject_id": "00000000-0000-0000-0000-000000000000",
+          "pdf_directory": "./pdfs/cambridge/igcse/physics",
+          "years": [2021, 2022, 2023],
+          "sessions": ["mj", "on"]
+        },
+        "biology": {
+          "subject_id": "00000000-0000-0000-0000-000000000000",
+          "pdf_directory": "./pdfs/cambridge/igcse/biology",
+          "years": [2021, 2022, 2023],
+          "sessions": ["mj", "on"]
+        },
+        "mathematics": {
+          "subject_id": "00000000-0000-0000-0000-000000000000",
+          "pdf_directory": "./pdfs/cambridge/igcse/mathematics",
+          "years": [2021, 2022, 2023],
+          "sessions": ["mj", "on"]
+        }
+      }
+    },
+    "edexcel": {
+      "subjects": {
+        "chemistry": {
+          "subject_id": "00000000-0000-0000-0000-000000000000",
+          "pdf_directory": "./pdfs/edexcel/igcse/chemistry",
+          "years": [2021, 2022, 2023],
+          "sessions": ["mj", "on"]
+        },
+        "physics": {
+          "subject_id": "00000000-0000-0000-0000-000000000000",
+          "pdf_directory": "./pdfs/edexcel/igcse/physics",
+          "years": [2021, 2022, 2023],
+          "sessions": ["mj", "on"]
+        }
+      }
+    }
+  },
+  "settings": {
+    "upload_to_database": true,
+    "replace_existing": false,
+    "save_json": true,
+    "json_output_dir": "./output/json",
+    "use_ai_extraction": true
+  }
+}

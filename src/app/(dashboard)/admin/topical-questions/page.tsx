@@ -590,9 +590,13 @@ export default function TopicalQuestionsManagementPage() {
   }
 
   async function handleDeleteQuestion(question: Question) {
-    if (!confirm('Delete this question?')) return;
+    if (!confirm('Delete this question? This will also delete all associated data (test attempts, flashcards, etc.).')) return;
 
     try {
+      // First delete any child questions (multipart questions)
+      await supabase.from('questions').delete().eq('parent_question_id', question.id);
+      
+      // Then delete the main question (cascade should handle related records)
       const { error } = await supabase.from('questions').delete().eq('id', question.id);
       if (error) throw error;
 
@@ -600,10 +604,11 @@ export default function TopicalQuestionsManagementPage() {
       fetchQuestions(selectedTopic!.id);
       fetchTopics(selectedSubject);
     } catch (error: any) {
+      console.error('Delete error:', error);
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: error.message || 'Failed to delete question'
+        description: error.message || 'Failed to delete question. The question might be referenced in tests or assessments.'
       });
     }
   }

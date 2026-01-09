@@ -59,7 +59,41 @@ const OPTIONAL_RESOURCES = [
   { code: 'specimen', name: 'Specimen Paper' },
 ];
 
-const LEVELS = ['igcse', 'olevel', 'alevel', 'aslevel'];
+// Exam board specific levels
+const EXAM_BOARD_LEVELS: Record<string, { value: string; label: string }[]> = {
+  'CIE': [
+    { value: 'igcse', label: 'IGCSE' },
+    { value: 'olevel', label: 'O Level' },
+    { value: 'as', label: 'AS Level' },
+    { value: 'a2', label: 'A2 Level' },
+    { value: 'alevel', label: 'A Level' },
+  ],
+  'Edexcel': [
+    { value: 'gcse', label: 'GCSE' },
+    { value: 'igcse', label: 'International GCSE' },
+    { value: 'as', label: 'AS Level' },
+    { value: 'alevel', label: 'A Level' },
+  ],
+  'AQA': [
+    { value: 'gcse', label: 'GCSE' },
+    { value: 'as', label: 'AS Level' },
+    { value: 'alevel', label: 'A Level' },
+  ],
+  'OCR': [
+    { value: 'gcse', label: 'GCSE' },
+    { value: 'as', label: 'AS Level' },
+    { value: 'alevel', label: 'A Level' },
+  ],
+  'IB': [
+    { value: 'ib_myp', label: 'IB MYP' },
+    { value: 'ib_dp_sl', label: 'IB DP Standard Level' },
+    { value: 'ib_dp_hl', label: 'IB DP Higher Level' },
+  ],
+  'AP': [
+    { value: 'ap', label: 'AP' },
+  ],
+};
+
 const STATUSES = ['draft', 'pending', 'published', 'archived'];
 
 interface PaperComponent {
@@ -107,6 +141,9 @@ export default function NewPastPaperPage() {
     status: 'published' // Default to published for convenience
   });
 
+  // Get available levels for selected exam board
+  const availableLevels = EXAM_BOARD_LEVELS[formData.exam_board] || EXAM_BOARD_LEVELS['CIE'];
+
   // Get available series for selected exam board
   const availableSeries = EXAM_BOARD_SERIES[formData.exam_board] || [];
 
@@ -140,9 +177,10 @@ export default function NewPastPaperPage() {
     sourceFiles?: string;
   }>({});
 
+  // Fetch subjects when exam board or level changes
   useEffect(() => {
     fetchSubjects();
-  }, []);
+  }, [formData.exam_board, formData.level]);
 
   // Fetch subject-specific configuration when subject or exam board changes
   useEffect(() => {
@@ -155,13 +193,69 @@ export default function NewPastPaperPage() {
   }, [formData.subject_id, formData.exam_board]);
 
   async function fetchSubjects() {
-    const { data } = await supabase
+    // Map form exam board values to database codes
+    const examBoardCodeMap: Record<string, string> = {
+      'CIE': 'CIE',
+      'Edexcel': 'EDEX',
+      'AQA': 'AQA',
+      'OCR': 'OCR',
+      'IB': 'IB',
+      'AP': 'AP'
+    };
+    
+    const dbCode = examBoardCodeMap[formData.exam_board] || formData.exam_board;
+    
+    // First get the exam board ID for the selected exam board
+    const { data: examBoardData } = await supabase
+      .from('exam_boards')
+      .select('id')
+      .eq('code', dbCode)
+      .single();
+    
+    // Map form level values to database level values
+    // For CIE, AS Level and A2 Level share the same subjects (alevel in DB)
+    const levelMappings: Record<string, string[]> = {
+      'as': ['as', 'alevel'],      // AS Level can use AS or A Level subjects
+      'a2': ['a2', 'alevel'],      // A2 Level can use A2 or A Level subjects
+      'alevel': ['alevel', 'as', 'a2'], // A Level can use any A Level variant
+    };
+    
+    const levelsToQuery = levelMappings[formData.level] || [formData.level];
+    
+    console.log('Fetching subjects for exam board:', formData.exam_board, '-> code:', dbCode, 'id:', examBoardData?.id, 'levels:', levelsToQuery);
+    
+    let query = supabase
       .from('subjects')
-      .select('id, name')
+      .select('id, name, code, exam_board_id, level')
       .eq('status', 'published')
       .order('name');
     
+    // Filter by exam board if we have the ID
+    if (examBoardData?.id) {
+      query = query.eq('exam_board_id', examBoardData.id);
+    }
+    
+    // Filter by level(s)
+    if (levelsToQuery.length === 1) {
+      query = query.eq('level', levelsToQuery[0]);
+    } else if (levelsToQuery.length > 1) {
+      query = query.in('level', levelsToQuery);
+    }
+    
+    const { data, error } = await query;
+    
+    if (error) {
+      console.error('Error fetching subjects:', error);
+    }
+    
+    console.log('Fetched subjects:', data?.length || 0, 'subjects');
+    
     setSubjects(data || []);
+    
+    // Reset subject selection if current subject is not in the filtered list
+    if (formData.subject_id && data && !data.find(s => s.id === formData.subject_id)) {
+      setFormData(prev => ({ ...prev, subject_id: '' }));
+    }
   }
 
   async function fetchSubjectConfig(subjectId: string, examBoard: string) {
@@ -519,7 +613,9 @@ export default function NewPastPaperPage() {
                   value={formData.exam_board}
                   onValueChange={(value) => {
                     const newSeries = EXAM_BOARD_SERIES[value]?.[0]?.code || 'mj';
-                    setFormData({ ...formData, exam_board: value, session: newSeries });
+                    const newLevels = EXAM_BOARD_LEVELS[value] || [];
+                    const newLevel = newLevels[0]?.value || 'igcse';
+                    setFormData({ ...formData, exam_board: value, session: newSeries, level: newLevel, subject_id: '' });
                   }}
                 >
                   <SelectTrigger>
@@ -539,15 +635,15 @@ export default function NewPastPaperPage() {
                 <Label htmlFor="level">Level *</Label>
                 <Select
                   value={formData.level}
-                  onValueChange={(value) => setFormData({ ...formData, level: value })}
+                  onValueChange={(value) => setFormData({ ...formData, level: value, subject_id: '' })}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {LEVELS.map(level => (
-                      <SelectItem key={level} value={level}>
-                        {level.toUpperCase()}
+                    {availableLevels.map(level => (
+                      <SelectItem key={level.value} value={level.value}>
+                        {level.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -566,7 +662,7 @@ export default function NewPastPaperPage() {
                   <SelectContent>
                     {subjects.map(subject => (
                       <SelectItem key={subject.id} value={subject.id}>
-                        {subject.name}
+                        {subject.name}{subject.code ? ` (${subject.code})` : ''}
                       </SelectItem>
                     ))}
                   </SelectContent>

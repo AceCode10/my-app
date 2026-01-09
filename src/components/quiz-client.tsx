@@ -19,10 +19,9 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { CheckCircle, XCircle, Loader2, Award, Repeat, Bot } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useFirestore, useUser } from '@/firebase';
-import { collection, query, where, getDocs, doc, limit } from 'firebase/firestore';
+import { useUser } from '@/hooks/use-user';
+import { createClient } from '@/lib/supabase/client';
 import type { Quiz, Question, QuizAttempt } from '@/types';
-import { saveQuizAttempt } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
 import { generateQuizQuestions, generateModelAnswer, GenerateModelAnswerOutput } from '@/lib/ai-placeholders';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
@@ -57,39 +56,42 @@ export function QuizClient({ topic, classId }: QuizClientProps) {
   const [feedbackData, setFeedbackData] = useState<GenerateModelAnswerOutput | null>(null);
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
 
-
-  const firestore = useFirestore();
-  const { user, isSubscribed } = useUser();
+  const supabase = createClient();
+  const { user } = useUser();
+  const isSubscribed = user?.subscription_tier === 'pro' || user?.subscription_tier === 'premium';
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const isPublicFlow = searchParams.get('from') === 'public';
 
   const startQuiz = async () => {
     setQuizState('loading');
-    if (!firestore) return;
 
     try {
-      const quizzesRef = collection(firestore, 'quizzes');
-      const q = query(quizzesRef, where('topic', '==', topic), where('visibility', '==', 'published'), limit(1));
-      const quizSnapshot = await getDocs(q);
+      // Fetch quiz from Supabase
+      const { data: quizData, error: quizError } = await supabase
+        .from('quizzes')
+        .select('*')
+        .eq('topic', topic)
+        .eq('visibility', 'published')
+        .limit(1)
+        .single();
 
-      let quizData: Quiz | null = null;
       let fetchedQuestions: Question[] = [];
 
-      if (!quizSnapshot.empty) {
-        const quizDoc = quizSnapshot.docs[0];
-        quizData = { ...quizDoc.data(), id: quizDoc.id } as Quiz;
-        
-        if (quizData.questionIds && quizData.questionIds.length > 0) {
-          const questionsQuery = query(
-            collection(firestore, 'questions'),
-            where('__name__', 'in', quizData.questionIds)
-          );
-          const questionsSnapshot = await getDocs(questionsQuery);
+      if (quizData && !quizError) {
+        // Fetch questions for this quiz
+        if (quizData.question_ids && quizData.question_ids.length > 0) {
+          const { data: questionsData } = await supabase
+            .from('questions')
+            .select('*')
+            .in('id', quizData.question_ids);
           
-          const tempQuestions = questionsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Question));
-          // Ensure questions are in the order specified by the quiz document
-          fetchedQuestions = quizData.questionIds.map(id => tempQuestions.find(q => q.id === id)).filter(Boolean) as Question[];
+          if (questionsData) {
+            // Ensure questions are in the order specified by the quiz
+            fetchedQuestions = quizData.question_ids
+              .map((id: string) => questionsData.find(q => q.id === id))
+              .filter(Boolean) as Question[];
+          }
         }
       }
 
@@ -149,6 +151,39 @@ export function QuizClient({ topic, classId }: QuizClientProps) {
      setAnswerLog(prev => [...prev, { question: currentQuestion, selectedAnswer, isCorrect }]);
   };
 
+  const saveQuizAttemptToSupabase = async (attempt: Omit<QuizAttempt, 'id' | 'completedAt'>, xpGained: number) => {
+    if (!user) return;
+    
+    try {
+      // Save quiz attempt
+      await supabase.from('quiz_attempts').insert({
+        user_id: attempt.userId,
+        quiz_id: attempt.quizId,
+        class_id: attempt.classId,
+        topic: attempt.topic,
+        score: attempt.score,
+        total_questions: attempt.totalQuestions,
+        completed_at: new Date().toISOString(),
+      });
+
+      // Update user XP
+      const { data: userData } = await supabase
+        .from('users')
+        .select('xp')
+        .eq('id', user.id)
+        .single();
+
+      if (userData) {
+        await supabase
+          .from('users')
+          .update({ xp: (userData.xp || 0) + xpGained })
+          .eq('id', user.id);
+      }
+    } catch (error) {
+      console.error('Error saving quiz attempt:', error);
+    }
+  };
+
   const handleNextQuestion = () => {
     if (!questions) return;
     if (currentQuestionIndex < questions.length - 1) {
@@ -156,17 +191,17 @@ export function QuizClient({ topic, classId }: QuizClientProps) {
       setSelectedAnswer(null);
       setAnswerState('unanswered');
     } else {
-      if (user && quiz && firestore) {
+      if (user && quiz) {
         const xpGained = score * 10;
         const attempt: Omit<QuizAttempt, 'id' | 'completedAt'> = {
-            userId: user.uid,
+            userId: user.id,
             quizId: quiz.id,
             classId: classId || null,
             topic: quiz.topic,
             score: score,
             totalQuestions: questions.length,
         };
-        saveQuizAttempt(firestore, user.uid, attempt, xpGained);
+        saveQuizAttemptToSupabase(attempt, xpGained);
         if (!isPublicFlow) {
           toast({
             title: "Quiz Finished!",
@@ -470,6 +505,16 @@ export function QuizClient({ topic, classId }: QuizClientProps) {
             </AlertTitle>
             <AlertDescription className="pl-6 text-foreground">
               {question.explanation}
+              {answerState === 'incorrect' && (
+                <div className="mt-3 pt-3 border-t border-border/50">
+                  <p className="text-sm text-muted-foreground mb-2">Need to review this topic?</p>
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={`../notes`}>
+                      📚 View Revision Notes
+                    </Link>
+                  </Button>
+                </div>
+              )}
             </AlertDescription>
           </Alert>
         )}

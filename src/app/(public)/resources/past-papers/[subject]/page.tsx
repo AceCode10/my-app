@@ -401,7 +401,7 @@ export default function SubjectPastPapersPage({
                         <div className="flex items-center gap-2 mt-1">
                           {paper.duration_minutes && (
                             <Badge variant="outline" className="text-xs">
-                              {paper.duration_minutes} min
+                              {paper.duration_minutes >= 60 ? `${Math.floor(paper.duration_minutes / 60)}h${paper.duration_minutes % 60 > 0 ? ` ${paper.duration_minutes % 60}m` : ''}` : `${paper.duration_minutes} min`}
                             </Badge>
                           )}
                           {paper.total_marks && (

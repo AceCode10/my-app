@@ -15,6 +15,8 @@ interface ResultsViewProps {
   attempt: AssessmentAttempt;
   questions: Question[];
   answers: AssessmentAnswer[];
+  teacherFeedback?: string | null;
+  gradingDetails?: any[];
   onRetry?: () => void;
   onDownloadPDF?: () => void;
   onGoHome?: () => void;
@@ -26,6 +28,8 @@ export function ResultsView({
   attempt,
   questions,
   answers,
+  teacherFeedback,
+  gradingDetails,
   onRetry,
   onDownloadPDF,
   onGoHome,
@@ -182,6 +186,23 @@ export function ResultsView({
                     <p className="text-sm text-yellow-800">
                       {needsGradingCount} question{needsGradingCount === 1 ? '' : 's'} require{needsGradingCount === 1 ? 's' : ''} manual grading by your teacher. 
                       Your final score may change once grading is complete.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Teacher Feedback */}
+            {teacherFeedback && (
+              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <Award className="w-5 h-5 text-blue-600 mt-0.5" />
+                  <div>
+                    <h4 className="font-semibold text-blue-900 mb-2">
+                      Teacher's Feedback
+                    </h4>
+                    <p className="text-sm text-blue-800 whitespace-pre-wrap">
+                      {teacherFeedback}
                     </p>
                   </div>
                 </div>

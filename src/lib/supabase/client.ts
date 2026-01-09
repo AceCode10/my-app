@@ -1,8 +1,35 @@
 import { createBrowserClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+// Validate environment variables
+function validateEnv() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error(
+      'Missing Supabase environment variables. Please check your .env.local file.\n' +
+      'Required: NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'
+    );
+  }
+
+  // Validate URL format
+  try {
+    new URL(supabaseUrl);
+  } catch {
+    throw new Error('NEXT_PUBLIC_SUPABASE_URL must be a valid URL');
+  }
+
+  return { supabaseUrl, supabaseKey };
+}
+
+// Singleton pattern - reuse the same client instance
+let supabaseClient: SupabaseClient | null = null;
 
 export function createClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://inmptqnwcgymzkjjppdm.supabase.co";
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlubXB0cW53Y2d5bXprampwcGRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5NDQzNzUsImV4cCI6MjA3NjUyMDM3NX0.f3g9JOOot5hU2IHX4GhYcaoFyzuZQYG4m8SYhGe_zI8";
-  
-  return createBrowserClient(supabaseUrl, supabaseKey);
+  if (!supabaseClient) {
+    const { supabaseUrl, supabaseKey } = validateEnv();
+    supabaseClient = createBrowserClient(supabaseUrl, supabaseKey);
+  }
+  return supabaseClient;
 }

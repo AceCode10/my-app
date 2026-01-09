@@ -1,13 +1,26 @@
 'use client';
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid, Legend } from 'recharts';
-import { Trophy, Zap, Flame, Repeat } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid, Legend, PieChart, Pie, Cell } from 'recharts';
+import { Trophy, Zap, Flame, Target, TrendingUp, BookOpen, Clock, Award, ChevronRight, ChevronDown } from 'lucide-react';
+import { CollapsibleCard } from '@/components/ui/collapsible-section';
 import { useUser } from "@/hooks/use-user";
-import { useMemo, useEffect, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { createClient } from '@/lib/supabase/client';
+import { progressAnalyticsService, SubjectProgress, TopicProgress } from '@/lib/analytics/progress-analytics-service';
+import Link from 'next/link';
+import { cn } from '@/lib/utils';
+
+const supabase = createClient();
+
+const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 interface QuizAttempt {
     id: string;
@@ -21,52 +34,63 @@ interface QuizAttempt {
 
 export default function ProgressPage() {
     const { user } = useUser();
-    const supabase = createClient();
-    const [attempts, setAttempts] = useState<QuizAttempt[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [userXP, setUserXP] = useState(0);
-    const [userStreak, setUserStreak] = useState(0);
+    const [activeTab, setActiveTab] = useState('overview');
 
-    useEffect(() => {
-        if (!user) {
-            setIsLoading(false);
-            return;
-        }
+    // Cached progress data query - fetches user stats and attempts in parallel
+    const { data: progressData, isLoading } = useQuery({
+        queryKey: ['student-progress', user?.id],
+        queryFn: async () => {
+            if (!user?.id) return { xp: 0, streak: 0, attempts: [] };
 
-        fetchData();
-    }, [user]);
+            const [userResult, attemptsResult] = await Promise.all([
+                supabase
+                    .from('users')
+                    .select('xp, streak_days')
+                    .eq('id', user.id)
+                    .single(),
+                supabase
+                    .from('assessment_attempts')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .order('completed_at', { ascending: false })
+                    .limit(100)
+            ]);
 
-    async function fetchData() {
-        if (!user) return;
+            return {
+                xp: userResult.data?.xp || 0,
+                streak: userResult.data?.streak_days || 0,
+                attempts: attemptsResult.data || []
+            };
+        },
+        enabled: !!user?.id,
+        staleTime: 2 * 60 * 1000, // 2 minutes
+    });
 
-        try {
-            // Fetch user profile for XP and streak
-            const { data: userData } = await supabase
-                .from('users')
-                .select('xp, streak_days')
-                .eq('id', user.id)
-                .single();
+    // Enhanced analytics data
+    const { data: analyticsData, isLoading: analyticsLoading } = useQuery({
+        queryKey: ['student-analytics', user?.id],
+        queryFn: async () => {
+            if (!user?.id) return null;
+            return progressAnalyticsService.getUserProgress(user.id);
+        },
+        enabled: !!user?.id,
+        staleTime: 5 * 60 * 1000,
+    });
 
-            if (userData) {
-                setUserXP(userData.xp || 0);
-                setUserStreak(userData.streak_days || 0);
-            }
+    // Recommended topics
+    const { data: recommendedTopics } = useQuery({
+        queryKey: ['recommended-topics', user?.id],
+        queryFn: async () => {
+            if (!user?.id) return [];
+            return progressAnalyticsService.getRecommendedTopics(user.id, 5);
+        },
+        enabled: !!user?.id,
+        staleTime: 5 * 60 * 1000,
+    });
 
-            // Fetch quiz attempts
-            const { data: attemptsData, error } = await supabase
-                .from('attempts')
-                .select('*')
-                .eq('user_id', user.id)
-                .order('completed_at', { ascending: false });
-
-            if (error) throw error;
-            setAttempts(attemptsData || []);
-        } catch (error) {
-            console.error('Error fetching progress data:', error);
-        } finally {
-            setIsLoading(false);
-        }
-    }
+    const userXP = progressData?.xp || 0;
+    const userStreak = progressData?.streak || 0;
+    const attempts = progressData?.attempts || [];
     
     const { totalXP, quizzesCompleted, avgScore, weeklyXPData } = useMemo(() => {
         if (!attempts) {
@@ -151,11 +175,13 @@ export default function ProgressPage() {
                 </Card>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-                <Card className="lg:col-span-3">
-                    <CardHeader>
-                        <CardTitle>Weekly XP Gain</CardTitle>
-                    </CardHeader>
-                    <CardContent>
+                <div className="lg:col-span-3">
+                    <CollapsibleCard
+                        title="Weekly XP Gain"
+                        icon={<TrendingUp className="h-4 w-4" />}
+                        defaultOpen={true}
+                        storageKey="progress-weekly-xp"
+                    >
                         {isLoading ? <Skeleton className="h-[300px] w-full" /> : (
                             <ResponsiveContainer width="100%" height={300}>
                                 <LineChart data={weeklyXPData}>
@@ -167,13 +193,15 @@ export default function ProgressPage() {
                                 </LineChart>
                             </ResponsiveContainer>
                         )}
-                    </CardContent>
-                </Card>
-                <Card className="lg:col-span-2">
-                    <CardHeader>
-                        <CardTitle>Recent Quizzes</CardTitle>
-                    </CardHeader>
-                    <CardContent>
+                    </CollapsibleCard>
+                </div>
+                <div className="lg:col-span-2">
+                    <CollapsibleCard
+                        title="Recent Quizzes"
+                        icon={<Clock className="h-4 w-4" />}
+                        defaultOpen={true}
+                        storageKey="progress-recent-quizzes"
+                    >
                         {isLoading && (
                              <div className="space-y-4">
                                 <Skeleton className="h-12 w-full" />
@@ -207,8 +235,8 @@ export default function ProgressPage() {
                                 </TableBody>
                             </Table>
                         )}
-                    </CardContent>
-                </Card>
+                    </CollapsibleCard>
+                </div>
             </div>
         </div>
       </div>

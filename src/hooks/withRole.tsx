@@ -4,10 +4,11 @@ import { useUser } from '@/hooks/use-user';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { KodiLoadingGif } from '@/components/ui/kodi-loading-gif';
 
 const FullPageLoader = () => (
     <div className="flex h-screen w-full items-center justify-center bg-background">
-        <p className="text-muted-foreground animate-pulse">Loading component...</p>
+        <KodiLoadingGif />
     </div>
 );
 

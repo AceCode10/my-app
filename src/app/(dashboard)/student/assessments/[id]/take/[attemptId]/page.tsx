@@ -1,32 +1,44 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, use } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import { TestInterface } from '@/components/assessment/TestInterface';
 import { createClient } from '@/lib/supabase/client';
-import { Assessment, AssessmentAttempt, Question, SubmitAnswerRequest } from '@/types/assessment';
+import { Assessment, Question, SubmitAnswerRequest } from '@/types/assessment';
+
+interface TestAttempt {
+  id: string;
+  assignment_id: string;
+  test_id?: string;
+  paper_id?: string;
+  user_id: string;
+  status: string;
+  started_at: string;
+  submitted_at?: string;
+  answers: any;
+  score?: number;
+  max_score?: number;
+}
 import { autoGradeAnswer } from '@/lib/assessment-utils';
 
-interface PageProps {
-  params: {
-    id: string;
-    attemptId: string;
-  };
-}
-
-export default function TakeAssessmentPage({ params }: PageProps) {
+export default function TakeAssessmentPage() {
   const router = useRouter();
+  const params = useParams();
+  const assignmentId = params.id as string;
+  const attemptId = params.attemptId as string;
   const supabase = createClient();
   
   const [assessment, setAssessment] = useState<Assessment | null>(null);
-  const [attempt, setAttempt] = useState<AssessmentAttempt | null>(null);
+  const [attempt, setAttempt] = useState<TestAttempt | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadAssessmentData();
-  }, [params.id, params.attemptId]);
+    if (assignmentId && attemptId) {
+      loadAssessmentData();
+    }
+  }, [assignmentId, attemptId]);
 
   const loadAssessmentData = async () => {
     try {
@@ -37,7 +49,19 @@ export default function TakeAssessmentPage({ params }: PageProps) {
         return;
       }
 
-      // Load assessment
+      // Load assignment first
+      const { data: assignmentData, error: assignmentError } = await supabase
+        .from('assignments')
+        .select(`
+          *,
+          classes(name, subjects(name))
+        `)
+        .eq('id', assignmentId)
+        .single();
+
+      if (assignmentError) throw assignmentError;
+
+      // Load assessment from assignment's assessment_id
       const { data: assessmentData, error: assessmentError } = await supabase
         .from('assessments')
         .select(`
@@ -47,17 +71,17 @@ export default function TakeAssessmentPage({ params }: PageProps) {
           exam_board:exam_boards(*),
           topic:topics(*)
         `)
-        .eq('id', params.id)
+        .eq('id', assignmentData.assessment_id)
         .single();
 
       if (assessmentError) throw assessmentError;
       setAssessment(assessmentData);
 
-      // Load attempt
+      // Load attempt from test_attempts (not assessment_attempts)
       const { data: attemptData, error: attemptError } = await supabase
-        .from('assessment_attempts')
+        .from('test_attempts')
         .select('*')
-        .eq('id', params.attemptId)
+        .eq('id', attemptId)
         .eq('user_id', user.id)
         .single();
 
@@ -65,13 +89,13 @@ export default function TakeAssessmentPage({ params }: PageProps) {
 
       // Check if attempt is still valid
       if (attemptData.status !== 'in_progress') {
-        router.push(`/student/assessments/${params.id}/results/${params.attemptId}`);
+        router.push(`/student/assessments/${assignmentId}/results/${attemptId}`);
         return;
       }
 
       setAttempt(attemptData);
 
-      // Load questions
+      // Load questions from assessment_questions using the assessment_id
       const { data: questionsData, error: questionsError } = await supabase
         .from('assessment_questions')
         .select(`
@@ -81,7 +105,7 @@ export default function TakeAssessmentPage({ params }: PageProps) {
             choices:question_choices(*)
           )
         `)
-        .eq('assessment_id', params.id)
+        .eq('assessment_id', assignmentData.assessment_id)
         .order('question_order', { ascending: true });
 
       if (questionsError) throw questionsError;
@@ -128,22 +152,34 @@ export default function TakeAssessmentPage({ params }: PageProps) {
         selected_choice_id: answer.selected_choice_id || null
       });
 
-      // Save answer to database
+      // Save answer to test_attempts.answers JSON field
+      const { data: attemptData, error: fetchError } = await supabase
+        .from('test_attempts')
+        .select('answers')
+        .eq('id', answer.attempt_id)
+        .single();
+      
+      if (fetchError) throw fetchError;
+      
+      // Update answers JSON
+      const currentAnswers = attemptData?.answers || {};
+      currentAnswers[answer.question_id] = {
+        answer_text: answer.answer_text,
+        selected_choice_id: answer.selected_choice_id,
+        is_correct: gradingResult.is_correct,
+        marks_awarded: gradingResult.marks_awarded,
+        max_marks: question.marks,
+        flagged_for_review: answer.flagged_for_review,
+        time_spent_seconds: answer.time_spent_seconds,
+        answered_at: new Date().toISOString()
+      };
+      
       const { error } = await supabase
-        .from('assessment_answers')
-        .upsert({
-          attempt_id: answer.attempt_id,
-          question_id: answer.question_id,
-          answer_text: answer.answer_text,
-          selected_choice_id: answer.selected_choice_id,
-          is_correct: gradingResult.is_correct,
-          marks_awarded: gradingResult.marks_awarded,
-          max_marks: question.marks,
-          flagged_for_review: answer.flagged_for_review,
-          time_spent_seconds: answer.time_spent_seconds
-        }, {
-          onConflict: 'attempt_id,question_id'
-        });
+        .from('test_attempts')
+        .update({
+          answers: currentAnswers
+        })
+        .eq('id', answer.attempt_id);
 
       if (error) throw error;
 
@@ -157,15 +193,17 @@ export default function TakeAssessmentPage({ params }: PageProps) {
     if (!attempt || !assessment) return;
 
     try {
-      // Calculate total score
-      const { data: answers, error: answersError } = await supabase
-        .from('assessment_answers')
-        .select('marks_awarded, is_correct')
-        .eq('attempt_id', attempt.id);
+      // Calculate total score from test_attempts.answers
+      const { data: attemptData, error: fetchError } = await supabase
+        .from('test_attempts')
+        .select('answers')
+        .eq('id', attempt.id)
+        .single();
 
-      if (answersError) throw answersError;
+      if (fetchError) throw fetchError;
 
-      const totalScore = answers?.reduce((sum, a) => sum + (a.marks_awarded || 0), 0) || 0;
+      const answers = attemptData?.answers || {};
+      const totalScore = Object.values(answers).reduce((sum: number, a: any) => sum + (a.marks_awarded || 0), 0);
       const maxScore = assessment.total_marks || 0;
       const percentage = maxScore > 0 ? (totalScore / maxScore) * 100 : 0;
 
@@ -174,23 +212,21 @@ export default function TakeAssessmentPage({ params }: PageProps) {
       const endTime = Date.now();
       const timeSpent = Math.floor((endTime - startTime) / 1000);
 
-      // Update attempt
+      // Update test_attempts
       const { error: updateError } = await supabase
-        .from('assessment_attempts')
+        .from('test_attempts')
         .update({
           status: 'submitted',
           submitted_at: new Date().toISOString(),
           score: totalScore,
-          percentage: percentage,
-          max_score: maxScore,
-          time_spent_seconds: timeSpent
+          max_score: maxScore
         })
         .eq('id', attempt.id);
 
       if (updateError) throw updateError;
 
       // Navigate to results
-      router.push(`/student/assessments/${params.id}/results/${params.attemptId}`);
+      router.push(`/student/assessments/${assignmentId}/results/${attemptId}`);
 
     } catch (err) {
       console.error('Error submitting assessment:', err);

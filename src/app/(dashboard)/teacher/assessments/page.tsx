@@ -1,13 +1,13 @@
 'use client';
 import { useState } from 'react';
-import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, orderBy, doc, deleteDoc, writeBatch, getDocs, where } from 'firebase/firestore';
-import type { Quiz } from '@/types';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { createClient } from '@/lib/supabase/client';
+import { useUser } from '@/hooks/use-user';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, MoreHorizontal, Loader2 } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, Loader2, Filter } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   DropdownMenu,
@@ -15,6 +15,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import Link from 'next/link';
 import {
   AlertDialog,
@@ -28,20 +35,71 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
 
+const supabase = createClient();
+
+type AssessmentType = 'all' | 'quiz' | 'topical' | 'test';
+
+interface Assessment {
+    id: string;
+    title: string;
+    subject_id: string;
+    topic_id: string | null;
+    visibility: 'draft' | 'published' | 'archived';
+    created_by: string;
+    question_count?: number;
+    assessment_type?: AssessmentType;
+}
+
 const AssessmentsPage = () => {
-    const firestore = useFirestore();
     const { user } = useUser();
     const { toast } = useToast();
-    const [isDeleting, setIsDeleting] = useState(false);
+    const queryClient = useQueryClient();
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-    const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
+    const [selectedAssessment, setSelectedAssessment] = useState<Assessment | null>(null);
+    const [filterType, setFilterType] = useState<AssessmentType>('all');
 
-    const quizzesQuery = useMemoFirebase(() => {
-        if (!firestore || !user) return null;
-        return query(collection(firestore, 'quizzes'), where('createdBy', '==', user.uid), orderBy('title'));
-    }, [firestore, user]);
+    // Cached assessments query
+    const { data: assessments = [], isLoading } = useQuery({
+        queryKey: ['teacher-assessments', user?.id, filterType],
+        queryFn: async () => {
+            if (!user?.id) return [];
+            
+            let query = supabase
+                .from('assessments')
+                .select('*')
+                .eq('created_by', user.id)
+                .order('created_at', { ascending: false });
 
-    const { data: quizzes, isLoading, error } = useCollection<Quiz>(quizzesQuery);
+            if (filterType !== 'all') {
+                query = query.eq('assessment_type', filterType);
+            }
+
+            const { data, error } = await query;
+            if (error) throw error;
+            return data || [];
+        },
+        enabled: !!user?.id,
+        staleTime: 2 * 60 * 1000,
+    });
+
+    // Delete mutation
+    const deleteMutation = useMutation({
+        mutationFn: async (assessmentId: string) => {
+            const { error } = await supabase
+                .from('assessments')
+                .delete()
+                .eq('id', assessmentId);
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['teacher-assessments'] });
+            toast({ title: 'Success', description: 'Assessment deleted successfully.' });
+            setIsDeleteDialogOpen(false);
+        },
+        onError: (error: any) => {
+            toast({ variant: 'destructive', title: 'Error', description: error.message || 'Could not delete assessment.' });
+        },
+    });
 
     const getBadgeVariant = (visibility: string | undefined) => {
         switch (visibility) {
@@ -52,71 +110,58 @@ const AssessmentsPage = () => {
         }
     }
 
-    const handleDeleteClick = (quiz: Quiz) => {
-        setSelectedQuiz(quiz);
+    const handleDeleteClick = (assessment: Assessment) => {
+        setSelectedAssessment(assessment);
         setIsDeleteDialogOpen(true);
     };
     
-    const handleDeleteConfirm = async () => {
-        if (!firestore || !selectedQuiz) return;
-        setIsDeleting(true);
+    const handleDeleteConfirm = () => {
+        if (!selectedAssessment) return;
+        deleteMutation.mutate(selectedAssessment.id);
+    };
 
-        try {
-            const batch = writeBatch(firestore);
-
-            // 1. Delete the quiz document
-            const quizRef = doc(firestore, "quizzes", selectedQuiz.id);
-            batch.delete(quizRef);
-
-            // 2. Delete all associated question documents
-            if (selectedQuiz.questionIds && selectedQuiz.questionIds.length > 0) {
-                 // Firestore 'in' queries are limited to 30 items. 
-                 // If a quiz can have more, this needs to be chunked.
-                const questionsQuery = query(
-                    collection(firestore, 'questions'),
-                    where('__name__', 'in', selectedQuiz.questionIds)
-                );
-                const questionsSnapshot = await getDocs(questionsQuery);
-                questionsSnapshot.forEach(doc => {
-                    batch.delete(doc.ref);
-                });
-            }
-
-            await batch.commit();
-
-            toast({
-                title: "Assessment Deleted",
-                description: "The assessment and all its questions have been successfully deleted.",
-            });
-        } catch (error) {
-            console.error("Error deleting assessment: ", error);
-            toast({
-                variant: "destructive",
-                title: "Error",
-                description: "There was a problem deleting the assessment.",
-            });
-        } finally {
-            setIsDeleteDialogOpen(false);
-            setSelectedQuiz(null);
-            setIsDeleting(false);
+    const getTypeLabel = (type?: string) => {
+        switch (type) {
+            case 'quiz': return 'Quiz';
+            case 'topical': return 'Topical Assessment';
+            case 'test': return 'Test';
+            default: return 'Assessment';
         }
     };
 
     return (
-        <>
+        <div>
             <Card>
                 <CardHeader>
-                    <div className="flex justify-between items-center">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div>
                             <CardTitle>My Assessments</CardTitle>
-                            <CardDescription>Manage all quizzes and topical assessments you have created.</CardDescription>
+                            <CardDescription>Manage all your quizzes, topical assessments, and tests in one place.</CardDescription>
                         </div>
                         <Button asChild>
                             <Link href="/teacher/assessments/new">
                                 <PlusCircle className="mr-2 h-4 w-4" />
-                                Create New Assessment
+                                Create New
                             </Link>
                         </Button>
+                    </div>
+                    {/* Filter */}
+                    <div className="flex items-center gap-2 mt-4">
+                        <Filter className="h-4 w-4 text-muted-foreground" />
+                        <Select value={filterType} onValueChange={(value) => setFilterType(value as AssessmentType)}>
+                            <SelectTrigger className="w-48">
+                                <SelectValue placeholder="Filter by type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Types</SelectItem>
+                                <SelectItem value="quiz">Quizzes</SelectItem>
+                                <SelectItem value="topical">Topical Assessments</SelectItem>
+                                <SelectItem value="test">Tests</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        {filterType !== 'all' && (
+                            <Badge variant="secondary">{assessments.length} results</Badge>
+                        )}
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -143,21 +188,15 @@ const AssessmentsPage = () => {
                                         <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                                     </TableRow>
                                 ))
-                            ) : error ? (
-                                <TableRow>
-                                    <TableCell colSpan={6} className="h-24 text-center text-destructive">
-                                        Error loading assessments: {error.message}
-                                    </TableCell>
-                                </TableRow>
                             ) : (
-                                quizzes?.map(quiz => (
-                                    <TableRow key={quiz.id}>
-                                        <TableCell className="font-medium">{quiz.title}</TableCell>
-                                        <TableCell className="hidden md:table-cell">{quiz.subject}</TableCell>
-                                        <TableCell className="hidden md:table-cell">{quiz.topic}</TableCell>
-                                        <TableCell className="hidden sm:table-cell">{quiz.questionIds?.length || 0}</TableCell>
+                                assessments.map(assessment => (
+                                    <TableRow key={assessment.id}>
+                                        <TableCell className="font-medium">{assessment.title}</TableCell>
+                                        <TableCell className="hidden md:table-cell">{assessment.subject_id}</TableCell>
+                                        <TableCell className="hidden md:table-cell">{assessment.topic_id || '-'}</TableCell>
+                                        <TableCell className="hidden sm:table-cell">{assessment.question_count || 0}</TableCell>
                                         <TableCell>
-                                            <Badge variant={getBadgeVariant(quiz.visibility)}>{quiz.visibility || 'draft'}</Badge>
+                                            <Badge variant={getBadgeVariant(assessment.visibility)}>{assessment.visibility || 'draft'}</Badge>
                                         </TableCell>
                                         <TableCell>
                                             <DropdownMenu>
@@ -168,18 +207,18 @@ const AssessmentsPage = () => {
                                                     </Button>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem asChild><Link href={`/teacher/assessments/${quiz.id}`}>Edit</Link></DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => handleDeleteClick(quiz)}>Delete</DropdownMenuItem>
+                                                    <DropdownMenuItem asChild><Link href={`/teacher/assessments/${assessment.id}`}>Edit</Link></DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => handleDeleteClick(assessment)}>Delete</DropdownMenuItem>
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                         </TableCell>
                                     </TableRow>
                                 ))
                             )}
-                             {!isLoading && quizzes?.length === 0 && (
+                             {!isLoading && assessments.length === 0 && (
                                 <TableRow>
                                     <TableCell colSpan={6} className="h-24 text-center">
-                                        No assessments found. Get started by creating one.
+                                        No assessments found. Get started by <Link href="/teacher/assessments/new" className="text-primary underline">creating one</Link>.
                                     </TableCell>
                                 </TableRow>
                             )}
@@ -197,14 +236,14 @@ const AssessmentsPage = () => {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDeleteConfirm} disabled={isDeleting}>
-                        {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    <AlertDialogAction onClick={handleDeleteConfirm} disabled={deleteMutation.isPending}>
+                        {deleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Delete
                     </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-        </>
+        </div>
     );
 };
 

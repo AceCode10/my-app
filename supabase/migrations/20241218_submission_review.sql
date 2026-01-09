@@ -91,6 +91,32 @@ BEGIN
     END IF;
 END $$;
 
+-- RLS: Admins can view ALL submitted attempts
+DROP POLICY IF EXISTS "Admins can view all submissions" ON assessment_attempts;
+CREATE POLICY "Admins can view all submissions"
+    ON assessment_attempts FOR SELECT
+    TO authenticated
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.users
+            WHERE users.id = auth.uid()
+            AND users.role IN ('super_admin', 'content_moderator')
+        )
+    );
+
+-- RLS: Admins can update ALL attempts (for grading)
+DROP POLICY IF EXISTS "Admins can update all submissions" ON assessment_attempts;
+CREATE POLICY "Admins can update all submissions"
+    ON assessment_attempts FOR UPDATE
+    TO authenticated
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.users
+            WHERE users.id = auth.uid()
+            AND users.role IN ('super_admin', 'content_moderator')
+        )
+    );
+
 -- RLS: Teachers can view submissions from their classes
 DROP POLICY IF EXISTS "Teachers can view class submissions" ON assessment_attempts;
 CREATE POLICY "Teachers can view class submissions"

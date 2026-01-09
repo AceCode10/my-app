@@ -35,6 +35,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { logDelete } from '@/lib/audit';
+import { formatDuration } from '@/lib/assessment-utils';
 
 interface PastPaper {
   id: string;
@@ -57,7 +58,7 @@ interface PastPaper {
   subjects?: { name: string };
 }
 
-const EXAM_BOARDS = ['IGCSE', 'Edexcel', 'Cambridge', 'IB', 'AQA', 'OCR'];
+const EXAM_BOARDS = ['CIE', 'Edexcel', 'AQA', 'OCR', 'IB', 'AP'];
 const STATUSES = ['draft', 'pending', 'published', 'archived'];
 
 export default function PastPapersPage() {
@@ -118,12 +119,41 @@ export default function PastPapersPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Are you sure you want to delete this past paper?')) return;
+    if (!confirm('Are you sure you want to delete this past paper? This will also delete all associated questions, attempts, and answers.')) return;
 
     try {
       // Get paper details before deleting for audit log
       const paperToDelete = papers.find(p => p.id === id);
       
+      // First, delete all assessment_answers for attempts on this paper
+      const { data: attempts } = await supabase
+        .from('assessment_attempts')
+        .select('id')
+        .eq('paper_id', id);
+      
+      if (attempts && attempts.length > 0) {
+        const attemptIds = attempts.map(a => a.id);
+        
+        // Delete answers for these attempts
+        await supabase
+          .from('assessment_answers')
+          .delete()
+          .in('attempt_id', attemptIds);
+        
+        // Delete the attempts themselves
+        await supabase
+          .from('assessment_attempts')
+          .delete()
+          .eq('paper_id', id);
+      }
+      
+      // Delete paper questions
+      await supabase
+        .from('paper_questions')
+        .delete()
+        .eq('paper_id', id);
+      
+      // Finally delete the paper
       const { error } = await supabase
         .from('past_papers')
         .delete()
@@ -142,7 +172,7 @@ export default function PastPapersPage() {
 
       toast({
         title: 'Success',
-        description: 'Past paper deleted successfully'
+        description: 'Past paper and all associated data deleted successfully'
       });
 
       fetchPapers();
@@ -317,7 +347,7 @@ export default function PastPapersPage() {
                         {paper.variant && ` (${paper.variant})`}
                       </TableCell>
                       <TableCell>
-                        {paper.duration_minutes ? `${paper.duration_minutes} min` : '-'}
+                        {paper.duration_minutes ? formatDuration(paper.duration_minutes) : '-'}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">

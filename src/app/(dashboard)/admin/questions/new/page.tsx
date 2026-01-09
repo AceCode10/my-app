@@ -90,7 +90,7 @@ export default function NewQuestionPage() {
   async function fetchSubjects() {
     const { data } = await supabase
       .from('subjects')
-      .select('id, name')
+      .select('id, name, code')
       .eq('status', 'published')
       .order('name');
     
@@ -498,7 +498,7 @@ export default function NewQuestionPage() {
                 <SelectContent>
                   {subjects.map(subject => (
                     <SelectItem key={subject.id} value={subject.id}>
-                      {subject.name}
+                      {subject.name}{subject.code ? ` (${subject.code})` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>

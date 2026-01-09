@@ -53,7 +53,7 @@ interface Submission {
   reviewer_feedback: string | null;
   user: {
     id: string;
-    full_name: string;
+    display_name: string;
     email: string;
   };
   paper: {
@@ -107,42 +107,37 @@ export default function AdminSubmissionsPage() {
 
   async function fetchSubmissions() {
     try {
-      // Fetch all submitted attempts without a class (self-practice)
+      // Fetch submitted attempts with paper_id
       let query = supabase
         .from('assessment_attempts')
-        .select(`
-          id,
-          user_id,
-          paper_id,
-          class_id,
-          status,
-          review_status,
-          practice_mode,
-          started_at,
-          submitted_at,
-          time_spent_seconds,
-          awarded_marks,
-          reviewer_feedback
-        `)
-        .is('class_id', null)
+        .select('*')
+        .not('paper_id', 'is', null)
         .eq('status', 'submitted')
-        .order('submitted_at', { ascending: false });
-
-      if (selectedStatus !== 'all') {
-        query = query.eq('review_status', selectedStatus);
-      }
+        .order('created_at', { ascending: false });
 
       const { data: attemptsData, error } = await query;
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
+
+      // Filter for self-practice (no class_id)
+      let filteredAttempts = (attemptsData || []).filter((a: any) => !a.class_id);
+
+      // Filter by review status if selected
+      if (selectedStatus !== 'all') {
+        filteredAttempts = filteredAttempts.filter((a: any) => 
+          (a.review_status || 'pending') === selectedStatus
+        );
+      }
 
       // Fetch related data
       const enrichedSubmissions = await Promise.all(
-        (attemptsData || []).map(async (attempt) => {
-          // Fetch user
+        filteredAttempts.map(async (attempt: any) => {
+          // Fetch user - note: column is display_name, not full_name
           const { data: userData } = await supabase
             .from('users')
-            .select('id, full_name, email')
+            .select('id, display_name, email')
             .eq('id', attempt.user_id)
             .single();
 
@@ -196,7 +191,7 @@ export default function AdminSubmissionsPage() {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     return (
-      s.user?.full_name?.toLowerCase().includes(query) ||
+      s.user?.display_name?.toLowerCase().includes(query) ||
       s.user?.email?.toLowerCase().includes(query) ||
       s.paper?.title?.toLowerCase().includes(query)
     );
@@ -376,7 +371,7 @@ export default function AdminSubmissionsPage() {
                           <User className="h-4 w-4 text-primary" />
                         </div>
                         <div>
-                          <p className="font-medium">{submission.user?.full_name || 'Unknown'}</p>
+                          <p className="font-medium">{submission.user?.display_name || 'Unknown'}</p>
                           <p className="text-xs text-muted-foreground">{submission.user?.email}</p>
                         </div>
                       </div>

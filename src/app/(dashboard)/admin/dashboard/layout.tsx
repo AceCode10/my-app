@@ -53,7 +53,7 @@ const AdminSidebar = () => {
         <Sidebar collapsible="icon">
             <SidebarHeader className="flex items-center justify-between">
                  <div className={cn("text-2xl font-bold", state === 'collapsed' && 'hidden')}>
-                    IGCSE <span className="text-primary">Admin</span>
+                    Revision<span className="text-primary">Plus</span>
                 </div>
                 <SidebarTrigger>
                     <Button variant="ghost" size="icon" className="p-2 md:flex group-data-[collapsible=icon]:hidden">

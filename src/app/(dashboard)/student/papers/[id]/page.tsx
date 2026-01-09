@@ -130,6 +130,57 @@ export default function PaperDetailPage() {
         return;
       }
 
+      // Check for existing in-progress attempts for this paper
+      const { data: existingAttempts, error: checkError } = await supabase
+        .from('assessment_attempts')
+        .select('id, practice_mode, started_at')
+        .eq('user_id', user.id)
+        .eq('paper_id', paperId)
+        .eq('status', 'in_progress')
+        .order('started_at', { ascending: false });
+
+      if (checkError) throw checkError;
+
+      // If there's an existing attempt, ask user what to do
+      if (existingAttempts && existingAttempts.length > 0) {
+        const existingAttempt = existingAttempts[0];
+        
+        const shouldContinue = window.confirm(
+          `You have an existing ${existingAttempt.practice_mode} practice session in progress. Would you like to continue it?\n\nClick OK to continue, or Cancel to start a new attempt (your previous attempt will be auto-submitted).`
+        );
+
+        if (shouldContinue) {
+          // Continue existing attempt
+          router.push(`/student/papers/${paperId}/practice?attempt=${existingAttempt.id}`);
+          return;
+        } else {
+          // Auto-submit the previous attempt
+          await supabase
+            .from('assessment_attempts')
+            .update({
+              status: 'submitted',
+              submitted_at: new Date().toISOString(),
+              review_status: existingAttempt.practice_mode === 'timed' ? 'pending' : null
+            })
+            .eq('id', existingAttempt.id);
+
+          // Then close it
+          await supabase
+            .from('assessment_attempts')
+            .update({
+              status: 'closed',
+              completed_at: new Date().toISOString()
+            })
+            .eq('id', existingAttempt.id)
+            .eq('status', 'submitted');
+
+          toast({
+            title: 'Previous attempt submitted',
+            description: 'Your previous attempt has been auto-submitted. Starting new session...'
+          });
+        }
+      }
+
       // Create a new attempt
       const { data: attempt, error } = await supabase
         .from('assessment_attempts')
@@ -375,8 +426,21 @@ export default function PaperDetailPage() {
                       <Badge variant="outline">
                         {attempt.practice_mode === 'timed' ? 'Timed' : 'Untimed'}
                       </Badge>
-                      {attempt.percentage !== null && (
-                        <Badge variant="secondary">
+                      {/* Show Marked badge when graded */}
+                      {(attempt.review_status === 'completed' || attempt.graded_at) && (
+                        <Badge className="bg-green-100 text-green-700 border-green-200">
+                          ✓ Marked
+                        </Badge>
+                      )}
+                      {/* Show Pending Review badge when awaiting grading */}
+                      {attempt.review_status === 'pending' && !attempt.graded_at && (
+                        <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-200">
+                          Pending Review
+                        </Badge>
+                      )}
+                      {/* Show score if available */}
+                      {attempt.percentage !== null && attempt.percentage !== undefined && (
+                        <Badge variant="secondary" className="font-semibold">
                           {Math.round(attempt.percentage)}%
                         </Badge>
                       )}

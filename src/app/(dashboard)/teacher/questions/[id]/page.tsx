@@ -5,8 +5,8 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useFirestore, useUser } from '@/firebase';
-import { doc, getDoc, addDoc, collection, updateDoc, arrayUnion, serverTimestamp, increment } from 'firebase/firestore';
+import { createClient } from '@/lib/supabase/client';
+import { useUser } from '@/hooks/use-user';
 import type { Question } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,7 +38,7 @@ const QuestionEditorPage = () => {
     const quizId = searchParams.get('quizId');
     const isNewQuestion = questionId === 'new';
 
-    const firestore = useFirestore();
+    const supabase = createClient();
     const { user } = useUser();
     const { toast } = useToast();
 
@@ -74,45 +74,48 @@ const QuestionEditorPage = () => {
     }, [questionType, form]);
 
     const onSubmit = async (data: QuestionFormData) => {
-        if (!firestore || !user || !quizId) {
+        if (!user || !quizId) {
             toast({ variant: 'destructive', title: 'Error', description: 'Required services or quiz ID are missing.' });
             return;
         }
         setIsLoading(true);
 
-        const questionData: Partial<Question> = {
-            stem: data.stem,
-            type: data.type,
+        const questionData = {
+            question_text: data.stem,
+            question_type: data.type,
             marks: data.marks,
             status: data.status,
-            markScheme: { guidance: data.markScheme }, // Simple structure for now
+            mark_scheme: data.markScheme,
             options: data.type === 'mcq' ? data.options?.map((o, i) => ({ id: `opt_${i}`, label: o.value })) : [],
-            correctAnswer: data.correctAnswer,
-            updatedAt: serverTimestamp(),
-            authorId: user.uid,
+            correct_answer: data.correctAnswer,
+            assessment_id: quizId,
+            created_by: user.id,
         };
 
         try {
             if (isNewQuestion) {
-                const newQuestionPayload = {
-                    ...questionData,
-                    questionId: crypto.randomUUID(),
-                    createdAt: serverTimestamp(),
-                    version: 1,
-                };
-                const newQuestionDoc = await addDoc(collection(firestore, 'questions'), newQuestionPayload);
-                
-                const quizRef = doc(firestore, 'quizzes', quizId);
-                await updateDoc(quizRef, {
-                    questionIds: arrayUnion(newQuestionDoc.id)
-                });
-                
+                const { error } = await supabase
+                    .from('questions')
+                    .insert(questionData);
+
+                if (error) throw error;
                 toast({ title: 'Question Added', description: 'The new question has been added to the quiz.' });
             } else {
-                await updateDoc(doc(firestore, 'questions', questionId as string), {
-                    ...questionData,
-                    version: increment(1)
-                });
+                const { error } = await supabase
+                    .from('questions')
+                    .update({
+                        question_text: data.stem,
+                        question_type: data.type,
+                        marks: data.marks,
+                        status: data.status,
+                        mark_scheme: data.markScheme,
+                        options: data.type === 'mcq' ? data.options?.map((o, i) => ({ id: `opt_${i}`, label: o.value })) : [],
+                        correct_answer: data.correctAnswer,
+                        updated_at: new Date().toISOString(),
+                    })
+                    .eq('id', questionId);
+
+                if (error) throw error;
                 toast({ title: 'Question Updated', description: 'The question has been saved.' });
             }
             router.push(`/teacher/assessments/${quizId}`);
@@ -207,7 +210,7 @@ const QuestionEditorPage = () => {
                                                     <FormField key={item.id} control={form.control} name={`options.${index}.value`} render={({ field: optionField }) => (
                                                         <FormItem className="flex items-center space-x-3">
                                                             <FormControl>
-                                                                <RadioGroupItem value={optionField.value} id={`option-radio-${index}`} />
+                                                                <RadioGroupItem value={optionField.value || ''} id={`option-radio-${index}`} />
                                                             </FormControl>
                                                             <div className="flex-grow">
                                                                 <Input {...optionField} placeholder={`Option ${index + 1}`} />

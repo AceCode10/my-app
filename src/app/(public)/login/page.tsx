@@ -1,14 +1,15 @@
 
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { Mail, KeyRound } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useUser } from '@/hooks/use-user';
 import { useToast } from "@/hooks/use-toast";
 import { createClient } from '@/lib/supabase/client';
+import { KodiLoadingGif } from '@/components/ui/kodi-loading-gif';
 
-export default function LoginPage() {
+function LoginContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { user, loading } = useUser();
@@ -101,7 +102,7 @@ export default function LoginPage() {
     if (loading) {
         return (
             <div className="flex h-screen w-full items-center justify-center bg-background">
-                <p className="text-muted-foreground animate-pulse">Loading...</p>
+                <KodiLoadingGif />
             </div>
         );
     }
@@ -109,7 +110,7 @@ export default function LoginPage() {
     if (user) {
         return (
             <div className="flex h-screen w-full items-center justify-center bg-background">
-                <p className="text-muted-foreground animate-pulse">Redirecting...</p>
+                <KodiLoadingGif />
             </div>
         );
     }
@@ -158,7 +159,7 @@ export default function LoginPage() {
                         <div className="flex-grow border-t"></div>
                     </div>
                     <button onClick={handleGoogleSignIn} disabled={isSubmitting} className="w-full flex items-center justify-center space-x-2 border font-medium py-3 rounded-lg hover:bg-muted/50 transition-colors disabled:opacity-50">
-                        <img src="https://www.google.com/favicon.ico" alt="Google icon" className="w-5 h-5" />
+                        <img src="https://www.google.com/ficon.ico" alt="Google icon" className="w-5 h-5" />
                         <span>Sign in with Google</span>
                     </button>
                     <p className="text-center text-sm text-muted-foreground mt-6">
@@ -176,5 +177,17 @@ export default function LoginPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex h-screen w-full items-center justify-center bg-background">
+                <KodiLoadingGif />
+            </div>
+        }>
+            <LoginContent />
+        </Suspense>
     );
 }

@@ -31,6 +31,7 @@ export default function LandingPage() {
                     src="https://picsum.photos/seed/hero/1920/1080" 
                     alt="Students collaborating"
                     fill
+                    priority
                     className="absolute inset-0 w-full h-full object-cover z-0 opacity-10"
                     data-ai-hint="students collaborating"
                 />
