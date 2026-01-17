@@ -249,9 +249,9 @@ export default function QuestionsPage() {
     try {
       const { data, error } = await supabase
         .from('topics')
-        .select('id, name, subject_id')
+        .select('id, name, subject_id, display_order')
         .eq('subject_id', subjectId)
-        .order('name');
+        .order('display_order');
 
       if (error) throw error;
       setTopics(data || []);
@@ -495,6 +495,7 @@ export default function QuestionsPage() {
   // Pagination calculations - now using server-side data
   const totalPages = Math.ceil(totalCount / itemsPerPage);
   const paginatedQuestions = questions; // Already paginated from server
+  const startIndex = (currentPage - 1) * itemsPerPage;
 
   // Reset to page 1 when filters change
   useEffect(() => {

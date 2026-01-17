@@ -16,7 +16,7 @@ export async function requireAdmin(requiredPermission?: AdminPermission | 'super
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect('/login?redirect=/admin/dashboard');
+    redirect('/login?redirect=/admin');
   }
 
   // Fetch user admin status
@@ -55,7 +55,7 @@ export async function requireAdmin(requiredPermission?: AdminPermission | 'super
   // Check for super admin only routes
   if (requiredPermission === 'super_admin_only') {
     if (userData.admin_role?.code !== 'super_admin') {
-      redirect('/admin/dashboard'); // Redirect to their allowed area
+      redirect('/admin'); // Redirect to their allowed area
     }
     return userData;
   }
@@ -70,7 +70,7 @@ export async function requireAdmin(requiredPermission?: AdminPermission | 'super
 
   // Check if user has required permission
   if (!permissions.includes(requiredPermission)) {
-    redirect('/admin/dashboard'); // Redirect to their allowed area
+    redirect('/admin'); // Redirect to their allowed area
   }
 
   return userData;

@@ -99,7 +99,7 @@ export default function SubjectTopicalQuestionsPage({
 
       // Note: exam_board_id and level filters will work after migration is applied
       // For now, fetch all topics for the subject
-      const { data: topicsData, error: topicsError } = await topicsQuery.order('name', { ascending: true });
+      const { data: topicsData, error: topicsError } = await topicsQuery.order('display_order', { ascending: true });
 
       if (topicsError) throw topicsError;
       setTopics(topicsData || []);

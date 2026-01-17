@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { convertPdfToImages, extractTextFromPdf } from '@/lib/pdf-to-images-client';
@@ -69,7 +69,9 @@ import {
   Image as ImageIcon,
   Sparkles,
   FileUp,
-  AlertCircle
+  AlertCircle,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 import {
   Dialog,
@@ -99,6 +101,25 @@ import { useRouter, useParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { PaperQuestion, MCQOption, PaperQuestionType, PastPaper } from '@/types/paper-practice';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragOverEvent,
+  DragOverlay,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const QUESTION_TYPES: { value: PaperQuestionType; label: string }[] = [
   { value: 'mcq', label: 'Multiple Choice' },
@@ -110,6 +131,203 @@ const QUESTION_TYPES: { value: PaperQuestionType; label: string }[] = [
 ];
 
 const DIFFICULTY_LEVELS = ['easy', 'medium', 'hard'];
+
+// Sortable row component for drag and drop
+function SortableQuestionRow({ 
+  question, 
+  isSelected, 
+  isBeingDraggedOver,
+  isChild,
+  hasChildren,
+  isExpanded,
+  onToggleExpand,
+  onToggleSelection, 
+  onEdit, 
+  onDelete 
+}: { 
+  question: PaperQuestion; 
+  isSelected: boolean; 
+  isBeingDraggedOver: boolean;
+  isChild?: boolean;
+  hasChildren?: boolean;
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
+  onToggleSelection: () => void; 
+  onEdit: () => void; 
+  onDelete: () => void; 
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: question.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  // Check if this question can be a parent (context-only or main question without part_label)
+  const canBeParent = (question as any).is_context_only || !question.part_label;
+  const showAsDropTarget = isBeingDraggedOver && canBeParent;
+
+  return (
+    <TableRow 
+      ref={setNodeRef} 
+      style={style} 
+      className={cn(
+        isSelected && "bg-primary/5", 
+        isDragging && "relative z-50",
+        showAsDropTarget && "bg-blue-50 border-2 border-blue-400 border-dashed",
+        isChild && "bg-muted/30"
+      )}
+    >
+      <TableCell>
+        <Checkbox
+          checked={isSelected}
+          onCheckedChange={onToggleSelection}
+        />
+      </TableCell>
+      <TableCell>
+        <div className={cn("flex items-center gap-2", isChild && "pl-6")}>
+          {hasChildren ? (
+            <button
+              className="p-0.5 hover:bg-muted rounded"
+              onClick={onToggleExpand}
+              title={isExpanded ? "Collapse sub-parts" : "Expand sub-parts"}
+            >
+              {isExpanded ? (
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              )}
+            </button>
+          ) : (
+            <button
+              className="cursor-grab active:cursor-grabbing touch-none"
+              {...attributes}
+              {...listeners}
+            >
+              <GripVertical className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+            </button>
+          )}
+          <span className="font-medium">
+            {question.question_number}
+            {question.part_label && <span className="text-muted-foreground">{question.part_label}</span>}
+          </span>
+          {hasChildren && (
+            <Badge variant="outline" className="text-xs ml-1">
+              {isExpanded ? "expanded" : "has parts"}
+            </Badge>
+          )}
+        </div>
+      </TableCell>
+      <TableCell>
+        <div className="max-w-lg">
+          {(question as any).question_image_data ? (
+            <div className="space-y-2">
+              <div className="relative group">
+                <img 
+                  src={`data:image/png;base64,${(question as any).question_image_data}`}
+                  alt={`Question ${question.question_number}${question.part_label || ''}`}
+                  className="max-w-full max-h-48 rounded-lg border-2 border-purple-200 shadow-sm cursor-pointer hover:border-purple-400 hover:shadow-md transition-all"
+                  onClick={() => {
+                    const imgSrc = `data:image/png;base64,${(question as any).question_image_data}`;
+                    const w = window.open('', '_blank');
+                    if (w) {
+                      w.document.write(`
+                        <html>
+                          <head>
+                            <title>Question ${question.question_number}${question.part_label ? ` (${question.part_label})` : ''}</title>
+                            <style>
+                              body { margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #1a1a2e; }
+                              img { max-width: 95%; max-height: 95vh; object-fit: contain; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+                            </style>
+                          </head>
+                          <body>
+                            <img src="${imgSrc}" alt="Question ${question.question_number}" />
+                          </body>
+                        </html>
+                      `);
+                    }
+                  }}
+                />
+                <div className="absolute top-2 left-2 flex items-center gap-1">
+                  <Badge className="bg-purple-600 text-white text-xs">
+                    <ImageIcon className="h-3 w-3 mr-1" />
+                    Cropped from PDF
+                  </Badge>
+                </div>
+                <span className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                  Click to view full size
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground line-clamp-2">
+                {question.question_text}
+              </p>
+            </div>
+          ) : (
+            <div className="flex items-start gap-2">
+              {(question as any).has_image && (
+                <ImageIcon className="h-4 w-4 text-purple-500 flex-shrink-0 mt-0.5" title="Contains image/diagram" />
+              )}
+              <p className="line-clamp-3 text-sm">
+                {question.question_text}
+              </p>
+            </div>
+          )}
+          {question.section_name && (
+            <Badge variant="outline" className="mt-2 text-xs">
+              {question.section_name}
+            </Badge>
+          )}
+        </div>
+      </TableCell>
+      <TableCell>
+        <Badge variant="secondary" className="text-xs">
+          {QUESTION_TYPES.find(t => t.value === question.question_type)?.label || question.question_type}
+        </Badge>
+      </TableCell>
+      <TableCell>
+        <Badge variant="outline">{question.marks}</Badge>
+      </TableCell>
+      <TableCell>
+        <Badge 
+          variant="outline"
+          className={cn(
+            question.difficulty === 'easy' && 'border-green-500 text-green-700',
+            question.difficulty === 'medium' && 'border-yellow-500 text-yellow-700',
+            question.difficulty === 'hard' && 'border-red-500 text-red-700'
+          )}
+        >
+          {question.difficulty}
+        </Badge>
+      </TableCell>
+      <TableCell className="text-right">
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onEdit}
+          >
+            <Edit className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onDelete}
+          >
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
 
 export default function PaperQuestionsPage() {
   const supabase = createClient();
@@ -147,6 +365,20 @@ export default function PaperQuestionsPage() {
   // Mark scheme extraction states
   const [isMarkSchemeDialogOpen, setIsMarkSchemeDialogOpen] = useState(false);
   const [markSchemePdfFile, setMarkSchemePdfFile] = useState<File | null>(null);
+
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+  
+  // Track potential parent during drag
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  
+  // Track expanded parent questions
+  const [expandedQuestions, setExpandedQuestions] = useState<Set<string>>(new Set());
   const [markSchemeText, setMarkSchemeText] = useState('');
   const [extractingMarkScheme, setExtractingMarkScheme] = useState(false);
   const [markSchemeStatus, setMarkSchemeStatus] = useState<'idle' | 'reading' | 'extracting' | 'done' | 'error'>('idle');
@@ -174,7 +406,13 @@ export default function PaperQuestionsPage() {
     topic_tags: [] as string[],
     // Full question image mode (like SaveMyExams)
     use_image_question: false,
-    question_image_url: ''
+    question_image_url: '',
+    // Context/stem for questions with shared context (e.g., "Describe the following types of malware:")
+    context_text: '',
+    // Whether this is a context-only question (no marks, just provides context for sub-parts)
+    is_context_only: false,
+    // Parent question ID for hierarchical ordering
+    parent_question_id: null as string | null
   });
 
   // Image upload states
@@ -244,6 +482,110 @@ export default function PaperQuestionsPage() {
     }
   }
 
+  function handleDragOver(event: DragOverEvent) {
+    const { over } = event;
+    setDragOverId(over ? over.id as string : null);
+  }
+
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    setDragOverId(null);
+
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    const draggedQuestion = questions.find((q) => q.id === active.id);
+    const targetQuestion = questions.find((q) => q.id === over.id);
+
+    if (!draggedQuestion || !targetQuestion) {
+      return;
+    }
+
+    // Check if we should create a parent-child relationship
+    // This happens when dragging onto a question that can be a parent (context-only or main question without part_label)
+    const canBeParent = (targetQuestion as any).is_context_only || !targetQuestion.part_label;
+    const shouldMakeChild = canBeParent && draggedQuestion.id !== targetQuestion.id;
+
+    if (shouldMakeChild) {
+      // Make the dragged question a child of the target
+      try {
+        const { error } = await supabase
+          .from('paper_questions')
+          .update({ parent_question_id: targetQuestion.id })
+          .eq('id', draggedQuestion.id);
+
+        if (error) throw error;
+
+        toast({
+          title: 'Success',
+          description: `Question ${draggedQuestion.question_number}${draggedQuestion.part_label || ''} is now a sub-part of Q${targetQuestion.question_number}`
+        });
+
+        // Refresh questions to show new hierarchy
+        fetchQuestions();
+      } catch (error: any) {
+        console.error('Error creating parent-child relationship:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Failed to create parent-child relationship'
+        });
+      }
+    } else {
+      // Regular reordering
+      const oldIndex = questions.findIndex((q) => q.id === active.id);
+      const newIndex = questions.findIndex((q) => q.id === over.id);
+
+      if (oldIndex === -1 || newIndex === -1) {
+        return;
+      }
+
+      // Reorder questions array
+      const reorderedQuestions = arrayMove(questions, oldIndex, newIndex);
+      
+      // Update display_order for all affected questions
+      const updatedQuestions = reorderedQuestions.map((q, index) => ({
+        ...q,
+        display_order: (index + 1) * 1000 // Use 1000, 2000, 3000... for spacing
+      }));
+
+      // Optimistically update UI
+      setQuestions(updatedQuestions);
+
+      try {
+        // Update display_order in database for all reordered questions
+        const updates = updatedQuestions.map((q) => ({
+          id: q.id,
+          display_order: q.display_order
+        }));
+
+        for (const update of updates) {
+          const { error } = await supabase
+            .from('paper_questions')
+            .update({ display_order: update.display_order })
+            .eq('id', update.id);
+
+          if (error) throw error;
+        }
+
+        toast({
+          title: 'Success',
+          description: 'Question order updated successfully'
+        });
+      } catch (error: any) {
+        console.error('Error updating question order:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Failed to update question order'
+        });
+        // Revert to original order on error
+        fetchQuestions();
+      }
+    }
+  }
+
   function resetQuestionForm() {
     const nextQuestionNumber = questions.length > 0 
       ? Math.max(...questions.map(q => q.question_number)) + 1 
@@ -264,7 +606,10 @@ export default function PaperQuestionsPage() {
       image_position: 'after_text',
       topic_tags: [],
       use_image_question: false,
-      question_image_url: ''
+      question_image_url: '',
+      context_text: '',
+      is_context_only: false,
+      parent_question_id: null
     });
     setMcqOptions([
       { label: 'A', text: '', is_correct: false },
@@ -302,7 +647,10 @@ export default function PaperQuestionsPage() {
       image_position: (question as any).image_position || 'after_text',
       topic_tags: question.topic_tags || [],
       use_image_question: question.use_image_question || false,
-      question_image_url: question.question_image_url || ''
+      question_image_url: question.question_image_url || '',
+      context_text: (question as any).context_text || '',
+      is_context_only: (question as any).is_context_only || false,
+      parent_question_id: (question as any).parent_question_id || null
     });
     
     if (question.question_type === 'mcq' && question.options) {
@@ -555,9 +903,9 @@ export default function PaperQuestionsPage() {
         section_name: questionForm.section_name || null,
         part_label: questionForm.part_label || null,
         question_text: questionForm.use_image_question ? '' : questionForm.question_text,
-        question_type: questionForm.question_type,
-        marks: questionForm.marks,
-        correct_answer: correctAnswer || null,
+        question_type: questionForm.is_context_only ? 'context' : questionForm.question_type,
+        marks: questionForm.is_context_only ? 0 : questionForm.marks,
+        correct_answer: questionForm.is_context_only ? null : (correctAnswer || null),
         mark_scheme: questionForm.mark_scheme || null,
         examiner_tips: questionForm.examiner_tips || null,
         options: options,
@@ -566,7 +914,10 @@ export default function PaperQuestionsPage() {
         image_position: questionForm.image_position || 'after_text',
         use_image_question: questionForm.use_image_question,
         question_image_url: questionImageUrl || null,
-        display_order: displayOrder
+        display_order: displayOrder,
+        context_text: questionForm.context_text || null,
+        is_context_only: questionForm.is_context_only,
+        parent_question_id: questionForm.parent_question_id || null
       };
 
       if (editingQuestion) {
@@ -1125,9 +1476,9 @@ export default function PaperQuestionsPage() {
     try {
       const { data, error } = await supabase
         .from('topics')
-        .select('id, name, slug')
+        .select('id, name, slug, display_order')
         .eq('subject_id', paper.subject_id)
-        .order('name');
+        .order('display_order');
       
       if (error) throw error;
       setTopics(data || []);
@@ -1507,150 +1858,115 @@ export default function PaperQuestionsPage() {
               </div>
             </div>
           ) : (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12">
-                      <Checkbox
-                        checked={selectedQuestions.size === questions.length && questions.length > 0}
-                        onCheckedChange={toggleSelectAll}
-                      />
-                    </TableHead>
-                    <TableHead className="w-16">Q#</TableHead>
-                    <TableHead>Question</TableHead>
-                    <TableHead className="w-24">Type</TableHead>
-                    <TableHead className="w-20">Marks</TableHead>
-                    <TableHead className="w-24">Difficulty</TableHead>
-                    <TableHead className="w-24 text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {questions.map((question) => (
-                    <TableRow key={question.id} className={cn(selectedQuestions.has(question.id) && "bg-primary/5")}>
-                      <TableCell>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragOver={handleDragOver}
+              onDragEnd={handleDragEnd}
+            >
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">
                         <Checkbox
-                          checked={selectedQuestions.has(question.id)}
-                          onCheckedChange={() => toggleQuestionSelection(question.id)}
+                          checked={selectedQuestions.size === questions.length && questions.length > 0}
+                          onCheckedChange={toggleSelectAll}
                         />
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {question.question_number}
-                        {question.part_label && <span className="text-muted-foreground">{question.part_label}</span>}
-                      </TableCell>
-                      <TableCell>
-                        <div className="max-w-lg">
-                          {/* Show cropped question image if available - this is the actual question from the PDF */}
-                          {(question as any).question_image_data ? (
-                            <div className="space-y-2">
-                              <div className="relative group">
-                                <img 
-                                  src={`data:image/png;base64,${(question as any).question_image_data}`}
-                                  alt={`Question ${question.question_number}${question.part_label || ''}`}
-                                  className="max-w-full max-h-48 rounded-lg border-2 border-purple-200 shadow-sm cursor-pointer hover:border-purple-400 hover:shadow-md transition-all"
-                                  onClick={() => {
-                                    // Open full image in modal or new tab
-                                    const imgSrc = `data:image/png;base64,${(question as any).question_image_data}`;
-                                    const w = window.open('', '_blank');
-                                    if (w) {
-                                      w.document.write(`
-                                        <html>
-                                          <head>
-                                            <title>Question ${question.question_number}${question.part_label ? ` (${question.part_label})` : ''}</title>
-                                            <style>
-                                              body { margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #1a1a2e; }
-                                              img { max-width: 95%; max-height: 95vh; object-fit: contain; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
-                                            </style>
-                                          </head>
-                                          <body>
-                                            <img src="${imgSrc}" alt="Question ${question.question_number}" />
-                                          </body>
-                                        </html>
-                                      `);
-                                    }
-                                  }}
-                                />
-                                <div className="absolute top-2 left-2 flex items-center gap-1">
-                                  <Badge className="bg-purple-600 text-white text-xs">
-                                    <ImageIcon className="h-3 w-3 mr-1" />
-                                    Cropped from PDF
-                                  </Badge>
-                                </div>
-                                <span className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                                  Click to view full size
-                                </span>
-                              </div>
-                              {/* Show extracted text below image */}
-                              <p className="text-xs text-muted-foreground line-clamp-2">
-                                {question.question_text}
-                              </p>
-                            </div>
-                          ) : (
-                            /* Text-only question display */
-                            <div className="flex items-start gap-2">
-                              {(question as any).has_image && (
-                                <ImageIcon className="h-4 w-4 text-purple-500 flex-shrink-0 mt-0.5" title="Contains image/diagram" />
-                              )}
-                              <p className="line-clamp-3 text-sm">
-                                {question.question_text}
-                              </p>
-                            </div>
-                          )}
-                          {question.section_name && (
-                            <Badge variant="outline" className="mt-2 text-xs">
-                              {question.section_name}
-                            </Badge>
-                          )}
+                      </TableHead>
+                      <TableHead className="w-16">
+                        <div className="flex items-center gap-1">
+                          <GripVertical className="h-3 w-3 text-muted-foreground" />
+                          Q#
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="text-xs">
-                          {QUESTION_TYPES.find(t => t.value === question.question_type)?.label || question.question_type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{question.marks}</TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant="outline"
-                          className={cn(
-                            'text-xs',
-                            question.difficulty === 'easy' && 'border-green-500 text-green-600',
-                            question.difficulty === 'medium' && 'border-yellow-500 text-yellow-600',
-                            question.difficulty === 'hard' && 'border-red-500 text-red-600'
-                          )}
-                        >
-                          {question.difficulty || 'medium'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openEditQuestion(question)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteQuestion(question)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
+                      </TableHead>
+                      <TableHead>Question</TableHead>
+                      <TableHead className="w-24">Type</TableHead>
+                      <TableHead className="w-20">Marks</TableHead>
+                      <TableHead className="w-24">Difficulty</TableHead>
+                      <TableHead className="w-24 text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <SortableContext
+                    items={questions.map(q => q.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <TableBody>
+                      {(() => {
+                        // Group questions: parent questions and their children
+                        const parentQuestions = questions.filter(q => !(q as any).parent_question_id);
+                        const childrenByParent = questions.reduce((acc, q) => {
+                          const parentId = (q as any).parent_question_id;
+                          if (parentId) {
+                            if (!acc[parentId]) acc[parentId] = [];
+                            acc[parentId].push(q);
+                          }
+                          return acc;
+                        }, {} as Record<string, PaperQuestion[]>);
+
+                        const toggleExpand = (questionId: string) => {
+                          setExpandedQuestions(prev => {
+                            const next = new Set(prev);
+                            if (next.has(questionId)) {
+                              next.delete(questionId);
+                            } else {
+                              next.add(questionId);
+                            }
+                            return next;
+                          });
+                        };
+
+                        return parentQuestions.map((question) => {
+                          const children = childrenByParent[question.id] || [];
+                          const hasChildren = children.length > 0;
+                          const isExpanded = expandedQuestions.has(question.id);
+
+                          return (
+                            <React.Fragment key={question.id}>
+                              <SortableQuestionRow
+                                question={question}
+                                isSelected={selectedQuestions.has(question.id)}
+                                isBeingDraggedOver={dragOverId === question.id}
+                                hasChildren={hasChildren}
+                                isExpanded={isExpanded}
+                                onToggleExpand={() => toggleExpand(question.id)}
+                                onToggleSelection={() => toggleQuestionSelection(question.id)}
+                                onEdit={() => openEditQuestion(question)}
+                                onDelete={() => deleteQuestion(question.id)}
+                              />
+                              {isExpanded && children.map((child) => (
+                                <SortableQuestionRow
+                                  key={child.id}
+                                  question={child}
+                                  isSelected={selectedQuestions.has(child.id)}
+                                  isBeingDraggedOver={dragOverId === child.id}
+                                  isChild={true}
+                                  onToggleSelection={() => toggleQuestionSelection(child.id)}
+                                  onEdit={() => openEditQuestion(child)}
+                                  onDelete={() => deleteQuestion(child.id)}
+                                />
+                              ))}
+                            </React.Fragment>
+                          );
+                        });
+                      })()}
+                    </TableBody>
+                  </SortableContext>
+                </Table>
+              </div>
+            </DndContext>
           )}
         </CardContent>
       </Card>
 
       {/* Question Dialog */}
-      <Dialog open={isQuestionDialogOpen} onOpenChange={setIsQuestionDialogOpen}>
+      <Dialog open={isQuestionDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          // Reset saving state when dialog closes to prevent stalling
+          setSaving(false);
+        }
+        setIsQuestionDialogOpen(open);
+      }}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
@@ -1702,45 +2018,116 @@ export default function PaperQuestionsPage() {
               </div>
             </div>
 
-            {/* Question Type & Difficulty */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Question Type</Label>
-                <Select
-                  value={questionForm.question_type}
-                  onValueChange={(value) => setQuestionForm({ ...questionForm, question_type: value as PaperQuestionType })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {QUESTION_TYPES.map(type => (
-                      <SelectItem key={type.value} value={type.value}>
-                        {type.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Difficulty</Label>
-                <Select
-                  value={questionForm.difficulty}
-                  onValueChange={(value) => setQuestionForm({ ...questionForm, difficulty: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {DIFFICULTY_LEVELS.map(level => (
-                      <SelectItem key={level} value={level}>
-                        {level.charAt(0).toUpperCase() + level.slice(1)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            {/* Context-Only Question Toggle */}
+            <div className="flex items-center space-x-3 p-3 rounded-lg bg-muted/50 border">
+              <Checkbox
+                id="is-context-only"
+                checked={questionForm.is_context_only}
+                onCheckedChange={(checked) => setQuestionForm({ 
+                  ...questionForm, 
+                  is_context_only: checked as boolean,
+                  marks: checked ? 0 : questionForm.marks
+                })}
+              />
+              <div className="flex-1">
+                <Label htmlFor="is-context-only" className="font-medium cursor-pointer">
+                  Context/Stem Only (No Marks)
+                </Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Use this for shared context like "Describe the following types of malware:" that introduces sub-questions
+                </p>
               </div>
             </div>
+
+            {/* Context Text (for questions with shared context) */}
+            {!questionForm.is_context_only && (
+              <div className="space-y-2">
+                <Label>Shared Context (Optional)</Label>
+                <Textarea
+                  placeholder="Enter shared context that appears before this question (e.g., 'Describe the following types of malware:')"
+                  value={questionForm.context_text}
+                  onChange={(e) => setQuestionForm({ ...questionForm, context_text: e.target.value })}
+                  rows={2}
+                  className="text-sm"
+                />
+                <p className="text-xs text-muted-foreground">
+                  This context will be displayed above the question when it shares a stem with other parts
+                </p>
+              </div>
+            )}
+
+            {/* Parent Question Selector (for hierarchical ordering) */}
+            {!questionForm.is_context_only && questions.filter(q => (q as any).is_context_only || !q.part_label).length > 0 && (
+              <div className="space-y-2">
+                <Label>Parent Question (Optional)</Label>
+                <Select
+                  value={questionForm.parent_question_id || 'none'}
+                  onValueChange={(value) => setQuestionForm({ 
+                    ...questionForm, 
+                    parent_question_id: value === 'none' ? null : value 
+                  })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select parent question..." />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[200px] overflow-y-auto">
+                    <SelectItem value="none">No parent (standalone question)</SelectItem>
+                    {questions
+                      .filter(q => (q as any).is_context_only || (!q.part_label && q.id !== editingQuestion?.id))
+                      .map(q => (
+                        <SelectItem key={q.id} value={q.id}>
+                          Q{q.question_number}: {q.question_text?.slice(0, 50)}...
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Link this question as a sub-part under a context question
+                </p>
+              </div>
+            )}
+
+            {/* Question Type & Difficulty */}
+            {!questionForm.is_context_only && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Question Type</Label>
+                  <Select
+                    value={questionForm.question_type}
+                    onValueChange={(value) => setQuestionForm({ ...questionForm, question_type: value as PaperQuestionType })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {QUESTION_TYPES.map(type => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Difficulty</Label>
+                  <Select
+                    value={questionForm.difficulty}
+                    onValueChange={(value) => setQuestionForm({ ...questionForm, difficulty: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DIFFICULTY_LEVELS.map(level => (
+                        <SelectItem key={level} value={level}>
+                          {level.charAt(0).toUpperCase() + level.slice(1)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
 
             {/* Question Content Mode Toggle */}
             <div className="space-y-3">
@@ -2457,7 +2844,7 @@ Example:
                   <SelectTrigger>
                     <SelectValue placeholder="Choose a topic..." />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-[300px] overflow-y-auto">
                     {topics.map((topic) => (
                       <SelectItem key={topic.id} value={topic.id}>
                         {topic.name}

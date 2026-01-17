@@ -24,9 +24,9 @@ export default function SettingsPage() {
 
   const [settings, setSettings] = useState({
     // General
-    siteName: 'RevisionPlus',
-    siteDescription: 'The best revision materials for GCSE, IGCSE, AS & A Level students',
-    supportEmail: 'support@revisionplus.com',
+    siteName: 'IGA Prep',
+    siteDescription: 'The best revision materials for IGCSE, GCSE & A-Level students',
+    supportEmail: 'support@igaprep.com',
     
     // Features
     enableSignups: true,

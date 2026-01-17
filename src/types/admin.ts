@@ -105,7 +105,7 @@ export function getAdminRoleName(user: AdminUser | null): string {
 
 // Admin route permissions
 export const ADMIN_ROUTE_PERMISSIONS: Record<string, AdminPermission | 'super_admin_only'> = {
-  '/admin/dashboard': 'view_analytics',
+  '/admin': 'view_analytics',
   '/admin/content': 'manage_content',
   '/admin/content/questions': 'upload_questions',
   '/admin/content/past-papers': 'manage_past_papers',

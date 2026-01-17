@@ -23,7 +23,10 @@ import {
   Clock,
   FileText,
   X,
-  Plus
+  Plus,
+  Upload,
+  Presentation,
+  Trash2
 } from 'lucide-react';
 import {
   Select,
@@ -78,6 +81,7 @@ export function NoteEditor({ noteId }: NoteEditorProps) {
     subtitle: '',
     slug: '',
     content_md: '',
+    pdf_url: '' as string,
     subject_id: '',
     topic_id: '',
     exam_board_id: '',
@@ -87,6 +91,8 @@ export function NoteEditor({ noteId }: NoteEditorProps) {
     estimated_read_time: 5,
     has_latex: false
   });
+
+  const [uploadingPdf, setUploadingPdf] = useState(false);
 
   const [tagInput, setTagInput] = useState('');
 
@@ -152,6 +158,7 @@ export function NoteEditor({ noteId }: NoteEditorProps) {
           subtitle: data.subtitle || '',
           slug: data.slug || '',
           content_md: data.content_md || '',
+          pdf_url: data.pdf_url || '',
           subject_id: data.subject_id || '',
           topic_id: data.topic_id || '',
           exam_board_id: data.exam_board_id || '',
@@ -239,6 +246,7 @@ export function NoteEditor({ noteId }: NoteEditorProps) {
         subtitle: form.subtitle.trim() || null,
         slug: form.slug || generateSlug(form.title),
         content_md: form.content_md,
+        pdf_url: form.pdf_url || null,
         subject_id: form.subject_id || null,
         topic_id: form.topic_id || null,
         exam_board_id: form.exam_board_id || null,
@@ -550,6 +558,102 @@ $$"
                   onCheckedChange={(checked) => setForm(prev => ({ ...prev, has_latex: checked }))}
                 />
               </div>
+            </CardContent>
+          </Card>
+
+          {/* PDF Upload for Presenter Mode */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Presentation className="h-4 w-4" />
+                Presenter PDF
+              </CardTitle>
+              <CardDescription>
+                Upload a PDF for fullscreen presenter mode
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {form.pdf_url ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                    <FileText className="h-5 w-5 text-red-500" />
+                    <span className="text-sm flex-1 truncate">PDF uploaded</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setForm(prev => ({ ...prev, pdf_url: '' }))}
+                      className="h-8 w-8 text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <a
+                    href={form.pdf_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary hover:underline"
+                  >
+                    View PDF
+                  </a>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <Label
+                    htmlFor="pdf-upload"
+                    className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+                  >
+                    {uploadingPdf ? (
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    ) : (
+                      <>
+                        <Upload className="h-6 w-6 text-muted-foreground mb-1" />
+                        <span className="text-xs text-muted-foreground">Click to upload PDF</span>
+                      </>
+                    )}
+                  </Label>
+                  <input
+                    id="pdf-upload"
+                    type="file"
+                    accept=".pdf"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      
+                      setUploadingPdf(true);
+                      try {
+                        const fileName = `notes/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+                        const { data, error } = await supabase.storage
+                          .from('documents')
+                          .upload(fileName, file, { cacheControl: '3600', upsert: false });
+                        
+                        if (error) throw error;
+                        
+                        const { data: urlData } = supabase.storage
+                          .from('documents')
+                          .getPublicUrl(data.path);
+                        
+                        setForm(prev => ({ ...prev, pdf_url: urlData.publicUrl }));
+                        toast({ title: 'Success', description: 'PDF uploaded successfully' });
+                      } catch (error: any) {
+                        console.error('Error uploading PDF:', error);
+                        toast({
+                          variant: 'destructive',
+                          title: 'Upload Failed',
+                          description: error.message || 'Failed to upload PDF'
+                        });
+                      } finally {
+                        setUploadingPdf(false);
+                        e.target.value = '';
+                      }
+                    }}
+                    disabled={uploadingPdf}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Max 50MB. Users can view in presenter mode.
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 

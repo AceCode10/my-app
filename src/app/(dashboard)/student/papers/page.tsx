@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,7 +34,25 @@ interface Subject {
   id: string;
   name: string;
   slug: string;
+  level?: string;
 }
+
+interface ExamBoard {
+  id: string;
+  name: string;
+  code: string;
+}
+
+const LEVELS = [
+  { id: 'igcse', name: 'IGCSE' },
+  { id: 'gcse', name: 'GCSE' },
+  { id: 'as', name: 'AS Level' },
+  { id: 'a2', name: 'A2 Level' },
+  { id: 'alevel', name: 'A Level' },
+  { id: 'ib_myp', name: 'IB MYP' },
+  { id: 'ib_dp', name: 'IB DP' },
+  { id: 'ap', name: 'AP' },
+];
 
 export default function StudentPapersPage() {
   const supabase = createClient();
@@ -42,22 +60,35 @@ export default function StudentPapersPage() {
 
   const [papers, setPapers] = useState<(PastPaper & { question_count: number })[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [examBoards, setExamBoards] = useState<ExamBoard[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterSubject, setFilterSubject] = useState('all');
   const [filterYear, setFilterYear] = useState('all');
+  const [filterExamBoard, setFilterExamBoard] = useState('all');
+  const [filterLevel, setFilterLevel] = useState('all');
   const [userAttempts, setUserAttempts] = useState<Map<string, any>>(new Map());
 
   useEffect(() => {
     fetchSubjects();
+    fetchExamBoards();
     fetchPapers();
     fetchUserAttempts();
   }, []);
 
+  async function fetchExamBoards() {
+    const { data } = await supabase
+      .from('exam_boards')
+      .select('id, name, code')
+      .order('name');
+    
+    setExamBoards(data || []);
+  }
+
   async function fetchSubjects() {
     const { data } = await supabase
       .from('subjects')
-      .select('id, name, slug')
+      .select('id, name, slug, level')
       .eq('status', 'published')
       .order('name');
     
@@ -138,17 +169,33 @@ export default function StudentPapersPage() {
     }
   }
 
-  const filteredPapers = papers.filter(paper => {
-    const matchesSearch = 
-      paper.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (paper.subject?.name || '').toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesSubject = filterSubject === 'all' || paper.subject_id === filterSubject;
-    const matchesYear = filterYear === 'all' || paper.year.toString() === filterYear;
-    
-    return matchesSearch && matchesSubject && matchesYear;
-  });
+  // Filter subjects based on selected level - memoized for performance
+  const filteredSubjects = useMemo(() => {
+    return filterLevel === 'all' 
+      ? subjects 
+      : subjects.filter(s => s.level === filterLevel);
+  }, [subjects, filterLevel]);
 
-  const years = Array.from(new Set(papers.map(p => p.year))).sort((a, b) => b - a);
+  // Memoized filtered papers for real-time search performance
+  const filteredPapers = useMemo(() => {
+    const searchLower = searchQuery.toLowerCase();
+    return papers.filter(paper => {
+      const matchesSearch = !searchQuery.trim() || 
+        paper.title.toLowerCase().includes(searchLower) ||
+        (paper.subject?.name || '').toLowerCase().includes(searchLower);
+      const matchesSubject = filterSubject === 'all' || paper.subject_id === filterSubject;
+      const matchesYear = filterYear === 'all' || paper.year.toString() === filterYear;
+      const matchesExamBoard = filterExamBoard === 'all' || paper.exam_board_id === filterExamBoard;
+      const matchesLevel = filterLevel === 'all' || paper.level === filterLevel || paper.subject?.level === filterLevel;
+      
+      return matchesSearch && matchesSubject && matchesYear && matchesExamBoard && matchesLevel;
+    });
+  }, [papers, searchQuery, filterSubject, filterYear, filterExamBoard, filterLevel]);
+
+  // Memoized years for filter dropdown
+  const years = useMemo(() => {
+    return Array.from(new Set(papers.map(p => p.year))).sort((a, b) => b - a);
+  }, [papers]);
 
   function getAttemptBadge(paperId: string) {
     const attempt = userAttempts.get(paperId);
@@ -196,7 +243,7 @@ export default function StudentPapersPage() {
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -207,13 +254,50 @@ export default function StudentPapersPage() {
               />
             </div>
 
+            <Select value={filterExamBoard} onValueChange={setFilterExamBoard}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Boards" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Boards</SelectItem>
+                {examBoards.map(board => (
+                  <SelectItem key={board.id} value={board.id}>
+                    {board.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={filterLevel} onValueChange={(value) => {
+              setFilterLevel(value);
+              // Reset subject filter when level changes if current subject doesn't match
+              if (value !== 'all' && filterSubject !== 'all') {
+                const selectedSubject = subjects.find(s => s.id === filterSubject);
+                if (selectedSubject && selectedSubject.level !== value) {
+                  setFilterSubject('all');
+                }
+              }
+            }}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Levels" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Levels</SelectItem>
+                {LEVELS.map(level => (
+                  <SelectItem key={level.id} value={level.id}>
+                    {level.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             <Select value={filterSubject} onValueChange={setFilterSubject}>
               <SelectTrigger>
                 <SelectValue placeholder="All Subjects" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Subjects</SelectItem>
-                {subjects.map(subject => (
+                {filteredSubjects.map(subject => (
                   <SelectItem key={subject.id} value={subject.id}>
                     {subject.name}
                   </SelectItem>
@@ -329,7 +413,7 @@ export default function StudentPapersPage() {
           <span>
             Showing {filteredPapers.length} of {papers.length} papers
           </span>
-          {(searchQuery || filterSubject !== 'all' || filterYear !== 'all') && (
+          {(searchQuery || filterSubject !== 'all' || filterYear !== 'all' || filterExamBoard !== 'all' || filterLevel !== 'all') && (
             <Button
               variant="ghost"
               size="sm"
@@ -337,6 +421,8 @@ export default function StudentPapersPage() {
                 setSearchQuery('');
                 setFilterSubject('all');
                 setFilterYear('all');
+                setFilterExamBoard('all');
+                setFilterLevel('all');
               }}
             >
               Clear filters

@@ -58,7 +58,7 @@ export function ExamBoardOnboarding({
             <GraduationCap className="w-8 h-8 text-primary" />
           </div>
           <CardTitle className="text-3xl font-bold">
-            Welcome to RevisionPlus! 🎓
+            Welcome to IGA Prep! 🎓
           </CardTitle>
           <CardDescription className="text-lg">
             Which exam board are you studying? This helps us personalize your learning experience.

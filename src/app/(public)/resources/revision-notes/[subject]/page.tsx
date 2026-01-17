@@ -70,7 +70,7 @@ export default function SubjectRevisionNotesPage({
         .from('topics')
         .select('*')
         .eq('subject_id', subjectData.id)
-        .order('name', { ascending: true });
+        .order('display_order', { ascending: true });
 
       if (topicsError) throw topicsError;
       setTopics(topicsData || []);

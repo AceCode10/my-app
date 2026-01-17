@@ -1,12 +1,13 @@
 
 'use client';
 
-import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { SubjectCard } from '@/components/subject-card';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, BookOpen, GraduationCap, Globe, Settings } from 'lucide-react';
+import { PlusCircle, BookOpen, GraduationCap, Globe, Settings, Trash2, X } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useUser } from '@/hooks/use-user';
 import { createClient } from '@/lib/supabase/client';
@@ -34,6 +35,9 @@ interface UserSubject {
 
 export default function SubjectsPage() {
     const { user, loading: userLoading } = useUser();
+    const { toast } = useToast();
+    const queryClient = useQueryClient();
+    const [editMode, setEditMode] = useState(false);
 
     const userExamBoards = user?.exam_boards || [];
     const userLevel = user?.level;
@@ -71,6 +75,7 @@ export default function SubjectsPage() {
             if (!us.subjects) return null;
             return {
                 id: us.subjects.id,
+                userSubjectId: us.id, // Keep track of the user_subjects record id for deletion
                 name: us.subjects.display_name || us.subjects.name,
                 slug: us.subjects.slug,
                 code: us.subjects.code,
@@ -79,6 +84,24 @@ export default function SubjectsPage() {
             };
         })
         .filter(Boolean);
+
+    // Mutation for removing a subject
+    const removeSubjectMutation = useMutation({
+        mutationFn: async (userSubjectId: string) => {
+            const { error } = await supabase
+                .from('user_subjects')
+                .delete()
+                .eq('id', userSubjectId);
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['user-subjects'] });
+            toast({ title: 'Subject removed', description: 'The subject has been removed from your dashboard.' });
+        },
+        onError: (error: any) => {
+            toast({ variant: 'destructive', title: 'Error', description: error.message || 'Could not remove subject.' });
+        },
+    });
 
     // Show loading state while user data is being fetched
     if (userLoading) {
@@ -102,12 +125,25 @@ export default function SubjectsPage() {
                     <h2 className="text-3xl font-bold text-foreground">My Subjects</h2>
                     <p className="text-muted-foreground mt-1">Your personalized learning dashboard</p>
                 </div>
-                <Button asChild>
-                    <Link href="/student/subjects/add">
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Add Subjects
-                    </Link>
-                </Button>
+                <div className="flex gap-2">
+                    {mySubjects.length > 0 && (
+                        <Button 
+                            variant={editMode ? "default" : "outline"}
+                            onClick={() => setEditMode(!editMode)}
+                        >
+                            {editMode ? (
+                                <><X className="mr-2 h-4 w-4" />Done</>
+                            ) : (
+                                <><Trash2 className="mr-2 h-4 w-4" />Edit</>                            )}
+                        </Button>
+                    )}
+                    <Button asChild>
+                        <Link href="/student/subjects/add">
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Add Subjects
+                        </Link>
+                    </Button>
+                </div>
             </div>
 
             {/* User preferences summary card */}
@@ -161,18 +197,12 @@ export default function SubjectsPage() {
                 <Card className="text-center p-12 border-dashed">
                     <BookOpen className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
                     <h3 className="text-xl font-semibold text-foreground mb-2">No Subjects Selected</h3>
-                    <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                    <p className="text-muted-foreground max-w-md mx-auto">
                         {user?.onboarding_completed 
-                            ? "You skipped subject selection during setup. Add subjects now to start learning!"
-                            : "Add subjects you're studying to access learning resources and track your progress."
+                            ? "You skipped subject selection during setup. Use the 'Add Subjects' button above to get started!"
+                            : "Use the 'Add Subjects' button above to add subjects you're studying."
                         }
                     </p>
-                    <Button asChild size="lg">
-                        <Link href="/student/subjects/add">
-                            <PlusCircle className="mr-2 h-5 w-5" />
-                            Add Your Subjects
-                        </Link>
-                    </Button>
                 </Card>
             ) : (
                 <>
@@ -186,34 +216,28 @@ export default function SubjectsPage() {
                     {/* Subject cards grid */}
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                         {mySubjects.map((subject) => subject && (
-                            <SubjectCard 
-                                key={subject.slug}
-                                name={subject.name}
-                                code={subject.code}
-                                icon={subject.icon_url}
-                                path={`/student/subjects/${subject.slug}`}
-                                color={subject.color}
-                                showProgress={true}
-                                progress={0}
-                            />
+                            <div key={subject.slug} className="relative group">
+                                {editMode && (
+                                    <button
+                                        onClick={() => removeSubjectMutation.mutate(subject.userSubjectId)}
+                                        className="absolute -top-2 -right-2 z-10 bg-destructive text-destructive-foreground rounded-full p-1.5 shadow-lg hover:bg-destructive/90 transition-colors"
+                                        title="Remove subject"
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </button>
+                                )}
+                                <SubjectCard 
+                                    name={subject.name}
+                                    code={subject.code}
+                                    icon={subject.icon_url}
+                                    path={editMode ? '' : `/student/subjects/${subject.slug}`}
+                                    color={subject.color}
+                                    showProgress={!editMode}
+                                    progress={0}
+                                />
+                            </div>
                         ))}
                     </div>
-
-                    {/* Add more subjects prompt */}
-                    <Card className="mt-8 border-dashed">
-                        <CardContent className="flex items-center justify-between py-4">
-                            <div>
-                                <p className="font-medium">Want to study more subjects?</p>
-                                <p className="text-sm text-muted-foreground">Browse and add more subjects to your dashboard</p>
-                            </div>
-                            <Button variant="outline" asChild>
-                                <Link href="/student/subjects/add">
-                                    <PlusCircle className="mr-2 h-4 w-4" />
-                                    Browse Subjects
-                                </Link>
-                            </Button>
-                        </CardContent>
-                    </Card>
                 </>
             )}
         </div>

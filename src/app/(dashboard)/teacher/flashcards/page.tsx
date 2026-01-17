@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
 import { Button } from '@/components/ui/button';
@@ -82,12 +82,17 @@ const TeacherFlashcardsPage = () => {
         }
     }
 
-    const filteredDecks = decks.filter(deck => {
-        const matchesSearch = deck.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            deck.subjects?.name?.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesSubject = selectedSubject === 'all' || deck.subject_id === selectedSubject;
-        return matchesSearch && matchesSubject;
-    });
+    // Memoized filtered decks for real-time search performance
+    const filteredDecks = useMemo(() => {
+        const searchLower = searchQuery.toLowerCase();
+        return decks.filter(deck => {
+            const matchesSearch = !searchQuery.trim() ||
+                deck.title.toLowerCase().includes(searchLower) ||
+                deck.subjects?.name?.toLowerCase().includes(searchLower);
+            const matchesSubject = selectedSubject === 'all' || deck.subject_id === selectedSubject;
+            return matchesSearch && matchesSubject;
+        });
+    }, [decks, searchQuery, selectedSubject]);
 
     return (
         <div className="space-y-6">

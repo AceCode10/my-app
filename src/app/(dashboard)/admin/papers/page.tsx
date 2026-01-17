@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -55,10 +55,26 @@ interface PastPaper {
   status: string;
   created_at: string;
   subject_id: string | null;
-  subjects?: { name: string };
+  subjects?: { name: string; level?: string };
+}
+
+interface Subject {
+  id: string;
+  name: string;
+  level: string | null;
 }
 
 const EXAM_BOARDS = ['CIE', 'Edexcel', 'AQA', 'OCR', 'IB', 'AP'];
+const LEVELS = [
+  { id: 'igcse', name: 'IGCSE' },
+  { id: 'gcse', name: 'GCSE' },
+  { id: 'as', name: 'AS Level' },
+  { id: 'a2', name: 'A2 Level' },
+  { id: 'alevel', name: 'A Level' },
+  { id: 'ib_myp', name: 'IB MYP' },
+  { id: 'ib_dp', name: 'IB DP' },
+  { id: 'ap', name: 'AP' },
+];
 const STATUSES = ['draft', 'pending', 'published', 'archived'];
 
 export default function PastPapersPage() {
@@ -67,15 +83,33 @@ export default function PastPapersPage() {
   const router = useRouter();
   
   const [papers, setPapers] = useState<PastPaper[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterBoard, setFilterBoard] = useState('all');
   const [filterYear, setFilterYear] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterLevel, setFilterLevel] = useState('all');
+  const [filterSubject, setFilterSubject] = useState('all');
 
   useEffect(() => {
     fetchPapers();
+    fetchSubjects();
   }, []);
+
+  async function fetchSubjects() {
+    try {
+      const { data, error } = await supabase
+        .from('subjects')
+        .select('id, name, level')
+        .order('name');
+      
+      if (error) throw error;
+      setSubjects(data || []);
+    } catch (error) {
+      console.error('Error fetching subjects:', error);
+    }
+  }
 
   async function fetchPapers() {
     try {
@@ -88,19 +122,19 @@ export default function PastPapersPage() {
 
       if (error) throw error;
       
-      // Fetch subject names separately if we have papers with subject_ids
+      // Fetch subject names and levels separately if we have papers with subject_ids
       if (data && data.length > 0) {
         const subjectIds = [...new Set(data.filter(p => p.subject_id).map(p => p.subject_id))];
         if (subjectIds.length > 0) {
           const { data: subjectsData } = await supabase
             .from('subjects')
-            .select('id, name')
+            .select('id, name, level')
             .in('id', subjectIds);
           
-          const subjectsMap = new Map(subjectsData?.map(s => [s.id, s.name]) || []);
+          const subjectsMap = new Map(subjectsData?.map(s => [s.id, { name: s.name, level: s.level }]) || []);
           data = data.map(paper => ({
             ...paper,
-            subjects: paper.subject_id ? { name: subjectsMap.get(paper.subject_id) } : null
+            subjects: paper.subject_id ? subjectsMap.get(paper.subject_id) : null
           }));
         }
       }
@@ -186,18 +220,34 @@ export default function PastPapersPage() {
     }
   }
 
-  const filteredPapers = papers.filter(paper => {
-    const matchesSearch = 
-      paper.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      paper.exam_board.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesBoard = filterBoard === 'all' || paper.exam_board === filterBoard;
-    const matchesYear = filterYear === 'all' || paper.year.toString() === filterYear;
-    const matchesStatus = filterStatus === 'all' || paper.status === filterStatus;
-    
-    return matchesSearch && matchesBoard && matchesYear && matchesStatus;
-  });
+  // Filter subjects based on selected level - memoized for performance
+  const filteredSubjects = useMemo(() => {
+    return filterLevel === 'all' 
+      ? subjects 
+      : subjects.filter(s => s.level === filterLevel);
+  }, [subjects, filterLevel]);
 
-  const years = Array.from(new Set(papers.map(p => p.year))).sort((a, b) => b - a);
+  // Memoized filtered papers for real-time search performance
+  const filteredPapers = useMemo(() => {
+    const searchLower = searchQuery.toLowerCase();
+    return papers.filter(paper => {
+      const matchesSearch = !searchQuery.trim() ||
+        paper.title.toLowerCase().includes(searchLower) ||
+        paper.exam_board.toLowerCase().includes(searchLower);
+      const matchesBoard = filterBoard === 'all' || paper.exam_board === filterBoard;
+      const matchesYear = filterYear === 'all' || paper.year.toString() === filterYear;
+      const matchesStatus = filterStatus === 'all' || paper.status === filterStatus;
+      const matchesLevel = filterLevel === 'all' || paper.level === filterLevel || paper.subjects?.level === filterLevel;
+      const matchesSubject = filterSubject === 'all' || paper.subject_id === filterSubject;
+      
+      return matchesSearch && matchesBoard && matchesYear && matchesStatus && matchesLevel && matchesSubject;
+    });
+  }, [papers, searchQuery, filterBoard, filterYear, filterStatus, filterLevel, filterSubject]);
+
+  // Memoized years for filter dropdown
+  const years = useMemo(() => {
+    return Array.from(new Set(papers.map(p => p.year))).sort((a, b) => b - a);
+  }, [papers]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -228,7 +278,7 @@ export default function PastPapersPage() {
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -248,6 +298,43 @@ export default function PastPapersPage() {
                 {EXAM_BOARDS.map(board => (
                   <SelectItem key={board} value={board}>
                     {board}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={filterLevel} onValueChange={(value) => {
+              setFilterLevel(value);
+              // Reset subject filter when level changes
+              if (value !== 'all' && filterSubject !== 'all') {
+                const selectedSubject = subjects.find(s => s.id === filterSubject);
+                if (selectedSubject && selectedSubject.level !== value) {
+                  setFilterSubject('all');
+                }
+              }
+            }}>
+              <SelectTrigger>
+                <SelectValue placeholder="Level" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Levels</SelectItem>
+                {LEVELS.map(level => (
+                  <SelectItem key={level.id} value={level.id}>
+                    {level.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={filterSubject} onValueChange={setFilterSubject}>
+              <SelectTrigger>
+                <SelectValue placeholder="Subject" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Subjects</SelectItem>
+                {filteredSubjects.map(subject => (
+                  <SelectItem key={subject.id} value={subject.id}>
+                    {subject.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -405,7 +492,7 @@ export default function PastPapersPage() {
           <span>
             Showing {filteredPapers.length} of {papers.length} past papers
           </span>
-          {(searchQuery || filterBoard !== 'all' || filterYear !== 'all' || filterStatus !== 'all') && (
+          {(searchQuery || filterBoard !== 'all' || filterYear !== 'all' || filterStatus !== 'all' || filterLevel !== 'all' || filterSubject !== 'all') && (
             <Button
               variant="ghost"
               size="sm"
@@ -414,6 +501,8 @@ export default function PastPapersPage() {
                 setFilterBoard('all');
                 setFilterYear('all');
                 setFilterStatus('all');
+                setFilterLevel('all');
+                setFilterSubject('all');
               }}
             >
               Clear filters

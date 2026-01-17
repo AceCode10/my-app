@@ -83,9 +83,15 @@ class StructuredText:
 class RegexPatterns:
     """Pre-compiled regex patterns for better performance"""
     
-    # Question detection
-    QUESTION_NUMBER = re.compile(r'^\s*(\d{1,2})\s+([A-Z])', re.MULTILINE)
-    QUESTION_PREFIX = re.compile(r'^Q(\d{1,2}):\s*', re.IGNORECASE)
+    # Question detection - multiple patterns for robustness
+    # Pattern 1: Number on its own line followed by text (most common)
+    QUESTION_NUMBER = re.compile(r'^\s*(\d{1,2})\s*\n', re.MULTILINE)
+    # Pattern 2: Number followed by space and text on same line
+    QUESTION_NUMBER_INLINE = re.compile(r'^(\d{1,2})\s+([A-Z])', re.MULTILINE)
+    # Pattern 3: Q prefix format
+    QUESTION_PREFIX = re.compile(r'^Q(\d{1,2})[.:]\s*', re.IGNORECASE)
+    # Pattern 4: Number with period or parenthesis
+    QUESTION_NUMBER_PUNCT = re.compile(r'^\s*(\d{1,2})[.)]\s+', re.MULTILINE)
     
     # Part labels
     PART_LABEL_LETTER = re.compile(r'\n\s*\(([a-z])\)\s*', re.IGNORECASE)
@@ -293,19 +299,65 @@ def detect_mcq_options_advanced(page, page_num: int, page_text: str) -> List[MCQ
 def detect_question_boundaries(text: str) -> List[QuestionBoundary]:
     """
     Detect question number boundaries for better cross-page handling.
+    Uses multiple patterns to find question numbers reliably.
     """
     boundaries = []
+    found_numbers: Set[int] = set()
     
-    # Find all question numbers
+    # Pattern 1: Number on its own line (most common Cambridge format)
     for match in RegexPatterns.QUESTION_NUMBER.finditer(text):
         q_num = int(match.group(1))
-        boundaries.append(QuestionBoundary(
-            question_number=q_num,
-            start_page=0,  # Will be updated with page info
-            end_page=0,
-            start_y=0,
-            end_y=0
-        ))
+        if q_num not in found_numbers and 1 <= q_num <= 30:
+            found_numbers.add(q_num)
+            boundaries.append(QuestionBoundary(
+                question_number=q_num,
+                start_page=0,
+                end_page=0,
+                start_y=0,
+                end_y=0
+            ))
+    
+    # Pattern 2: Number followed by uppercase letter on same line
+    for match in RegexPatterns.QUESTION_NUMBER_INLINE.finditer(text):
+        q_num = int(match.group(1))
+        if q_num not in found_numbers and 1 <= q_num <= 30:
+            found_numbers.add(q_num)
+            boundaries.append(QuestionBoundary(
+                question_number=q_num,
+                start_page=0,
+                end_page=0,
+                start_y=0,
+                end_y=0
+            ))
+    
+    # Pattern 3: Q prefix format (Q1:, Q2., etc.)
+    for match in RegexPatterns.QUESTION_PREFIX.finditer(text):
+        q_num = int(match.group(1))
+        if q_num not in found_numbers and 1 <= q_num <= 30:
+            found_numbers.add(q_num)
+            boundaries.append(QuestionBoundary(
+                question_number=q_num,
+                start_page=0,
+                end_page=0,
+                start_y=0,
+                end_y=0
+            ))
+    
+    # Pattern 4: Number with punctuation (1., 2), etc.)
+    for match in RegexPatterns.QUESTION_NUMBER_PUNCT.finditer(text):
+        q_num = int(match.group(1))
+        if q_num not in found_numbers and 1 <= q_num <= 30:
+            found_numbers.add(q_num)
+            boundaries.append(QuestionBoundary(
+                question_number=q_num,
+                start_page=0,
+                end_page=0,
+                start_y=0,
+                end_y=0
+            ))
+    
+    # Sort by question number
+    boundaries.sort(key=lambda b: b.question_number)
     
     return boundaries
 

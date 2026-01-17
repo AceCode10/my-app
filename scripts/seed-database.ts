@@ -50,6 +50,20 @@ interface SubjectJSON {
 async function seedSubjects() {
   console.log('\n📚 Seeding subjects...');
   
+  // First, get the Cambridge (CIE) exam board ID
+  const { data: cieBoard } = await supabase
+    .from('exam_boards')
+    .select('id')
+    .eq('code', 'CIE')
+    .single();
+  
+  if (!cieBoard) {
+    console.error('   ❌ Cambridge (CIE) exam board not found. Please run the exam boards seed first.');
+    return;
+  }
+  
+  console.log(`   📋 Using Cambridge (CIE) exam board ID: ${cieBoard.id}`);
+  
   const subjects: SubjectJSON[] = subjectsData;
   let insertedCount = 0;
   
@@ -74,7 +88,9 @@ async function seedSubjects() {
         name: subject.name,
         slug: subject.slug,
         code: subject.code,
-        level: 'IGCSE',
+        level: 'igcse', // Use lowercase for consistency
+        exam_board_id: cieBoard.id, // Set the exam board ID
+        status: 'published',
       })
       .select()
       .single();

@@ -29,7 +29,7 @@ function LoginContent() {
         if (!loading && user) {
             // Redirect based on role
             if (user.role === 'super_admin' || user.role === 'content_moderator') {
-                router.push('/admin/dashboard');
+                router.push('/admin');
             } else if (user.role === 'teacher') {
                 router.push('/teacher');
             } else {

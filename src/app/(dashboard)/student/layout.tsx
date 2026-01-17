@@ -25,8 +25,6 @@ import {
 const navItems = [
     { href: '/student', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/student/subjects', label: 'Subjects', icon: BookCopy },
-    { href: '/student/notes', label: 'Revision Notes', icon: BookOpen },
-    { href: '/student/papers', label: 'Past Papers', icon: FileText },
     { href: '/student/classes', label: 'My Classes', icon: Users },
     { href: '/student/progress', label: 'Progress', icon: BarChart3 },
     { href: '/student/leaderboard', label: 'Leaderboard', icon: Trophy },
@@ -92,11 +90,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="flex items-center justify-between h-16 px-4 border-b">
               <Link href="/student" className="flex items-center space-x-2 min-w-0">
                 <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center flex-shrink-0">
-                  <span className="text-primary-foreground font-bold text-sm">R+</span>
+                  <span className="text-primary-foreground font-bold text-sm">IGA</span>
                 </div>
                 {!sidebarCollapsed && (
                   <div className="min-w-0">
-                    <h1 className="text-sm font-bold text-foreground truncate">RevisionPlus</h1>
+                    <h1 className="text-sm font-bold text-foreground truncate">IGA Prep</h1>
                     <p className="text-xs text-muted-foreground">Student</p>
                   </div>
                 )}
@@ -252,7 +250,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           >
             <Menu className="h-6 w-6" />
           </button>
-          <h1 className="text-lg font-semibold">RevisionPlus</h1>
+          <h1 className="text-lg font-semibold">IGA Prep</h1>
           <NotificationBell />
         </header>
 

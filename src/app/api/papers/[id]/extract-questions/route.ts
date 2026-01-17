@@ -7,6 +7,26 @@ import {
   type QuestionImage,
   type ExtractedVisualQuestion
 } from '@/lib/pdf-vision-extractor';
+import {
+  selfAnnealingValidateAndFix,
+  calculateDisplayOrder as calcDisplayOrder,
+  detectExamBoard,
+  analyzeSourceText,
+  validateAgainstSource,
+  type ExtractedQuestion,
+  type ValidationResult,
+  type SourceAnalysis
+} from '@/lib/extraction-workflow/execution/question-validator';
+import {
+  extractQuestions as multiLayerExtract,
+  extractSourceMarkers,
+  parseQuestionBlocks,
+  validateExtraction,
+  applyConfidenceGate,
+  type ExtractionReport
+} from '@/lib/extraction-workflow/extraction-engine';
+import { buildAccurateExtractionPrompt } from '@/lib/extraction-workflow/prompts/question-extraction-prompt';
+import { runStepByStepExtraction, type StepByStepResult } from '@/lib/extraction-workflow/step-by-step-extractor';
 
 // Initialize Supabase client with service role for admin operations
 const supabase = createClient(
@@ -211,76 +231,11 @@ function preprocessExamText(text: string): string {
 }
 
 /**
- * Build optimized prompt for GPT-3.5 Turbo
- * Simplified to detect Cambridge IGCSE question structure from clean text
+ * Build optimized prompt for GPT - uses the accurate extraction prompt
+ * Focus: Extract questions EXACTLY as they appear in the source
  */
 function buildExtractionPrompt(): string {
-  return `Extract Cambridge IGCSE exam questions into JSON. The text has been cleaned with these markers:
-- [ANSWER_LINE] = Where student writes answer (dotted line area)
-- [MARKS:X] = Mark allocation (e.g., [MARKS:2] means 2 marks)
-
-## CAMBRIDGE IGCSE QUESTION FORMAT
-Questions are numbered 1, 2, 3... and may have parts (a), (b), (c) and sub-parts (i), (ii), (iii).
-
-**Question number appears on its own line** followed by the question text. For example:
-"1
-Circle two items which are solid-state storage media.
-DVD Cloud Blu-ray disc [ANSWER_LINE] [MARKS:2]"
-
-**Parts appear as (a), (b), (c)** within a question. For example:
-"2
-A computer system consists of both hardware and software.
-(a) Explain what the following types of software provide...
-Applications [ANSWER_LINE]
-System [ANSWER_LINE] [MARKS:2]
-(b) Give two examples of each type..."
-
-## EXTRACTION RULES
-
-1. **Find question numbers**: Look for standalone numbers (1-20) on their own line followed by question text
-2. **Identify parts**: (a), (b), (c) etc. within a question create separate entries with part_label
-3. **Identify sub-parts**: (i), (ii), (iii) under a part create entries like "a(i)", "a(ii)"
-4. **MCQ questions**: If options like A, B, C, D appear, set question_type to "mcq" and extract options
-5. **Marks**: Extract from [MARKS:X] - if [ANSWER_LINE] exists, marks should be > 0
-6. **Context vs answerable**: 
-   - Has [ANSWER_LINE] → needs_answer: true, marks from [MARKS:X]
-   - No [ANSWER_LINE] → needs_answer: false, marks: 0 (intro/context only)
-
-## OUTPUT FORMAT
-{
-  "question_number": <integer 1-20>,
-  "part_label": <null | "a" | "b" | "a(i)" | "b(ii)" etc>,
-  "question_text": <the question text>,
-  "question_type": <"mcq"|"short_answer"|"essay"|"structured">,
-  "marks": <integer from [MARKS:X], 0 if context only>,
-  "needs_answer": <true if has [ANSWER_LINE], false otherwise>,
-  "options": <["A: text", "B: text", ...] for mcq, null otherwise>
-}
-
-## EXAMPLE INPUT
-"1
-Circle two items which are solid-state storage media.
-DVD Cloud Blu-ray disc Actuator SD card Printer Hard disk Flash memory [MARKS:2]
-
-2
-A computer system consists of both hardware and software.
-(a) Explain what the following types of software provide in the computer system.
-Applications [ANSWER_LINE]
-System [ANSWER_LINE] [MARKS:2]
-(b) Give two examples of each type of software.
-(i) Applications 1 [ANSWER_LINE] 2 [ANSWER_LINE] [MARKS:2]
-(ii) System 1 [ANSWER_LINE] 2 [ANSWER_LINE] [MARKS:2]"
-
-## EXAMPLE OUTPUT
-{"questions":[
-  {"question_number":1,"part_label":null,"question_text":"Circle two items which are solid-state storage media. DVD, Cloud, Blu-ray disc, Actuator, SD card, Printer, Hard disk, Flash memory","question_type":"mcq","marks":2,"needs_answer":true,"options":["DVD","Cloud","Blu-ray disc","Actuator","SD card","Printer","Hard disk","Flash memory"]},
-  {"question_number":2,"part_label":null,"question_text":"A computer system consists of both hardware and software.","question_type":"structured","marks":0,"needs_answer":false,"options":null},
-  {"question_number":2,"part_label":"a","question_text":"Explain what the following types of software provide in the computer system. Applications, System","question_type":"short_answer","marks":2,"needs_answer":true,"options":null},
-  {"question_number":2,"part_label":"b(i)","question_text":"Give two examples of Applications software.","question_type":"short_answer","marks":2,"needs_answer":true,"options":null},
-  {"question_number":2,"part_label":"b(ii)","question_text":"Give two examples of System software.","question_type":"short_answer","marks":2,"needs_answer":true,"options":null}
-]}
-
-Return ONLY valid JSON with "questions" array. Extract ALL questions you can find.`;
+  return buildAccurateExtractionPrompt();
 }
 
 /**
@@ -702,9 +657,56 @@ export async function POST(
         }
       }
 
-      // Extract questions using AI (text-based)
-      console.log('Extracting questions with text-based AI...');
-      rawQuestions = await extractQuestionsWithAI(extractedText);
+      // ============================================
+      // STEP-BY-STEP EXTRACTION SYSTEM
+      // ============================================
+      // Step 1: Extract question numbers first
+      // Step 2: Find sub-parts and attach to questions
+      // Step 3: Extract question text for each
+      // Step 4: Extract marks
+      // Step 5: Determine question types
+      // Fallback: AI extraction if step-by-step fails
+      
+      console.log('[StepByStep] Starting step-by-step extraction...');
+      
+      // Try step-by-step extraction first
+      const stepByStepResult = runStepByStepExtraction(extractedText);
+      
+      console.log(`[StepByStep] Result: ${stepByStepResult.questions.length} questions, ${stepByStepResult.totalMarks} marks, ${(stepByStepResult.confidence * 100).toFixed(1)}% confidence`);
+      
+      // Log each step's result
+      for (const step of stepByStepResult.steps) {
+        console.log(`[StepByStep] Step ${step.step} (${step.name}): ${step.success ? 'SUCCESS' : 'FAILED'}`, step.output);
+      }
+      
+      // Check for question number diversity - if all questions have same number, extraction failed
+      const uniqueQuestionNumbers = new Set(stepByStepResult.questions.map(q => q.questionNumber));
+      const hasQuestionDiversity = uniqueQuestionNumbers.size >= 3; // At least 3 different question numbers
+      
+      console.log(`[StepByStep] Question number diversity: ${uniqueQuestionNumbers.size} unique numbers (need >= 3)`);
+      
+      // Use step-by-step results if confidence is good AND we have diverse question numbers
+      if (stepByStepResult.questions.length >= 10 && stepByStepResult.confidence >= 0.5 && hasQuestionDiversity) {
+        rawQuestions = stepByStepResult.questions.map(q => ({
+          question_number: q.questionNumber,
+          part_label: q.partLabel ? (q.subPartLabel ? `${q.partLabel}(${q.subPartLabel})` : q.partLabel) : null,
+          question_text: q.questionText,
+          question_type: q.questionType,
+          marks: q.marks,
+          needs_answer: true,
+          options: null,
+          display_order: q.displayOrder,
+          confidence: stepByStepResult.confidence
+        }));
+        extractionMetadata.extractionMethod = 'step-by-step';
+        console.log(`[StepByStep] Using step-by-step extraction results`);
+      } else {
+        // Fallback to AI extraction
+        console.log('[StepByStep] Step-by-step confidence too low, falling back to AI...');
+        console.log('[AI] Using AI-based extraction...');
+        rawQuestions = await extractQuestionsWithAI(extractedText);
+        extractionMetadata.extractionMethod = 'ai-gpt';
+      }
     }
     
     if (!rawQuestions || rawQuestions.length === 0) {
@@ -714,7 +716,82 @@ export async function POST(
       );
     }
 
-    console.log(`Extracted ${rawQuestions.length} questions`);
+    console.log(`[Extraction] Total questions extracted: ${rawQuestions.length}`);
+
+    // ============================================
+    // LAYER 3: SOURCE TEXT ANALYSIS (v3 - Cambridge ICT detection)
+    // ============================================
+    // Analyze the source text to determine what questions SHOULD exist
+    console.log('[Layer 3] Analyzing source text for ground truth... (v3)');
+    console.log('[Layer 3] Text sample:', extractedText.substring(0, 100));
+    const sourceAnalysis = analyzeSourceText(extractedText);
+    console.log(`[Layer 3] Source analysis: ${sourceAnalysis.expectedQuestionNumbers.length} questions expected (1-${sourceAnalysis.expectedMaxQuestion}), ${sourceAnalysis.expectedTotalMarks} total marks`);
+
+    // ============================================
+    // LAYER 4: VALIDATION & AUTO-FIX
+    // ============================================
+    // Apply multi-layered validation to detect and fix errors
+    console.log('[Layer 4] Running validation on extracted questions...');
+    
+    const mappedQuestions = rawQuestions.map((q: any) => ({
+      question_number: parseInt(q.question_number) || 1,
+      part_label: q.part_label || null,
+      question_text: q.question_text || q.question || q.stem || '',
+      question_type: q.question_type || 'short_answer',
+      marks: parseInt(q.marks) || 0,
+      needs_answer: q.needs_answer !== false,
+      options: q.options || null,
+      correct_answer: q.correct_answer || null,
+      mark_scheme: q.mark_scheme || null,
+      difficulty: q.difficulty || null,
+    }));
+    
+    // Validate against source text first
+    const sourceValidation = validateAgainstSource(mappedQuestions, sourceAnalysis);
+    console.log(`[Layer 4] Source validation: ${sourceValidation.valid ? 'PASSED' : 'FAILED'} (${(sourceValidation.confidence * 100).toFixed(1)}% confidence)`);
+    
+    if (sourceValidation.errors.length > 0) {
+      console.log('[Layer 4] Source validation errors:', sourceValidation.errors.map(e => e.message));
+    }
+    if (sourceValidation.warnings.length > 0) {
+      console.log('[Layer 4] Source validation warnings:', sourceValidation.warnings);
+    }
+    
+    const selfAnnealingResult = selfAnnealingValidateAndFix(mappedQuestions);
+
+    // Use the fixed questions from self-annealing
+    if (selfAnnealingResult.wasFixed) {
+      console.log(`[Self-Annealing] Applied ${selfAnnealingResult.validation.fixes_applied.length} fixes`);
+      // Merge the fixed data back into rawQuestions
+      rawQuestions = rawQuestions.map((q: any, idx: number) => {
+        const fixed = selfAnnealingResult.questions[idx];
+        if (fixed) {
+          return {
+            ...q,
+            question_number: fixed.question_number,
+            part_label: fixed.part_label,
+            display_order: fixed.display_order,
+          };
+        }
+        return q;
+      });
+    }
+    
+    // Combine confidence from both validations
+    const combinedConfidence = Math.min(
+      selfAnnealingResult.validation.confidence,
+      sourceValidation.confidence
+    );
+    
+    // Log validation summary
+    const allWarnings = [
+      ...selfAnnealingResult.validation.warnings,
+      ...sourceValidation.warnings
+    ];
+    if (allWarnings.length > 0) {
+      console.log('[Validation] All warnings:', allWarnings);
+    }
+    console.log(`[Validation] Combined confidence: ${(combinedConfidence * 100).toFixed(1)}%`);
 
     // If replace is requested, delete existing questions
     if (replaceExisting) {
@@ -916,6 +993,29 @@ export async function POST(
       hasImages: questionsToInsert.some((q: any) => q.has_image),
       imageCount: questionsToInsert.filter((q: any) => q.has_image).length,
       warnings: validationErrors.length > 0 ? validationErrors : undefined,
+      // Validation metadata
+      validation: {
+        combinedConfidence: combinedConfidence,
+        sourceAnalysis: {
+          expectedQuestions: sourceAnalysis.expectedQuestionNumbers,
+          expectedMaxQuestion: sourceAnalysis.expectedMaxQuestion,
+          expectedTotalMarks: sourceAnalysis.expectedTotalMarks,
+        },
+        sourceValidation: {
+          valid: sourceValidation.valid,
+          confidence: sourceValidation.confidence,
+          errors: sourceValidation.errors.map(e => e.message),
+          warnings: sourceValidation.warnings,
+        },
+        selfAnnealing: {
+          wasFixed: selfAnnealingResult.wasFixed,
+          confidence: selfAnnealingResult.validation.confidence,
+          fixesApplied: selfAnnealingResult.validation.fixes_applied.length,
+          errors: selfAnnealingResult.validation.errors.map(e => e.message),
+          warnings: selfAnnealingResult.validation.warnings,
+        },
+        examBoard: detectExamBoard(selfAnnealingResult.questions),
+      },
       questions: questionsToInsert.map((q: any) => ({
         question_number: q.question_number,
         part_label: q.part_label,

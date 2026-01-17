@@ -50,6 +50,7 @@ import {
   Eye,
   EyeOff,
   BookOpen,
+  GripHorizontal,
 } from 'lucide-react';
 import { TestPDFExport } from '@/components/teacher/test-pdf-export';
 import { ExamQuestionCard } from '@/components/teacher/exam-question-card';
@@ -196,10 +197,27 @@ export default function TestBuilderPage() {
   const searchParams = useSearchParams();
   const editingTestId = searchParams.get('id');
 
-  // Local state for filters
+  // Local state for filters - load from localStorage or default to first item
+  // Order: Board -> Level -> Subject -> Topic -> Difficulty -> Type
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedExamBoard, setSelectedExamBoard] = useState<string>('all');
-  const [selectedSubject, setSelectedSubject] = useState<string>('all');
+  const [selectedExamBoard, setSelectedExamBoard] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('testBuilder_examBoard') || '';
+    }
+    return '';
+  });
+  const [selectedLevel, setSelectedLevel] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('testBuilder_level') || '';
+    }
+    return '';
+  });
+  const [selectedSubject, setSelectedSubject] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('testBuilder_subject') || '';
+    }
+    return '';
+  });
   const [selectedTopic, setSelectedTopic] = useState<string>('all');
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('all');
   const [selectedType, setSelectedType] = useState<string>('all');
@@ -224,6 +242,10 @@ export default function TestBuilderPage() {
   const [showPDFExport, setShowPDFExport] = useState(false);
   const [showAnswerKey, setShowAnswerKey] = useState(false);
   const [loadingTest, setLoadingTest] = useState(false);
+  
+  // Resizable panel state (percentage width for left panel)
+  const [leftPanelWidth, setLeftPanelWidth] = useState(40);
+  const [isResizing, setIsResizing] = useState(false);
 
   // Cached exam boards query
   const { data: examBoards = [] } = useQuery({
@@ -258,16 +280,16 @@ export default function TestBuilderPage() {
   const { data: topics = [] } = useQuery({
     queryKey: ['topics', selectedSubject],
     queryFn: async () => {
-      if (selectedSubject === 'all') return [];
+      if (!selectedSubject) return [];
       const { data, error } = await supabase
         .from('topics')
-        .select('id, name, subject_id')
+        .select('id, name, subject_id, display_order')
         .eq('subject_id', selectedSubject)
-        .order('name');
+        .order('display_order');
       if (error) throw error;
       return data || [];
     },
-    enabled: selectedSubject !== 'all',
+    enabled: !!selectedSubject,
     staleTime: 10 * 60 * 1000,
   });
 
@@ -324,6 +346,8 @@ export default function TestBuilderPage() {
           use_image_question,
           options,
           paper_id,
+          parent_question_id,
+          display_order,
           past_papers!inner(
             id,
             subject_id,
@@ -358,7 +382,7 @@ export default function TestBuilderPage() {
           stem_md: questionContent,
           stem_markdown: questionContent,
           question_type: pq.question_type || 'short_answer',
-          marks: pq.marks || 1,
+          marks: pq.marks ?? 1, // Use nullish coalescing to preserve 0 marks for context questions
           difficulty: pq.difficulty || 'medium',
           topic_id: '',
           subject_id: pq.past_papers?.subject_id || '',
@@ -368,9 +392,9 @@ export default function TestBuilderPage() {
           examiner_comment: pq.examiner_tips || '',
           topic: null,
           subject: pq.past_papers?.subjects || null,
-          parent_question_id: null,
+          parent_question_id: pq.parent_question_id || null,
           part_label: pq.part_label || null,
-          display_order: 0,
+          display_order: pq.display_order ?? 0, // Use nullish coalescing to preserve actual order
           question_number: pq.question_number || '',
           image_url: pq.image_url || null,
           question_image_url: pq.question_image_url || null,
@@ -404,18 +428,82 @@ export default function TestBuilderPage() {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Filter subjects by selected exam board
-  const filteredSubjects = useMemo(() => {
-    if (selectedExamBoard === 'all') return subjects;
-    return subjects.filter(s => !s.exam_board_id || s.exam_board_id === selectedExamBoard);
+  // Set default exam board to first item when data loads
+  useEffect(() => {
+    if (examBoards.length > 0 && !selectedExamBoard) {
+      setSelectedExamBoard(examBoards[0].id);
+    }
+  }, [examBoards, selectedExamBoard]);
+
+  // Get available levels for selected exam board
+  const availableLevels = useMemo(() => {
+    if (!selectedExamBoard) return [];
+    const levels = new Set<string>();
+    subjects.forEach(s => {
+      if (s.exam_board_id === selectedExamBoard && s.level) {
+        levels.add(s.level);
+      }
+    });
+    // Sort levels in a logical order
+    const levelOrder = ['IGCSE', 'O Level', 'AS Level', 'A Level', 'A2 Level'];
+    return Array.from(levels).sort((a, b) => {
+      const aIdx = levelOrder.indexOf(a);
+      const bIdx = levelOrder.indexOf(b);
+      if (aIdx === -1 && bIdx === -1) return a.localeCompare(b);
+      if (aIdx === -1) return 1;
+      if (bIdx === -1) return -1;
+      return aIdx - bIdx;
+    });
   }, [subjects, selectedExamBoard]);
+
+  // Set default level to first available when exam board changes
+  useEffect(() => {
+    if (availableLevels.length > 0 && !selectedLevel) {
+      setSelectedLevel(availableLevels[0]);
+    }
+  }, [availableLevels, selectedLevel]);
+
+  // Filter subjects by selected exam board AND level
+  const filteredSubjects = useMemo(() => {
+    return subjects.filter(s => {
+      if (selectedExamBoard && s.exam_board_id !== selectedExamBoard) return false;
+      if (selectedLevel && s.level !== selectedLevel) return false;
+      return true;
+    });
+  }, [subjects, selectedExamBoard, selectedLevel]);
+
+  // Set default subject to first filtered subject when level/board changes
+  useEffect(() => {
+    if (filteredSubjects.length > 0 && !selectedSubject) {
+      setSelectedSubject(filteredSubjects[0].id);
+    }
+  }, [filteredSubjects, selectedSubject]);
+
+  // Persist filter selections to localStorage
+  useEffect(() => {
+    if (selectedExamBoard) {
+      localStorage.setItem('testBuilder_examBoard', selectedExamBoard);
+    }
+  }, [selectedExamBoard]);
+
+  useEffect(() => {
+    if (selectedLevel) {
+      localStorage.setItem('testBuilder_level', selectedLevel);
+    }
+  }, [selectedLevel]);
+
+  useEffect(() => {
+    if (selectedSubject) {
+      localStorage.setItem('testBuilder_subject', selectedSubject);
+    }
+  }, [selectedSubject]);
 
   // Filter questions
   const filteredQuestions = useMemo(() => {
     // First, get the subject IDs that match the selected exam board
-    const validSubjectIds = selectedExamBoard === 'all' 
-      ? null 
-      : new Set(subjects.filter(s => s.exam_board_id === selectedExamBoard).map(s => s.id));
+    const validSubjectIds = selectedExamBoard 
+      ? new Set(subjects.filter(s => s.exam_board_id === selectedExamBoard).map(s => s.id))
+      : null;
 
     const filtered = questions.filter(q => {
       const searchText = (q.stem_md || q.stem_markdown || '').toLowerCase();
@@ -423,7 +511,7 @@ export default function TestBuilderPage() {
         return false;
       }
       // Exam board filter - match by exam_board_id on the question OR by subject's exam_board
-      if (selectedExamBoard !== 'all') {
+      if (selectedExamBoard) {
         // If question has exam_board_id, check it directly
         if (q.exam_board_id) {
           if (q.exam_board_id !== selectedExamBoard) {
@@ -436,7 +524,7 @@ export default function TestBuilderPage() {
           }
         }
       }
-      if (selectedSubject !== 'all' && q.subject_id !== selectedSubject) {
+      if (selectedSubject && q.subject_id !== selectedSubject) {
         return false;
       }
       if (selectedTopic !== 'all' && q.topic_id !== selectedTopic) {
@@ -451,9 +539,49 @@ export default function TestBuilderPage() {
       return true;
     });
     
-        
     return filtered;
   }, [questions, searchQuery, selectedExamBoard, selectedSubject, selectedTopic, selectedDifficulty, selectedType, subjects]);
+
+  // Group questions by question_number for display (shows parent questions only, with part count)
+  const groupedQuestions = useMemo(() => {
+    // Create a map to group questions by their question_number + source + paper_id/subject_id
+    const groups = new Map<string, Question[]>();
+    
+    filteredQuestions.forEach(q => {
+      // Create a unique key for grouping
+      const groupKey = q.question_number 
+        ? `${q.source}-${q.paper_id || q.subject_id}-${q.question_number}`
+        : q.id; // Standalone questions use their own ID as key
+      
+      if (!groups.has(groupKey)) {
+        groups.set(groupKey, []);
+      }
+      groups.get(groupKey)!.push(q);
+    });
+    
+    // Sort each group by part_label and return the first question as representative
+    const result: Array<{ question: Question; parts: Question[]; totalMarks: number }> = [];
+    
+    groups.forEach((parts) => {
+      // Sort parts by display_order or part_label
+      parts.sort((a, b) => {
+        if (a.display_order !== undefined && b.display_order !== undefined) {
+          return a.display_order - b.display_order;
+        }
+        const partA = a.part_label || '';
+        const partB = b.part_label || '';
+        return partA.localeCompare(partB);
+      });
+      
+      // Use the first part (or the one without part_label) as the representative
+      const representative = parts.find(p => !p.part_label) || parts[0];
+      const totalMarks = parts.reduce((sum, p) => sum + p.marks, 0);
+      
+      result.push({ question: representative, parts, totalMarks });
+    });
+    
+    return result;
+  }, [filteredQuestions]);
 
   // Get all selected question IDs
   const selectedQuestionIds = useMemo(() => {
@@ -466,28 +594,141 @@ export default function TestBuilderPage() {
     return { totalMarks, totalQuestions: testQuestions.length };
   }, [testQuestions]);
 
-  // Add question to test
+  // Add question to test (including all related parts)
   function addQuestion(question: Question) {
     if (selectedQuestionIds.has(question.id)) return;
     
-    const newQuestion: TestQuestion = {
-      questionId: question.id,
-      marks: question.marks,
-      order: testQuestions.length + 1,
-      question,
-    };
+    // Find all related parts of this question
+    const relatedParts = getRelatedQuestionParts(question);
+    
+    // Filter out any parts that are already in the test
+    const partsToAdd = relatedParts.filter(q => !selectedQuestionIds.has(q.id));
+    
+    if (partsToAdd.length === 0) return;
+    
+    // Add all parts as a group
+    const newQuestions: TestQuestion[] = partsToAdd.map((q, idx) => ({
+      questionId: q.id,
+      marks: q.marks,
+      order: testQuestions.length + idx + 1,
+      question: q,
+    }));
 
-    setTestQuestions([...testQuestions, newQuestion]);
-    toast({ title: 'Question added', description: 'Added to your test' });
+    setTestQuestions([...testQuestions, ...newQuestions]);
+    
+    const partCount = partsToAdd.length;
+    toast({ 
+      title: 'Question added', 
+      description: partCount > 1 
+        ? `Added ${partCount} parts (Q${question.question_number}) to your test` 
+        : 'Added to your test' 
+    });
+  }
+  
+  // Get all related parts of a question (same question_number from same source, or parent-child relationship)
+  function getRelatedQuestionParts(question: Question): Question[] {
+    // If question has no question_number or part_label, and no parent_question_id, it's standalone
+    if (!question.question_number && !question.parent_question_id) {
+      // But check if this question IS a parent with children
+      const children = questions.filter(q => q.parent_question_id === question.id);
+      if (children.length > 0) {
+        return [question, ...children].sort((a, b) => {
+          if (a.display_order !== undefined && b.display_order !== undefined) {
+            return a.display_order - b.display_order;
+          }
+          const partA = a.part_label || '';
+          const partB = b.part_label || '';
+          return partA.localeCompare(partB);
+        });
+      }
+      return [question];
+    }
+    
+    // Find all questions with the same question_number from the same source
+    const relatedParts = questions.filter(q => {
+      // Check parent-child relationship first
+      if (question.parent_question_id) {
+        // This question is a child - find parent, self, and siblings
+        return q.id === question.parent_question_id || // parent
+               q.id === question.id || // self
+               q.parent_question_id === question.parent_question_id; // siblings
+      }
+      
+      // Check if q is this question itself
+      if (q.id === question.id) {
+        return true;
+      }
+      
+      // Check if q is a child of this question
+      if (q.parent_question_id === question.id) {
+        return true;
+      }
+      
+      // Must have the same question_number
+      if (q.question_number !== question.question_number) return false;
+      
+      // Must be from the same source (paper or topical)
+      if (q.source !== question.source) return false;
+      
+      // For paper questions, must be from the same paper
+      if (question.source === 'paper' && q.paper_id !== question.paper_id) return false;
+      
+      // For topical questions, must be from the same subject/topic
+      if (question.source === 'topical') {
+        if (q.subject_id !== question.subject_id) return false;
+      }
+      
+      return true;
+    });
+    
+    // Sort by display_order or part_label to maintain proper order
+    // Parent questions (no parent_question_id) should come first
+    return relatedParts.sort((a, b) => {
+      // Parent comes before children
+      if (!a.parent_question_id && b.parent_question_id) return -1;
+      if (a.parent_question_id && !b.parent_question_id) return 1;
+      
+      // Then sort by display_order if available
+      if (a.display_order !== undefined && b.display_order !== undefined) {
+        return a.display_order - b.display_order;
+      }
+      // Then by part_label (a, b, c, etc.)
+      const partA = a.part_label || '';
+      const partB = b.part_label || '';
+      return partA.localeCompare(partB);
+    });
   }
 
-  // Remove question from test
+  // Remove question from test (removes all related parts)
   function removeQuestion(questionId: string) {
+    // Find the question being removed
+    const questionToRemove = testQuestions.find(q => q.questionId === questionId);
+    if (!questionToRemove?.question) {
+      // Fallback to simple removal if question data not available
+      setTestQuestions(
+        testQuestions
+          .filter(q => q.questionId !== questionId)
+          .map((q, idx) => ({ ...q, order: idx + 1 }))
+      );
+      return;
+    }
+    
+    // Get all related parts that should be removed together
+    const relatedParts = getRelatedQuestionParts(questionToRemove.question);
+    const relatedIds = new Set(relatedParts.map(q => q.id));
+    
     setTestQuestions(
       testQuestions
-        .filter(q => q.questionId !== questionId)
+        .filter(q => !relatedIds.has(q.questionId))
         .map((q, idx) => ({ ...q, order: idx + 1 }))
     );
+    
+    if (relatedParts.length > 1) {
+      toast({ 
+        title: 'Question removed', 
+        description: `Removed ${relatedParts.length} parts (Q${questionToRemove.question.question_number})` 
+      });
+    }
   }
 
   // Update question marks
@@ -856,23 +1097,43 @@ export default function TestBuilderPage() {
               />
             </div>
 
-            {/* Filters */}
+            {/* Filters - Order: Board, Level, Subject, Topic, Difficulty, Type */}
+            {/* 1. Exam Board */}
             <Select value={selectedExamBoard} onValueChange={(v) => {
               setSelectedExamBoard(v);
-              setSelectedSubject('all');
+              // Reset level, subject and topic when exam board changes
+              setSelectedLevel('');
+              setSelectedSubject('');
               setSelectedTopic('all');
             }}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="Exam Board" />
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Board" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Boards</SelectItem>
                 {examBoards.map(eb => (
                   <SelectItem key={eb.id} value={eb.id}>{eb.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
 
+            {/* 2. Level */}
+            <Select value={selectedLevel} onValueChange={(v) => {
+              setSelectedLevel(v);
+              // Reset subject and topic when level changes
+              setSelectedSubject('');
+              setSelectedTopic('all');
+            }}>
+              <SelectTrigger className="w-[120px]">
+                <SelectValue placeholder="Level" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableLevels.map(level => (
+                  <SelectItem key={level} value={level}>{level}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* 3. Subject */}
             <Select value={selectedSubject} onValueChange={(v) => {
               setSelectedSubject(v);
               setSelectedTopic('all');
@@ -881,7 +1142,6 @@ export default function TestBuilderPage() {
                 <SelectValue placeholder="Subject" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Subjects</SelectItem>
                 {filteredSubjects.map(s => (
                   <SelectItem key={s.id} value={s.id}>
                     {s.code && `${s.code} - `}{s.name}
@@ -890,6 +1150,7 @@ export default function TestBuilderPage() {
               </SelectContent>
             </Select>
 
+            {/* 4. Topic (can be All) */}
             <Select value={selectedTopic} onValueChange={setSelectedTopic}>
               <SelectTrigger className="w-[140px]">
                 <SelectValue placeholder="Topic" />
@@ -902,18 +1163,20 @@ export default function TestBuilderPage() {
               </SelectContent>
             </Select>
 
+            {/* 5. Difficulty (can be All) */}
             <Select value={selectedDifficulty} onValueChange={setSelectedDifficulty}>
               <SelectTrigger className="w-[130px]">
                 <SelectValue placeholder="Difficulty" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Levels</SelectItem>
+                <SelectItem value="all">All Difficulties</SelectItem>
                 <SelectItem value="easy">Easy</SelectItem>
                 <SelectItem value="medium">Medium</SelectItem>
                 <SelectItem value="hard">Hard</SelectItem>
               </SelectContent>
             </Select>
 
+            {/* 6. Type (can be All) */}
             <Select value={selectedType} onValueChange={setSelectedType}>
               <SelectTrigger className="w-[140px]">
                 <SelectValue placeholder="Type" />
@@ -930,19 +1193,34 @@ export default function TestBuilderPage() {
 
             {/* Question count */}
             <div className="ml-auto text-sm text-muted-foreground">
-              {loadingQuestions ? 'Loading...' : `${filteredQuestions.length} questions`}
-              {filteredQuestions.length > 0 && !loadingQuestions && (
-                <span className="ml-2">• {filteredQuestions.reduce((sum, q) => sum + (q.marks || 0), 0)} marks</span>
+              {loadingQuestions ? 'Loading...' : `${groupedQuestions.length} questions`}
+              {groupedQuestions.length > 0 && !loadingQuestions && (
+                <span className="ml-2">• {groupedQuestions.reduce((sum, g) => sum + g.totalMarks, 0)} marks</span>
               )}
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Main content */}
-      <div className="flex-1 grid grid-cols-12 gap-4 min-h-0">
+      {/* Main content - Resizable panels */}
+      <div 
+        className="flex-1 flex min-h-0"
+        onMouseMove={(e) => {
+          if (!isResizing) return;
+          const container = e.currentTarget;
+          const rect = container.getBoundingClientRect();
+          const newWidth = ((e.clientX - rect.left) / rect.width) * 100;
+          // Clamp between 25% and 60%
+          setLeftPanelWidth(Math.min(60, Math.max(25, newWidth)));
+        }}
+        onMouseUp={() => setIsResizing(false)}
+        onMouseLeave={() => setIsResizing(false)}
+      >
         {/* Left Panel - Question Bank */}
-        <div className="col-span-4 flex flex-col min-h-0">
+        <div 
+          className="flex flex-col min-h-0 pr-1"
+          style={{ width: `${leftPanelWidth}%` }}
+        >
           <Card className="flex-1 flex flex-col min-h-0">
             <CardHeader className="pb-2">
               <CardTitle className="text-lg">Question Bank</CardTitle>
@@ -957,7 +1235,7 @@ export default function TestBuilderPage() {
                       <Skeleton key={i} className="h-24 w-full" />
                     ))}
                   </div>
-                ) : filteredQuestions.length === 0 ? (
+                ) : groupedQuestions.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <Filter className="h-12 w-12 mx-auto mb-2 opacity-50" />
                     <p>No questions found</p>
@@ -965,26 +1243,37 @@ export default function TestBuilderPage() {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {filteredQuestions.map(question => {
-                      const isSelected = selectedQuestionIds.has(question.id);
+                    {groupedQuestions.map(({ question, parts, totalMarks }) => {
+                      // Check if any part of this question group is already selected
+                      const isAnyPartSelected = parts.some(p => selectedQuestionIds.has(p.id));
                       const hasImage = !!question.image_url;
                       const questionText = question.stem_markdown || question.stem_md || '';
+                      const hasMultipleParts = parts.length > 1;
                       return (
                         <div
                           key={question.id}
                           className={`p-3 border rounded-lg transition-colors ${
-                            isSelected ? 'bg-primary/5 border-primary/30' : 'hover:bg-muted/50'
-                          } ${question.part_label ? 'ml-4 border-l-2 border-l-primary/30' : ''}`}
+                            isAnyPartSelected ? 'bg-primary/5 border-primary/30' : 'hover:bg-muted/50'
+                          }`}
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex-1 min-w-0">
-                              {/* Question number/part label and source */}
-                              <div className="flex items-center gap-2 mb-1">
-                                {(question.question_number || question.part_label) && (
+                              {/* Question number and parts indicator */}
+                              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                {question.question_number && (
                                   <span className="text-xs font-semibold text-primary">
-                                    {question.question_number && `Q${question.question_number}`}
-                                    {question.part_label && ` (${question.part_label})`}
+                                    Q{question.question_number}
+                                    {hasMultipleParts && (
+                                      <span className="ml-1 text-muted-foreground">
+                                        ({parts.map(p => p.part_label || 'main').join(', ')})
+                                      </span>
+                                    )}
                                   </span>
+                                )}
+                                {hasMultipleParts && (
+                                  <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                    {parts.length} parts
+                                  </Badge>
                                 )}
                                 {question.source === 'paper' && (
                                   <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
@@ -1008,12 +1297,28 @@ export default function TestBuilderPage() {
                               )}
                               {/* Show text if available */}
                               {questionText && (
-                                <p className="text-sm line-clamp-2">
+                                <p className="text-sm line-clamp-3">
                                   {questionText}
                                 </p>
                               )}
+                              {/* Show parts preview for multi-part questions */}
+                              {hasMultipleParts && (
+                                <div className="mt-2 pl-3 border-l-2 border-muted space-y-1">
+                                  {parts.slice(0, 3).map((part, idx) => (
+                                    <p key={part.id} className="text-xs text-muted-foreground line-clamp-1">
+                                      <span className="font-medium">({part.part_label || idx + 1})</span>{' '}
+                                      {part.stem_markdown || part.stem_md || '[No text]'}
+                                    </p>
+                                  ))}
+                                  {parts.length > 3 && (
+                                    <p className="text-xs text-muted-foreground">
+                                      +{parts.length - 3} more parts...
+                                    </p>
+                                  )}
+                                </div>
+                              )}
                               {/* Show placeholder if no text and no image */}
-                              {!questionText && !question.image_url && !question.question_image_url && (
+                              {!questionText && !question.image_url && !question.question_image_url && !hasMultipleParts && (
                                 <p className="text-sm text-muted-foreground italic">
                                   [Question content not available]
                                 </p>
@@ -1026,7 +1331,7 @@ export default function TestBuilderPage() {
                                   {question.difficulty}
                                 </Badge>
                                 <span className="text-xs text-muted-foreground">
-                                  {question.marks} mark{question.marks !== 1 ? 's' : ''}
+                                  {totalMarks} mark{totalMarks !== 1 ? 's' : ''}
                                 </span>
                                 {question.topic && (
                                   <span className="text-xs text-muted-foreground truncate">
@@ -1036,15 +1341,16 @@ export default function TestBuilderPage() {
                               </div>
                             </div>
                             <Button
-                              size="sm"
-                              variant={isSelected ? "secondary" : "default"}
-                              onClick={() => !isSelected && addQuestion(question)}
-                              disabled={isSelected}
+                              size="icon"
+                              variant={isAnyPartSelected ? "secondary" : "default"}
+                              onClick={() => !isAnyPartSelected && addQuestion(question)}
+                              disabled={isAnyPartSelected}
+                              className={`h-8 w-8 flex-shrink-0 ${!isAnyPartSelected ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
                             >
-                              {isSelected ? (
+                              {isAnyPartSelected ? (
                                 <CheckCircle2 className="h-4 w-4" />
                               ) : (
-                                <Plus className="h-4 w-4" />
+                                <Plus className="h-5 w-5" />
                               )}
                             </Button>
                           </div>
@@ -1058,8 +1364,19 @@ export default function TestBuilderPage() {
           </Card>
         </div>
 
+        {/* Resize Handle */}
+        <div
+          className={`w-2 flex-shrink-0 cursor-col-resize flex items-center justify-center group hover:bg-primary/10 transition-colors ${isResizing ? 'bg-primary/20' : ''}`}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            setIsResizing(true);
+          }}
+        >
+          <div className={`w-1 h-16 rounded-full bg-border group-hover:bg-primary/50 transition-colors ${isResizing ? 'bg-primary' : ''}`} />
+        </div>
+
         {/* Right Panel - Test Preview */}
-        <div className="col-span-8 flex flex-col min-h-0">
+        <div className="flex-1 flex flex-col min-h-0 pl-1">
           <Card className="flex-1 flex flex-col min-h-0">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">

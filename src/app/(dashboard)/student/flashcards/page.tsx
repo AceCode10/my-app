@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/hooks/use-user';
 import { useToast } from '@/hooks/use-toast';
@@ -155,14 +155,18 @@ export default function FlashcardsPage() {
     }
   }
 
-  const filteredDecks = decks.filter(deck => {
-    if (!searchQuery) return true;
-    return deck.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-           deck.description?.toLowerCase().includes(searchQuery.toLowerCase());
-  });
+  // Memoized filtered decks for real-time search performance
+  const filteredDecks = useMemo(() => {
+    if (!searchQuery.trim()) return decks;
+    const searchLower = searchQuery.toLowerCase();
+    return decks.filter(deck => 
+      deck.title.toLowerCase().includes(searchLower) ||
+      deck.description?.toLowerCase().includes(searchLower)
+    );
+  }, [decks, searchQuery]);
 
-  const myDecks = filteredDecks.filter(d => d.user_id === user?.id);
-  const publicDecks = filteredDecks.filter(d => d.is_public && d.user_id !== user?.id);
+  const myDecks = useMemo(() => filteredDecks.filter((d: FlashcardDeck) => d.user_id === user?.id), [filteredDecks, user?.id]);
+  const publicDecks = useMemo(() => filteredDecks.filter((d: FlashcardDeck) => d.is_public && d.user_id !== user?.id), [filteredDecks, user?.id]);
 
   if (loading) {
     return (

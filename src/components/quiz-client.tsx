@@ -27,6 +27,8 @@ import { generateQuizQuestions, generateModelAnswer, GenerateModelAnswerOutput }
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { useActivityRewards } from '@/hooks/use-activity-rewards';
+import { RewardBreakdownModal } from '@/components/gamification';
 
 type QuizState = 'idle' | 'loading' | 'active' | 'completed' | 'error';
 type AnswerState = 'unanswered' | 'correct' | 'incorrect';
@@ -62,6 +64,9 @@ export function QuizClient({ topic, classId }: QuizClientProps) {
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const isPublicFlow = searchParams.get('from') === 'public';
+  const { processTopicalQuestion, lastBreakdown, clearLastBreakdown } = useActivityRewards();
+  const [showRewardBreakdown, setShowRewardBreakdown] = useState(false);
+  const [startTime] = useState(() => Date.now());
 
   const startQuiz = async () => {
     setQuizState('loading');
@@ -136,7 +141,7 @@ export function QuizClient({ topic, classId }: QuizClientProps) {
     }
   };
 
-  const handleAnswerSubmit = () => {
+  const handleAnswerSubmit = async () => {
     if (!selectedAnswer || !questions) return;
 
     const currentQuestion = questions[currentQuestionIndex];
@@ -148,14 +153,26 @@ export function QuizClient({ topic, classId }: QuizClientProps) {
     } else {
       setAnswerState('incorrect');
     }
-     setAnswerLog(prev => [...prev, { question: currentQuestion, selectedAnswer, isCorrect }]);
+    setAnswerLog(prev => [...prev, { question: currentQuestion, selectedAnswer, isCorrect }]);
+
+    // Award XP for answering question (if logged in)
+    if (user && !isPublicFlow) {
+      const timeSpent = Math.round((Date.now() - startTime) / 60000); // minutes
+      await processTopicalQuestion({
+        questionId: currentQuestion.id,
+        subjectName: quiz?.subject,
+        topicName: quiz?.topic,
+        isCorrect,
+        timeSpentMinutes: Math.max(1, timeSpent),
+      });
+    }
   };
 
-  const saveQuizAttemptToSupabase = async (attempt: Omit<QuizAttempt, 'id' | 'completedAt'>, xpGained: number) => {
+  const saveQuizAttemptToSupabase = async (attempt: Omit<QuizAttempt, 'id' | 'completedAt'>) => {
     if (!user) return;
     
     try {
-      // Save quiz attempt
+      // Save quiz attempt (XP is now awarded per-question via processTopicalQuestion)
       await supabase.from('quiz_attempts').insert({
         user_id: attempt.userId,
         quiz_id: attempt.quizId,
@@ -165,20 +182,6 @@ export function QuizClient({ topic, classId }: QuizClientProps) {
         total_questions: attempt.totalQuestions,
         completed_at: new Date().toISOString(),
       });
-
-      // Update user XP
-      const { data: userData } = await supabase
-        .from('users')
-        .select('xp')
-        .eq('id', user.id)
-        .single();
-
-      if (userData) {
-        await supabase
-          .from('users')
-          .update({ xp: (userData.xp || 0) + xpGained })
-          .eq('id', user.id);
-      }
     } catch (error) {
       console.error('Error saving quiz attempt:', error);
     }
@@ -192,7 +195,6 @@ export function QuizClient({ topic, classId }: QuizClientProps) {
       setAnswerState('unanswered');
     } else {
       if (user && quiz) {
-        const xpGained = score * 10;
         const attempt: Omit<QuizAttempt, 'id' | 'completedAt'> = {
             userId: user.id,
             quizId: quiz.id,
@@ -201,12 +203,10 @@ export function QuizClient({ topic, classId }: QuizClientProps) {
             score: score,
             totalQuestions: questions.length,
         };
-        saveQuizAttemptToSupabase(attempt, xpGained);
-        if (!isPublicFlow) {
-          toast({
-            title: "Quiz Finished!",
-            description: `You've earned ${xpGained} XP!`,
-          });
+        saveQuizAttemptToSupabase(attempt);
+        // Show reward breakdown if user earned XP
+        if (!isPublicFlow && lastBreakdown && lastBreakdown.totalXP > 0) {
+          setShowRewardBreakdown(true);
         }
       }
       setQuizState('completed');
@@ -414,6 +414,17 @@ export function QuizClient({ topic, classId }: QuizClientProps) {
                  </DialogFooter>
             </DialogContent>
         </Dialog>
+
+        {/* Reward Breakdown Modal */}
+        <RewardBreakdownModal
+          isOpen={showRewardBreakdown}
+          onClose={() => {
+            setShowRewardBreakdown(false);
+            clearLastBreakdown();
+          }}
+          breakdown={lastBreakdown}
+          activityName={`${topic} Quiz`}
+        />
       </Card>
      );
   }

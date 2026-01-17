@@ -93,7 +93,7 @@ const NoteEditorPage = () => {
     }
   }, [subjectIdValue, form]);
   
-  const backPath = pathname.includes('/admin/') ? '/admin/dashboard/notes' : '/teacher/notes';
+  const backPath = pathname.includes('/admin/') ? '/admin/notes' : '/teacher/notes';
   
   useEffect(() => {
     if (isNewNote) {

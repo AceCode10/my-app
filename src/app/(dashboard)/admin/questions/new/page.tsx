@@ -100,10 +100,10 @@ export default function NewQuestionPage() {
   async function fetchTopics(subjectId: string) {
     const { data } = await supabase
       .from('topics')
-      .select('id, name')
+      .select('id, name, display_order')
       .eq('subject_id', subjectId)
       .eq('status', 'published')
-      .order('name');
+      .order('display_order');
     
     setTopics(data || []);
   }

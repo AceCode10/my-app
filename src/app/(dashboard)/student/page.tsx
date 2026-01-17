@@ -20,8 +20,9 @@ import { ContinueWhereYouLeftOff } from '@/components/ContinueWhereYouLeftOff';
 import { EXAM_BOARDS } from '@/lib/exam-boards';
 import { getFriendlyName } from '@/lib/utils/name';
 import { getCountryName } from '@/lib/countries';
-import { XPProgressBar, StreakDisplay, BadgeDisplay } from '@/components/gamification';
+import { XPProgressBar, StreakDisplay, DailyGoalRing, DailyGoalsRow } from '@/components/gamification';
 import { useGamification } from '@/hooks/use-gamification';
+import { useDailyGoals } from '@/hooks/use-daily-goals';
 
 const supabase = createClient();
 
@@ -40,7 +41,8 @@ interface DashboardData {
 
 const StudentDashboard = () => {
   const { user, loading } = useUser();
-  const { gamification, loading: isLoadingGamification } = useGamification();
+  const { gamification, streakData, getLevelProgress, getXPToNextLevel, getLevelTitle, loading: isLoadingGamification } = useGamification();
+  const { goals, primaryGoal, isLoading: isLoadingGoals } = useDailyGoals();
 
   const userExamBoards = user?.exam_boards || [];
   const userLevel = user?.level;
@@ -182,28 +184,16 @@ const StudentDashboard = () => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-purple-600">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-purple-100 text-sm">Total XP</p>
-                <p className="text-3xl font-bold mt-1">{stats.xp.toLocaleString()}</p>
-                <p className="text-purple-100 text-xs mt-1">Keep learning!</p>
-              </div>
-              <div className="p-3 bg-white/20 rounded-full">
-                <Star className="h-6 w-6 text-white" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
+        {/* 1. Current Streak - First */}
         <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white border-orange-600">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-orange-100 text-sm">Current Streak</p>
-                <p className="text-3xl font-bold mt-1">{stats.streak}</p>
-                <p className="text-orange-100 text-xs mt-1">{stats.streak === 1 ? 'Day' : 'Days'} streak</p>
+                <p className="text-3xl font-bold mt-1">{streakData?.current_streak ?? stats.streak}</p>
+                <p className="text-orange-100 text-xs mt-1">
+                  {(streakData?.current_streak ?? stats.streak) === 1 ? 'Day' : 'Days'} streak
+                </p>
               </div>
               <div className="p-3 bg-white/20 rounded-full">
                 <Flame className="h-6 w-6 text-white" />
@@ -212,13 +202,30 @@ const StudentDashboard = () => {
           </CardContent>
         </Card>
 
+        {/* 2. Total XP */}
+        <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-purple-600">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-purple-100 text-sm">Total XP</p>
+                <p className="text-3xl font-bold mt-1">{(gamification?.xp ?? stats.xp).toLocaleString()}</p>
+                <p className="text-purple-100 text-xs mt-1">Level {gamification?.xp_level ?? 1}</p>
+              </div>
+              <div className="p-3 bg-white/20 rounded-full">
+                <Star className="h-6 w-6 text-white" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 3. Current Badge/Tier based on level */}
         <Card className="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white border-yellow-600">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-yellow-100 text-sm">Badges Earned</p>
-                <p className="text-3xl font-bold mt-1">{stats.badges}</p>
-                <p className="text-yellow-100 text-xs mt-1">Keep collecting!</p>
+                <p className="text-yellow-100 text-sm">Current Rank</p>
+                <p className="text-3xl font-bold mt-1">{getLevelTitle()}</p>
+                <p className="text-yellow-100 text-xs mt-1">Level {gamification?.xp_level ?? 1}</p>
               </div>
               <div className="p-3 bg-white/20 rounded-full">
                 <Award className="h-6 w-6 text-white" />
@@ -227,16 +234,58 @@ const StudentDashboard = () => {
           </CardContent>
         </Card>
 
+        {/* 4. Daily Goal Ring */}
         <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white border-green-600">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-green-100 text-sm">Average Score</p>
-                <p className="text-3xl font-bold mt-1">{stats.averageScore}%</p>
-                <p className="text-green-100 text-xs mt-1">Great progress!</p>
+                <p className="text-white/90 text-sm font-medium">Daily Goal</p>
+                {primaryGoal ? (
+                  <>
+                    <p className="text-3xl font-bold mt-1 text-white">
+                      {Math.round((primaryGoal.current_value / primaryGoal.target_value) * 100)}%
+                    </p>
+                    <p className="text-white/80 text-xs mt-1 font-medium">
+                      {primaryGoal.current_value}/{primaryGoal.target_value} {primaryGoal.goal_type === 'xp' ? 'XP' : primaryGoal.goal_type}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-3xl font-bold mt-1 text-white">--</p>
+                    <p className="text-white/80 text-xs mt-1">Set a goal</p>
+                  </>
+                )}
               </div>
-              <div className="p-3 bg-white/20 rounded-full">
-                <Target className="h-6 w-6 text-white" />
+              <div className="w-16 h-16 rounded-full bg-white/30 flex items-center justify-center">
+                {primaryGoal ? (
+                  <div className="relative w-12 h-12">
+                    <svg className="w-12 h-12 transform -rotate-90" viewBox="0 0 48 48">
+                      <circle
+                        cx="24"
+                        cy="24"
+                        r="20"
+                        fill="none"
+                        stroke="rgba(255,255,255,0.3)"
+                        strokeWidth="4"
+                      />
+                      <circle
+                        cx="24"
+                        cy="24"
+                        r="20"
+                        fill="none"
+                        stroke="white"
+                        strokeWidth="4"
+                        strokeLinecap="round"
+                        strokeDasharray={`${(primaryGoal.current_value / primaryGoal.target_value) * 125.6} 125.6`}
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Target className="h-5 w-5 text-white" />
+                    </div>
+                  </div>
+                ) : (
+                  <Target className="h-6 w-6 text-white" />
+                )}
               </div>
             </div>
           </CardContent>

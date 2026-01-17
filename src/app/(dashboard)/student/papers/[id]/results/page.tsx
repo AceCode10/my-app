@@ -43,6 +43,9 @@ import {
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { useUser } from '@/hooks/use-user';
+import { useActivityRewards } from '@/hooks/use-activity-rewards';
+import { RewardBreakdownModal } from '@/components/gamification';
 import { PastPaper, PaperQuestion, PaperAttemptAnswer } from '@/types/paper-practice';
 import { QuestionTextRenderer } from '@/components/questions/question-text-renderer';
 
@@ -64,6 +67,10 @@ export default function PaperResultsPage() {
   const [selfScore, setSelfScore] = useState<number | null>(null);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [rewardsProcessed, setRewardsProcessed] = useState(false);
+  const [showRewardBreakdown, setShowRewardBreakdown] = useState(false);
+  const { user } = useUser();
+  const { processExamPaper, lastBreakdown, clearLastBreakdown } = useActivityRewards();
 
   useEffect(() => {
     if (!attemptId) {
@@ -130,6 +137,47 @@ export default function PaperResultsPage() {
       setLoading(false);
     }
   }
+
+  // Process rewards when paper results are loaded
+  useEffect(() => {
+    async function awardPaperRewards() {
+      if (!user || !paper || !attempt || rewardsProcessed || loading) return;
+      if (attempt.status !== 'submitted') return; // Only for completed attempts
+      
+      const totalMarks = questions.reduce((sum, q) => sum + q.marks, 0);
+      const mcqQuestions = questions.filter(q => q.question_type === 'mcq' && q.correct_answer);
+      const mcqCorrect = mcqQuestions.filter(q => {
+        const ans = answers.get(q.id);
+        return ans?.selected_option === q.correct_answer;
+      }).length;
+      
+      const answeredCount = questions.filter(q => {
+        const ans = answers.get(q.id);
+        return ans && (ans.answer_text || ans.selected_option);
+      }).length;
+
+      const timeSpentMinutes = attempt.time_spent_seconds 
+        ? Math.round(attempt.time_spent_seconds / 60) 
+        : 30;
+
+      const breakdown = await processExamPaper({
+        paperId: paper.id,
+        paperName: paper.title,
+        score: mcqCorrect,
+        maxScore: mcqQuestions.length || answeredCount,
+        questionsAnswered: answeredCount,
+        correctAnswers: mcqCorrect,
+        timeSpentMinutes: Math.max(1, timeSpentMinutes),
+      });
+
+      setRewardsProcessed(true);
+      if (breakdown.totalXP > 0) {
+        setShowRewardBreakdown(true);
+      }
+    }
+
+    awardPaperRewards();
+  }, [user, paper, attempt, questions, answers, loading, rewardsProcessed]);
 
   async function handleSaveSelfAssessment() {
     if (!attemptId) return;
@@ -532,6 +580,17 @@ export default function PaperResultsPage() {
           Back to Papers
         </Button>
       </div>
+
+      {/* Reward Breakdown Modal */}
+      <RewardBreakdownModal
+        isOpen={showRewardBreakdown}
+        onClose={() => {
+          setShowRewardBreakdown(false);
+          clearLastBreakdown();
+        }}
+        breakdown={lastBreakdown}
+        activityName={paper?.title || 'Exam Paper'}
+      />
     </div>
   );
 }

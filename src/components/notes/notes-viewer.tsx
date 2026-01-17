@@ -21,6 +21,7 @@ import {
   Minimize2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { PDFSlideViewer } from './pdf-slide-viewer';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
@@ -299,6 +300,22 @@ export function NotesViewer({
       <div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
+    );
+  }
+
+  // Show PDF viewer as primary view when note has PDF
+  if (note.pdf_url) {
+    return (
+      <PDFSlideViewer
+        pdfUrl={note.pdf_url}
+        title={note.title}
+        subtitle={note.subtitle || undefined}
+        viewCount={note.view_count}
+        isDownloadable={note.is_downloadable}
+        onBookmark={handleToggleBookmark}
+        isBookmarked={isBookmarked}
+        className="min-h-screen"
+      />
     );
   }
 

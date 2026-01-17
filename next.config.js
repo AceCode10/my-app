@@ -106,9 +106,25 @@ const nextConfig = {
   
   // Bundle optimization
   webpack: (config, { dev, isServer }) => {
+    // Fix for react-pdf canvas issue
+    config.resolve.alias.canvas = false;
+    
+    // Fix for pdfjs-dist ESM issues in Next.js 15
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      'pdfjs-dist/build/pdf.worker.min.mjs': false,
+    };
+    
+    // Ensure pdfjs-dist is treated as external in server-side
+    if (isServer) {
+      config.externals = [...(config.externals || []), 'pdfjs-dist'];
+    }
+    
     if (!dev && !isServer) {
       config.optimization.splitChunks = {
         chunks: 'all',
+        maxInitialRequests: 25,
+        minSize: 20000,
         cacheGroups: {
           default: false,
           vendors: false,
@@ -119,10 +135,52 @@ const nextConfig = {
             priority: 40,
             enforce: true,
           },
+          // Separate heavy charting library
+          recharts: {
+            test: /[\\/]node_modules[\\/](recharts|d3-.*|victory.*)[\\/]/,
+            name: 'recharts',
+            chunks: 'all',
+            priority: 35,
+          },
+          // Separate PDF libraries
+          pdf: {
+            test: /[\\/]node_modules[\\/](jspdf|html2canvas|pdfjs-dist|@react-pdf)[\\/]/,
+            name: 'pdf-libs',
+            chunks: 'all',
+            priority: 35,
+          },
+          // Separate animation library
+          motion: {
+            test: /[\\/]node_modules[\\/](framer-motion)[\\/]/,
+            name: 'motion',
+            chunks: 'all',
+            priority: 35,
+          },
+          // Separate markdown/katex
+          markdown: {
+            test: /[\\/]node_modules[\\/](react-markdown|remark.*|rehype.*|katex|unified|unist.*)[\\/]/,
+            name: 'markdown',
+            chunks: 'all',
+            priority: 35,
+          },
+          // Supabase client
+          supabase: {
+            test: /[\\/]node_modules[\\/](@supabase)[\\/]/,
+            name: 'supabase',
+            chunks: 'all',
+            priority: 35,
+          },
+          // UI components (radix)
+          ui: {
+            test: /[\\/]node_modules[\\/](@radix-ui)[\\/]/,
+            name: 'ui-components',
+            chunks: 'all',
+            priority: 30,
+          },
           lib: {
             test(module) {
               return (
-                module.size() > 160000 &&
+                module.size() > 80000 &&
                 /node_modules[/\\]/.test(module.identifier())
               );
             },
@@ -131,7 +189,7 @@ const nextConfig = {
               hash.update(module.identifier());
               return hash.digest('hex').substring(0, 8);
             },
-            priority: 30,
+            priority: 25,
             minChunks: 1,
             reuseExistingChunk: true,
           },
@@ -150,7 +208,30 @@ const nextConfig = {
   // Experimental features for better performance
   experimental: {
     optimizeCss: true,
-    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+    optimizePackageImports: [
+      'lucide-react',
+      '@radix-ui/react-icons',
+      'recharts',
+      'date-fns',
+      'framer-motion',
+      '@radix-ui/react-accordion',
+      '@radix-ui/react-alert-dialog',
+      '@radix-ui/react-avatar',
+      '@radix-ui/react-checkbox',
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-dropdown-menu',
+      '@radix-ui/react-popover',
+      '@radix-ui/react-select',
+      '@radix-ui/react-tabs',
+      '@radix-ui/react-tooltip',
+    ],
+  },
+  
+  // Modularize imports for tree-shaking
+  modularizeImports: {
+    'lucide-react': {
+      transform: 'lucide-react/dist/esm/icons/{{kebabCase member}}',
+    },
   },
 };
 

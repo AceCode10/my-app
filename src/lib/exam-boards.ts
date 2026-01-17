@@ -16,7 +16,7 @@ export interface QualificationLevel {
   boards: string[]; // Which exam boards offer this level
 }
 
-// Exam boards supported by RevisionPlus
+// Exam boards supported by IGA Prep
 export const EXAM_BOARDS: ExamBoard[] = [
   { 
     id: 'cambridge', 

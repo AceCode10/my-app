@@ -84,11 +84,11 @@ function TeacherDashboardLayout({ children }: { children: React.ReactNode }) {
                         <div className="flex items-center justify-between h-16 px-4 border-b">
                             <Link href="/teacher" className="flex items-center space-x-2 min-w-0">
                                 <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center flex-shrink-0">
-                                    <span className="text-primary-foreground font-bold text-sm">R+</span>
+                                    <span className="text-primary-foreground font-bold text-sm">IGA</span>
                                 </div>
                                 {!sidebarCollapsed && (
                                     <div className="min-w-0">
-                                        <h1 className="text-sm font-bold text-foreground truncate">RevisionPlus</h1>
+                                        <h1 className="text-sm font-bold text-foreground truncate">IGA Prep</h1>
                                         <p className="text-xs text-muted-foreground">Teacher</p>
                                     </div>
                                 )}
@@ -244,7 +244,7 @@ function TeacherDashboardLayout({ children }: { children: React.ReactNode }) {
                     >
                         <Menu className="h-6 w-6" />
                     </button>
-                    <h1 className="text-lg font-semibold">RevisionPlus</h1>
+                    <h1 className="text-lg font-semibold">IGA Prep</h1>
                     <NotificationBell />
                 </header>
 

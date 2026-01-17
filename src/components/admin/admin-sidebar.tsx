@@ -72,7 +72,7 @@ export default function AdminSidebar({ adminRole }: AdminSidebarProps) {
       icon: LayoutDashboard,
       defaultOpen: true,
       items: [
-        { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
         { href: '/admin/users', label: 'User Management', icon: Users },
       ],
     },
@@ -106,7 +106,7 @@ export default function AdminSidebar({ adminRole }: AdminSidebarProps) {
       icon: LayoutDashboard,
       defaultOpen: true,
       items: [
-        { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
       ],
     },
     {

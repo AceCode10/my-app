@@ -59,6 +59,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { logCreate, logUpdate, logDelete } from '@/lib/audit';
+import { QUALIFICATION_LEVELS } from '@/lib/exam-boards';
 
 interface Subject {
   id: string;
@@ -108,17 +109,6 @@ interface Subtopic {
   status: 'draft' | 'pending' | 'published' | 'archived';
 }
 
-const EXAM_BOARDS_LEGACY = ['IGCSE', 'Edexcel', 'Cambridge', 'IB', 'AQA', 'OCR'];
-const LEVELS = [
-  { id: 'igcse', name: 'IGCSE' },
-  { id: 'gcse', name: 'GCSE' },
-  { id: 'as', name: 'AS Level' },
-  { id: 'a2', name: 'A2 Level' },
-  { id: 'alevel', name: 'A Level' },
-  { id: 'ib_myp', name: 'IB MYP' },
-  { id: 'ib_dp', name: 'IB DP' },
-  { id: 'ap', name: 'AP' },
-];
 const STATUSES = ['draft', 'pending', 'published', 'archived'] as const;
 
 export default function SubjectsPage() {
@@ -174,9 +164,18 @@ export default function SubjectsPage() {
         .from('subjects')
         .select(`
           *,
-          topics:topics(*)
+          topics:topics(*, display_order)
         `)
         .order('display_order', { ascending: true });
+
+      // Sort topics by display_order since Supabase doesn't support ordering nested relations
+      if (data) {
+        data.forEach((subject: any) => {
+          if (subject.topics) {
+            subject.topics.sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0));
+          }
+        });
+      }
 
       if (error) {
         console.error('Supabase error:', error);
@@ -1195,7 +1194,7 @@ function SubjectDialog({
                   <SelectValue placeholder="Select level" />
                 </SelectTrigger>
                 <SelectContent>
-                  {LEVELS.map((level) => (
+                  {QUALIFICATION_LEVELS.map((level) => (
                     <SelectItem key={level.id} value={level.id}>
                       {level.name}
                     </SelectItem>

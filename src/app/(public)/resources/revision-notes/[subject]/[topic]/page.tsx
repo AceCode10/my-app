@@ -10,6 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { createClient } from '@/lib/supabase/client';
+import { cn } from '@/lib/utils';
+import { ReactPDFViewer } from '@/components/notes/react-pdf-viewer';
 
 interface Note {
   id: string;
@@ -18,6 +20,7 @@ interface Note {
   slug: string;
   content_md: string;
   rendered_html?: string;
+  pdf_url?: string;
   view_count: number;
   visibility: string;
   tags?: string[];
@@ -38,6 +41,8 @@ interface Subject {
   name: string;
   slug: string;
   code?: string;
+  icon_url?: string;
+  color?: string;
 }
 
 export default function TopicNotesPage({
@@ -52,6 +57,7 @@ export default function TopicNotesPage({
   
   const [subject, setSubject] = useState<Subject | null>(null);
   const [topic, setTopic] = useState<Topic | null>(null);
+  const [allTopics, setAllTopics] = useState<Topic[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -91,6 +97,15 @@ export default function TopicNotesPage({
         throw new Error('Topic not found');
       }
       setTopic(topicData);
+
+      // Fetch all topics for this subject (for sidebar navigation) - ordered by syllabus order
+      const { data: allTopicsData } = await supabase
+        .from('topics')
+        .select('id, name, slug, display_order')
+        .eq('subject_id', subjectData.id)
+        .order('display_order', { ascending: true });
+
+      setAllTopics(allTopicsData || []);
 
       // Fetch notes for this topic
       const { data: notesData, error: notesError } = await supabase
@@ -219,7 +234,7 @@ export default function TopicNotesPage({
     );
   }
 
-  // Error or no notes state
+  // Error or no notes state - show with sidebar for navigation
   if (error || notes.length === 0) {
     return (
       <div className="py-8">
@@ -235,142 +250,166 @@ export default function TopicNotesPage({
           <span className="font-medium text-foreground">{topic?.name || topicSlug}</span>
         </div>
 
-        <Card className="text-center py-12">
-          <CardContent>
-            <BookOpen className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-foreground mb-2">No Notes Available</h2>
-            <p className="text-muted-foreground mb-6">
-              {error || `Revision notes for ${topic?.name || topicSlug} are being prepared. Check back soon!`}
-            </p>
-            <Button variant="outline" asChild>
-              <Link href={`/resources/revision-notes/${subjectSlug}`}>
-                <ChevronLeft className="w-4 h-4 mr-2" />
-                Back to Topics
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="flex gap-6">
+          {/* Sidebar with topics */}
+          {allTopics.length > 0 && (
+            <div className="w-64 flex-shrink-0">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <BookOpen className="w-4 h-4" />
+                    Topics
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <nav className="space-y-1">
+                    {allTopics.map((t) => (
+                      <Link
+                        key={t.id}
+                        href={`/resources/revision-notes/${subjectSlug}/${t.slug}`}
+                        className={cn(
+                          "block px-3 py-2 text-sm rounded-md transition-colors",
+                          t.slug === topicSlug 
+                            ? "bg-primary/10 text-primary font-medium" 
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        )}
+                      >
+                        {t.name}
+                      </Link>
+                    ))}
+                  </nav>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* No notes message */}
+          <div className="flex-1">
+            <Card className="text-center py-12">
+              <CardContent>
+                <BookOpen className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                <h2 className="text-2xl font-bold text-foreground mb-2">No Notes Available</h2>
+                <p className="text-muted-foreground mb-6">
+                  {error || `Revision notes for ${topic?.name || topicSlug} are being prepared. Check back soon!`}
+                </p>
+                <Button variant="outline" asChild>
+                  <Link href={`/resources/revision-notes/${subjectSlug}`}>
+                    <ChevronLeft className="w-4 h-4 mr-2" />
+                    Back to Topics
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="py-8">
-      {/* Breadcrumb */}
-      <div className="flex items-center text-sm text-muted-foreground mb-6">
-        <Link href="/resources/revision-notes" className="hover:text-primary">
-          Revision Notes
-        </Link>
-        <ChevronRight className="h-4 w-4 mx-1" />
-        <Link href={`/resources/revision-notes/${subjectSlug}`} className="hover:text-primary">
-          {subject?.name}
-        </Link>
-        <ChevronRight className="h-4 w-4 mx-1" />
-        <span className="font-medium text-foreground">{topic?.name}</span>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        {/* Sidebar - Notes list */}
-        <aside className="lg:col-span-1">
-          <Card className="sticky top-24">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Notes in this Topic</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {notes.map((note) => (
-                <button
-                  key={note.id}
-                  onClick={() => setSelectedNote(note)}
-                  className={`w-full text-left p-3 rounded-lg transition-colors ${
-                    selectedNote?.id === note.id
-                      ? 'bg-primary/10 border border-primary'
-                      : 'bg-muted/50 hover:bg-muted'
-                  }`}
-                >
-                  <p className="font-medium text-foreground text-sm line-clamp-2">{note.title}</p>
-                  {note.subtitle && (
-                    <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{note.subtitle}</p>
-                  )}
-                  <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
-                    <Eye className="w-3 h-3" />
-                    <span>{note.view_count || 0} views</span>
-                  </div>
-                </button>
-              ))}
-            </CardContent>
-          </Card>
-        </aside>
-
+    <div>
+      <div>
         {/* Main content */}
-        <main className="lg:col-span-3">
+        <main>
           {selectedNote && (
             <>
-              {/* Header */}
-              <div className="mb-6">
-                <div className="flex items-start justify-between gap-4 flex-wrap">
-                  <div>
-                    <h1 className="text-3xl font-extrabold text-foreground">{selectedNote.title}</h1>
-                    {selectedNote.subtitle && (
-                      <p className="text-lg text-muted-foreground mt-1">{selectedNote.subtitle}</p>
+              {/* Header - Only show Save/Share for PDF notes */}
+              {selectedNote.pdf_url ? (
+                <div className="flex justify-end gap-2 mb-1 -mt-2">
+                  <Button variant="outline" size="sm" onClick={handleSave}>
+                    {isSaved ? (
+                      <BookmarkCheck className="w-4 h-4 mr-2 text-primary" />
+                    ) : (
+                      <Bookmark className="w-4 h-4 mr-2" />
                     )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={handleSave}>
-                      {isSaved ? (
-                        <BookmarkCheck className="w-4 h-4 mr-2 text-primary" />
-                      ) : (
-                        <Bookmark className="w-4 h-4 mr-2" />
-                      )}
-                      {isSaved ? 'Saved' : 'Save'}
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={handleShare}>
-                      <Share2 className="w-4 h-4 mr-2" />
-                      Share
-                    </Button>
-                    {selectedNote.is_downloadable && (
-                      <Button size="sm" onClick={handleDownloadPdf} disabled={isDownloading}>
-                        {isDownloading ? (
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        ) : (
-                          <Download className="w-4 h-4 mr-2" />
-                        )}
-                        Download PDF
-                      </Button>
-                    )}
-                  </div>
+                    {isSaved ? 'Saved' : 'Save'}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleShare}>
+                    <Share2 className="w-4 h-4 mr-2" />
+                    Share
+                  </Button>
                 </div>
-
-                {/* Tags */}
-                {selectedNote.tags && selectedNote.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-4">
-                    {selectedNote.tags.map((tag) => (
-                      <Badge key={tag} variant="secondary">{tag}</Badge>
-                    ))}
+              ) : (
+                <div className="mb-6">
+                  <div className="flex items-start justify-between gap-4 flex-wrap">
+                    <div>
+                      <h1 className="text-3xl font-extrabold text-foreground">{selectedNote.title}</h1>
+                      {selectedNote.subtitle && (
+                        <p className="text-lg text-muted-foreground mt-1">{selectedNote.subtitle}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" onClick={handleSave}>
+                        {isSaved ? (
+                          <BookmarkCheck className="w-4 h-4 mr-2 text-primary" />
+                        ) : (
+                          <Bookmark className="w-4 h-4 mr-2" />
+                        )}
+                        {isSaved ? 'Saved' : 'Save'}
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={handleShare}>
+                        <Share2 className="w-4 h-4 mr-2" />
+                        Share
+                      </Button>
+                      {selectedNote.is_downloadable && (
+                        <Button size="sm" onClick={handleDownloadPdf} disabled={isDownloading}>
+                          {isDownloading ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <Download className="w-4 h-4 mr-2" />
+                          )}
+                          Download PDF
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
 
-              <Separator className="mb-6" />
+                  {/* Tags */}
+                  {selectedNote.tags && selectedNote.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-4">
+                      {selectedNote.tags.map((tag) => (
+                        <Badge key={tag} variant="secondary">{tag}</Badge>
+                      ))}
+                    </div>
+                  )}
+                  <Separator className="mt-6" />
+                </div>
+              )}
 
               {/* Note content */}
-              <Card>
-                <CardContent className="p-6 lg:p-8" ref={contentRef}>
-                  {selectedNote.rendered_html ? (
-                    <div 
-                      className="prose prose-slate dark:prose-invert max-w-none"
-                      dangerouslySetInnerHTML={{ __html: selectedNote.rendered_html }}
-                    />
-                  ) : selectedNote.content_md ? (
-                    <div className="prose prose-slate dark:prose-invert max-w-none whitespace-pre-wrap">
-                      {selectedNote.content_md}
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground text-center py-8">
-                      No content available for this note.
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
+              {selectedNote.pdf_url ? (
+                <ReactPDFViewer
+                  pdfUrl={selectedNote.pdf_url}
+                  title={selectedNote.title}
+                  topics={allTopics}
+                  currentTopicSlug={topicSlug}
+                  subjectSlug={subjectSlug}
+                  subjectName={subject?.name}
+                  subjectCode={subject?.code}
+                  subjectIcon={subject?.icon_url}
+                  subjectColor={subject?.color}
+                  className="min-h-[600px]"
+                />
+              ) : (
+                <Card>
+                  <CardContent className="p-6 lg:p-8" ref={contentRef}>
+                    {selectedNote.rendered_html ? (
+                      <div 
+                        className="prose prose-slate dark:prose-invert max-w-none"
+                        dangerouslySetInnerHTML={{ __html: selectedNote.rendered_html }}
+                      />
+                    ) : selectedNote.content_md ? (
+                      <div className="prose prose-slate dark:prose-invert max-w-none whitespace-pre-wrap">
+                        {selectedNote.content_md}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-center py-8">
+                        No content available for this note.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Navigation */}
               <div className="flex justify-between mt-8">

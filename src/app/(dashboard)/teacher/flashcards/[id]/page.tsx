@@ -90,9 +90,9 @@ const FlashcardDeckEditorPage = () => {
             }
             const { data } = await supabase
                 .from('topics')
-                .select('id, name, subject_id')
+                .select('id, name, subject_id, display_order')
                 .eq('subject_id', selectedSubjectId)
-                .order('name');
+                .order('display_order');
             if (data) setTopics(data);
         }
         fetchTopics();

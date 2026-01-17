@@ -1,10 +1,12 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { SubjectCard } from '@/components/subject-card';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, BookOpen, GraduationCap, Globe, Settings } from 'lucide-react';
+import { PlusCircle, BookOpen, GraduationCap, Globe, Settings, Trash2, X } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useUser } from '@/hooks/use-user';
 import { createClient } from '@/lib/supabase/client';
@@ -12,7 +14,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { EXAM_BOARDS } from '@/lib/exam-boards';
 import { getCountryName } from '@/lib/countries';
-import { SubjectsGrid } from '@/components/subjects-grid';
 
 const supabase = createClient();
 
@@ -33,6 +34,9 @@ interface UserSubject {
 
 export default function TeacherSubjectsPage() {
   const { user, loading: userLoading } = useUser();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [editMode, setEditMode] = useState(false);
 
   const userExamBoards = user?.exam_boards || [];
   const userLevels = user?.levels || [];
@@ -68,6 +72,7 @@ export default function TeacherSubjectsPage() {
       if (!us.subjects) return null;
       return {
         id: us.subjects.id,
+        userSubjectId: us.id,
         name: us.subjects.display_name || us.subjects.name,
         slug: us.subjects.slug,
         code: us.subjects.code,
@@ -76,6 +81,24 @@ export default function TeacherSubjectsPage() {
       };
     })
     .filter(Boolean);
+
+  // Mutation for removing a subject
+  const removeSubjectMutation = useMutation({
+    mutationFn: async (userSubjectId: string) => {
+      const { error } = await supabase
+        .from('user_subjects')
+        .delete()
+        .eq('id', userSubjectId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-subjects'] });
+      toast({ title: 'Subject removed', description: 'The subject has been removed from your dashboard.' });
+    },
+    onError: (error: any) => {
+      toast({ variant: 'destructive', title: 'Error', description: error.message || 'Could not remove subject.' });
+    },
+  });
 
   if (userLoading) {
     return (
@@ -103,12 +126,26 @@ export default function TeacherSubjectsPage() {
             Subjects you teach - manage content and track student progress
           </p>
         </div>
-        <Button asChild>
-          <Link href="/teacher/subjects/add">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add Subjects
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          {mySubjects.length > 0 && (
+            <Button 
+              variant={editMode ? "default" : "outline"}
+              onClick={() => setEditMode(!editMode)}
+            >
+              {editMode ? (
+                <><X className="mr-2 h-4 w-4" />Done</>
+              ) : (
+                <><Trash2 className="mr-2 h-4 w-4" />Edit</>
+              )}
+            </Button>
+          )}
+          <Button asChild>
+            <Link href="/teacher/subjects/add">
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Add Subjects
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* User preferences summary card */}
@@ -166,18 +203,12 @@ export default function TeacherSubjectsPage() {
         <Card className="text-center p-12 border-dashed">
           <BookOpen className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
           <h3 className="text-xl font-semibold text-foreground mb-2">No Subjects Selected</h3>
-          <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+          <p className="text-muted-foreground max-w-md mx-auto">
             {user?.onboarding_completed 
-              ? "You skipped subject selection during setup. Add subjects you teach to get started!"
-              : "Add subjects you teach to manage content and track student progress."
+              ? "You skipped subject selection during setup. Use the 'Add Subjects' button above to get started!"
+              : "Use the 'Add Subjects' button above to add subjects you teach."
             }
           </p>
-          <Button asChild size="lg">
-            <Link href="/teacher/subjects/add">
-              <PlusCircle className="mr-2 h-5 w-5" />
-              Add Your Subjects
-            </Link>
-          </Button>
         </Card>
       ) : (
         <>
@@ -191,44 +222,29 @@ export default function TeacherSubjectsPage() {
           {/* Subject cards grid */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
             {mySubjects.map((subject) => subject && (
-              <SubjectCard 
-                key={subject.slug}
-                name={subject.name}
-                code={subject.code}
-                icon={subject.icon_url}
-                path={`/teacher/subjects/${subject.slug}`}
-                color={subject.color}
-                showProgress={false}
-              />
+              <div key={subject.slug} className="relative group">
+                {editMode && (
+                  <button
+                    onClick={() => removeSubjectMutation.mutate(subject.userSubjectId)}
+                    className="absolute -top-2 -right-2 z-10 bg-destructive text-destructive-foreground rounded-full p-1.5 shadow-lg hover:bg-destructive/90 transition-colors"
+                    title="Remove subject"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+                <SubjectCard 
+                  name={subject.name}
+                  code={subject.code}
+                  icon={subject.icon_url}
+                  path={editMode ? '' : `/teacher/subjects/${subject.slug}`}
+                  color={subject.color}
+                  showProgress={false}
+                />
+              </div>
             ))}
           </div>
-
-          {/* Add more subjects prompt */}
-          <Card className="mt-8 border-dashed">
-            <CardContent className="flex items-center justify-between py-4">
-              <div>
-                <p className="font-medium">Teaching more subjects?</p>
-                <p className="text-sm text-muted-foreground">Add more subjects to your teaching dashboard</p>
-              </div>
-              <Button variant="outline" asChild>
-                <Link href="/teacher/subjects/add">
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  Browse Subjects
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
         </>
       )}
-
-      {/* Browse All Subjects Section */}
-      <div className="pt-8 border-t">
-        <h2 className="text-xl font-semibold mb-4">Browse All Subjects</h2>
-        <SubjectsGrid 
-          basePath="/teacher/subjects"
-          showAlphaFilter={true}
-        />
-      </div>
     </div>
   );
 }

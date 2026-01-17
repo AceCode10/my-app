@@ -1,5 +1,0 @@
-'use client';
-
-// BACKUP - Original Firebase version
-// This file contains the original Firebase implementation
-// Moved to backup while migrating to Supabase

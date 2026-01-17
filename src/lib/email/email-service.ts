@@ -334,7 +334,7 @@ export class EmailService {
               <p><strong>Class:</strong> ${assignment.class?.name}</p>
               <p><strong>Due:</strong> ${dueDate}</p>
               ${assignment.instructions ? `<p><strong>Instructions:</strong> ${assignment.instructions}</p>` : ''}
-              <p>Log in to IGCSE Simplified to get started!</p>
+              <p>Log in to IGA Prep to get started!</p>
             `,
             text_content: `New assignment: ${testTitle}. Due: ${dueDate}`,
             priority: 3,

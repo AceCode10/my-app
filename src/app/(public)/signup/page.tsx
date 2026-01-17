@@ -283,11 +283,11 @@ function SignupContent() {
                 }
 
                 // If no email confirmation needed, redirect to dashboard
-                toast({ title: 'Account Created!', description: 'Welcome to RevisionPlus!' });
+                toast({ title: 'Account Created!', description: 'Welcome to IGA Prep!' });
                 
                 // Redirect based on role
                 if (role === 'super_admin') {
-                    router.push('/admin/dashboard');
+                    router.push('/admin');
                 } else if (role === 'teacher') {
                     router.push('/teacher');
                 } else {

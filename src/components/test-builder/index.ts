@@ -7,3 +7,4 @@ export { QuestionBankBrowser } from './QuestionBankBrowser';
 export { TestComposer } from './TestComposer';
 export { TestConfiguration } from './TestConfiguration';
 export { TestPreview } from './TestPreview';
+export { TestPDFExport } from './TestPDFExport';

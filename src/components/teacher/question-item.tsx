@@ -27,7 +27,7 @@ export const QuestionItem = ({ question, index, quizId, onDelete }: QuestionItem
     }
 
     const handleEdit = () => {
-        const basePath = pathname.includes('/admin/') ? '/admin/dashboard' : '/teacher/dashboard';
+        const basePath = pathname.includes('/admin/') ? '/admin' : '/teacher/dashboard';
         router.push(`${basePath}/questions/${question.id}?quizId=${quizId}`);
     }
 

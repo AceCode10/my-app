@@ -15,7 +15,7 @@ export default function UnauthorizedPage() {
     const role = user?.role;
     // Check for super_admin, content_moderator, or teacher roles
     if (role === 'super_admin' || role === 'content_moderator') {
-      return '/admin/dashboard';
+      return '/admin';
     }
     if (role === 'teacher') {
       return '/teacher';

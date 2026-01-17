@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Menu, Search, ChevronDown, BookOpen, Layers, FileText, Target } from "lucide-react";
+import { Menu, Search, ChevronDown, BookOpen, Layers, FileText, Target, User } from "lucide-react";
 import { useRouter } from 'next/navigation';
+import { useUser } from '@/hooks/use-user';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,6 +32,7 @@ export default function PublicLayout({
     const [searchQuery, setSearchQuery] = useState('');
     const [isClient, setIsClient] = useState(false);
     const router = useRouter();
+    const { user, loading: userLoading } = useUser();
 
     useEffect(() => {
         setIsClient(true);
@@ -55,7 +58,7 @@ export default function PublicLayout({
             <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between h-16">
                     <div className="flex-shrink-0">
-                        <Link href="/" className="text-2xl font-bold text-foreground">Revision<span className="text-primary">Plus</span></Link>
+                        <Link href="/" className="text-2xl font-bold text-foreground">IGA<span className="text-primary">Prep</span></Link>
                     </div>
                     <nav className="hidden md:flex items-center space-x-1">
                         {isClient && (
@@ -127,12 +130,27 @@ export default function PublicLayout({
                         </form>
                     </nav>
                     <div className="hidden md:flex items-center space-x-2">
-                        <Button asChild variant="ghost">
-                            <Link href="/login">Log In</Link>
-                        </Button>
-                        <Button asChild>
-                            <Link href="/signup">Get Started</Link>
-                        </Button>
+                        {userLoading ? (
+                            <div className="w-10 h-10 rounded-full bg-muted animate-pulse" />
+                        ) : user ? (
+                            <Link href={user.role === 'teacher' ? '/teacher' : user.role === 'super_admin' || user.role === 'content_moderator' ? '/admin' : '/student'}>
+                                <Avatar className="h-10 w-10 cursor-pointer hover:ring-2 hover:ring-primary transition-all">
+                                    <AvatarImage src={user.avatar_url || undefined} alt={user.display_name || 'User'} />
+                                    <AvatarFallback className="bg-primary text-primary-foreground">
+                                        {(user.display_name || user.email || 'U').charAt(0).toUpperCase()}
+                                    </AvatarFallback>
+                                </Avatar>
+                            </Link>
+                        ) : (
+                            <>
+                                <Button asChild variant="ghost">
+                                    <Link href="/login">Log In</Link>
+                                </Button>
+                                <Button asChild>
+                                    <Link href="/signup">Get Started</Link>
+                                </Button>
+                            </>
+                        )}
                     </div>
                     <div className="md:hidden">
                         <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 rounded-md text-muted-foreground hover:bg-muted">
@@ -154,12 +172,22 @@ export default function PublicLayout({
                     </div>
                     <div className="pt-4 pb-3 border-t">
                         <div className="px-5">
-                            <Button asChild className="w-full">
-                                <Link href="/signup">Get Started</Link>
-                            </Button>
-                            <p className="mt-3 text-center text-sm">
-                                Already have an account? <Link href="/login" className="font-medium text-primary">Log In</Link>
-                            </p>
+                            {user ? (
+                                <Button asChild className="w-full">
+                                    <Link href={user.role === 'teacher' ? '/teacher' : user.role === 'super_admin' || user.role === 'content_moderator' ? '/admin' : '/student'}>
+                                        Go to Dashboard
+                                    </Link>
+                                </Button>
+                            ) : (
+                                <>
+                                    <Button asChild className="w-full">
+                                        <Link href="/signup">Get Started</Link>
+                                    </Button>
+                                    <p className="mt-3 text-center text-sm">
+                                        Already have an account? <Link href="/login" className="font-medium text-primary">Log In</Link>
+                                    </p>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -172,8 +200,8 @@ export default function PublicLayout({
             <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
                 <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-8">
                     <div className="col-span-full lg:col-span-1 mb-4 lg:mb-0">
-                         <h3 className="text-xl font-bold text-foreground">Revision<span className="text-primary">Plus</span></h3>
-                         <p className="mt-2 text-sm">The best revision materials for GCSE, IGCSE, AS & A Level.</p>
+                         <h3 className="text-xl font-bold text-foreground">IGA<span className="text-primary">Prep</span></h3>
+                         <p className="mt-2 text-sm">The best revision materials for IGCSE, GCSE & A-Levels.</p>
                     </div>
                     <div>
                         <h3 className="text-sm font-semibold text-foreground tracking-wider uppercase">Product</h3>
@@ -208,7 +236,7 @@ export default function PublicLayout({
                     </div>
                 </div>
                 <div className="mt-8 border-t pt-8 text-center">
-                    <p>&copy; {new Date().getFullYear()} RevisionPlus. All rights reserved.</p>
+                    <p>&copy; {new Date().getFullYear()} IGA Prep. All rights reserved.</p>
                 </div>
             </div>
       </footer>

@@ -36,7 +36,7 @@ export interface PastPaper {
   is_specimen: boolean;
   
   // Relations
-  subject?: { id: string; name: string; slug: string };
+  subject?: { id: string; name: string; slug: string; level?: string };
   exam_board_rel?: ExamBoard;
   questions?: PaperQuestion[];
   question_count?: number;
