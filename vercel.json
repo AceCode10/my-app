@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/v1/attempts/auto-submit-expired",
-      "schedule": "* * * * *"
+      "schedule": "0 2 * * *"
     }
   ]
 }
