@@ -190,7 +190,10 @@ def get_capabilities():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
+    debug_mode = os.environ.get('FLASK_ENV') != 'production'
+    
     print(f"Starting Python PDF Parser Service on port {port}")
+    print(f"Environment: {os.environ.get('FLASK_ENV', 'development')}")
     print(f"Text parsing available: {PDF_PARSER_AVAILABLE}")
     print(f"Image conversion available: {IMAGE_CONVERTER_AVAILABLE}")
     
@@ -199,4 +202,4 @@ if __name__ == '__main__':
         print("  pip install pdf2image Pillow")
         print("  And install poppler-utils (system dependency)")
     
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(host='0.0.0.0', port=port, debug=debug_mode)
