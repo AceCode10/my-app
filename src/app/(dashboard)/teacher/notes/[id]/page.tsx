@@ -18,7 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { ArrowLeft, Loader2, Bot } from 'lucide-react';
-import { generateRevisionNote } from '@/lib/ai-placeholders';
+// AI features have been disabled - using manual note creation instead
 import withRole from '@/hooks/withRole';
 import { allSubjects } from '@/lib/subjects';
 
@@ -158,9 +158,13 @@ const NoteEditorPage = () => {
     toast({ title: 'AI Generating...', description: `Creating note content for ${topicIdValue}.` });
     try {
       const topicName = topics?.find(t => t.name.toLowerCase().replace(/ /g, '-') === topicIdValue)?.name || topicIdValue;
-      const result = await generateRevisionNote({ topic: topicName });
-      form.setValue('renderedHtml', result.htmlContent, { shouldValidate: true });
-      toast({ title: 'Content Generated!', description: 'The AI-generated content has been added.' });
+      // AI note generation disabled - please create content manually
+      toast({
+        title: 'AI Features Disabled',
+        description: 'Please create note content manually using the rich text editor.',
+        variant: 'destructive'
+      });
+      return;
     } catch (error) {
       console.error('Error generating note content:', error);
       toast({ variant: 'destructive', title: 'AI Generation Failed', description: 'Could not generate note content.' });

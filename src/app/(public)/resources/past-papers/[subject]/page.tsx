@@ -252,20 +252,14 @@ export default function SubjectPastPapersPage({
       {/* Header */}
       <div className="mb-8">
         {isLoading ? (
-          <>
-            <Skeleton className="h-10 w-64 mb-2" />
-            <Skeleton className="h-5 w-96" />
-          </>
+          <Skeleton className="h-10 w-64" />
         ) : (
-          <>
+          <div className="flex items-center gap-3">
             <h1 className="text-3xl font-extrabold text-foreground">
-              {subject?.name} Past Papers
+              {subject?.name}
             </h1>
-            <div className="text-muted-foreground mt-2 flex items-center flex-wrap gap-2">
-              {subject?.code && <Badge variant="outline">{subject.code}</Badge>}
-              <span>Download question papers and mark schemes for {subject?.name}</span>
-            </div>
-          </>
+            {subject?.code && <Badge variant="outline">{subject.code}</Badge>}
+          </div>
         )}
       </div>
 

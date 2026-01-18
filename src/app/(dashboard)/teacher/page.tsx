@@ -149,7 +149,7 @@ const DashboardView = ({
         <div className="flex flex-col md:flex-row justify-between md:items-start gap-4">
             <div>
                 <h2 className="text-3xl font-bold text-foreground">Welcome back, {getFriendlyName(user?.display_name, user?.email)}!</h2>
-                <p className="text-muted-foreground mt-1">Here's a summary of your teaching dashboard.</p>
+                <p className="text-muted-foreground mt-1">Your teaching overview at a glance</p>
             </div>
             <div className="flex flex-col items-end gap-2">
                 <div className="flex flex-wrap items-center gap-3 justify-end">
@@ -243,10 +243,10 @@ const DashboardView = ({
                     <Layers className="h-5 w-5 text-primary" />
                     Quick Actions
                 </CardTitle>
-                <CardDescription>Manage your teaching activities</CardDescription>
+                <CardDescription>Get things done quickly</CardDescription>
             </CardHeader>
             <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
                     <Button variant="default" className="h-20 flex-col gap-2 relative" asChild>
                         <Link href="/teacher/submissions">
                             <ClipboardCheck className="h-6 w-6" />

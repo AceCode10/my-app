@@ -68,7 +68,7 @@ export class XPService {
   }
 
   /**
-   * Get user's current gamification profile
+   * Get user's current gamification profile (creates one if it doesn't exist)
    */
   async getUserGamification(userId: string): Promise<UserGamification | null> {
     try {
@@ -78,7 +78,11 @@ export class XPService {
         .eq('user_id', userId)
         .single();
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
+      if (error) {
+        // If record doesn't exist, create it
+        if (error.code === 'PGRST116' || error.code === '406') {
+          return await this.initializeUserGamification(userId);
+        }
         console.error('Error fetching gamification data:', error);
         return null;
       }
@@ -86,6 +90,50 @@ export class XPService {
       return data;
     } catch (error) {
       console.error('Error in getUserGamification:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Initialize gamification record for a new user
+   */
+  async initializeUserGamification(userId: string): Promise<UserGamification | null> {
+    try {
+      const { data, error } = await this.supabase
+        .from('user_gamification')
+        .insert({
+          user_id: userId,
+          total_xp: 0,
+          xp_this_week: 0,
+          xp_level: 1,
+          xp_progress_to_next_level: 0,
+          xp_needed_for_next_level: 100,
+          current_streak: 0,
+          longest_streak: 0,
+          total_quizzes_completed: 0,
+          total_notes_viewed: 0,
+          total_time_spent_minutes: 0
+        })
+        .select()
+        .single();
+
+      if (error) {
+        // If already exists (race condition), fetch it
+        if (error.code === '23505') {
+          const { data: existingData } = await this.supabase
+            .from('user_gamification')
+            .select('*')
+            .eq('user_id', userId)
+            .single();
+          return existingData;
+        }
+        console.error('Error initializing gamification:', error);
+        return null;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error in initializeUserGamification:', error);
       return null;
     }
   }

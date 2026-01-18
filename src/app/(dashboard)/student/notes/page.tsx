@@ -267,12 +267,12 @@ export default function StudentNotesPage() {
           Revision Notes
         </h1>
         <p className="text-muted-foreground mt-1">
-          Study notes organized by topic with progress tracking
+          Track your reading progress across all topics
         </p>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">

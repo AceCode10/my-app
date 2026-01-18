@@ -131,19 +131,11 @@ export default function SubjectRevisionNotesPage({
       {/* Header */}
       <div className="mb-8">
         {isLoading ? (
-          <>
-            <Skeleton className="h-10 w-64 mb-2" />
-            <Skeleton className="h-5 w-96" />
-          </>
+          <Skeleton className="h-10 w-64" />
         ) : (
-          <>
-            <h1 className="text-3xl font-extrabold text-foreground">
-              {subject?.name} - Revision Notes
-            </h1>
-            <p className="text-muted-foreground mt-2">
-              Select a topic to view comprehensive revision notes with key concepts and examples.
-            </p>
-          </>
+          <h1 className="text-3xl font-extrabold text-foreground">
+            {subject?.name}
+          </h1>
         )}
       </div>
 

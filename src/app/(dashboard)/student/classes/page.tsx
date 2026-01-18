@@ -308,7 +308,7 @@ export default function ClassesPage() {
     return (
         <div className="">
             <h2 className="text-3xl font-bold text-foreground mb-4">My Classes</h2>
-            <p className="text-muted-foreground mb-8">View your current classes or join a new one.</p>
+            <p className="text-muted-foreground mb-8">View enrolled classes or join with a code</p>
             
             {/* Pending Invitations Section */}
             {!isLoadingInvitations && invitations.length > 0 && (

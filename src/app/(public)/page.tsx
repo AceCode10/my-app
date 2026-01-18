@@ -300,7 +300,7 @@ export default function LandingPage() {
                         <RotatingText />
                     </h1>
                     <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
-                        The ultimate revision platform for IGCSE, GCSE, AS & A Level students. Access topical questions, past papers, and achieve top grades.
+                        Topical questions, past papers, and revision notes for IGCSE, GCSE & A Level.
                     </p>
                     <div className="flex flex-col sm:flex-row justify-center gap-4">
                         <Button asChild size="lg" className="shadow-lg">
@@ -318,7 +318,7 @@ export default function LandingPage() {
                 <div className="container mx-auto px-4">
                     <div className="text-center mb-6">
                         <h2 className="text-2xl md:text-3xl font-bold text-foreground">Supported Exam Boards</h2>
-                        <p className="text-muted-foreground mt-2">Comprehensive coverage across all major examination boards</p>
+                        <p className="text-muted-foreground mt-2">All major exam boards supported</p>
                     </div>
                 </div>
                 <ExamBoardCarousel />
@@ -334,7 +334,7 @@ export default function LandingPage() {
                 <div className="container mx-auto px-4">
                     <div className="text-center mb-12">
                         <h2 className="text-3xl md:text-4xl font-bold text-foreground">Why Choose Us?</h2>
-                        <p className="text-lg text-muted-foreground mt-2">Everything you need to succeed in one place.</p>
+                        <p className="text-lg text-muted-foreground mt-2">Everything you need in one place.</p>
                     </div>
                     <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
                         <Card className="hover:shadow-xl hover:-translate-y-2 transition-transform duration-300">
@@ -343,7 +343,7 @@ export default function LandingPage() {
                                 <Zap className="h-4 w-4 text-muted-foreground" />
                             </CardHeader>
                             <CardContent>
-                                <p className="text-xs text-muted-foreground">Engage with dynamic quizzes that adapt to your learning style.</p>
+                                <p className="text-xs text-muted-foreground">Dynamic quizzes with instant feedback.</p>
                             </CardContent>
                         </Card>
                         <Card className="hover:shadow-xl hover:-translate-y-2 transition-transform duration-300">
@@ -352,7 +352,7 @@ export default function LandingPage() {
                                 <Users className="h-4 w-4 text-muted-foreground" />
                             </CardHeader>
                             <CardContent>
-                                <p className="text-xs text-muted-foreground">Tailored dashboards for both students and teachers to track progress.</p>
+                                <p className="text-xs text-muted-foreground">Dedicated dashboards for students and teachers.</p>
                             </CardContent>
                         </Card>
                         <Card className="hover:shadow-xl hover:-translate-y-2 transition-transform duration-300">
@@ -361,7 +361,7 @@ export default function LandingPage() {
                                 <BookOpen className="h-4 w-4 text-muted-foreground" />
                             </CardHeader>
                             <CardContent>
-                                <p className="text-xs text-muted-foreground">Curated by experienced educators to match exam board syllabuses.</p>
+                                <p className="text-xs text-muted-foreground">Syllabus-aligned content from expert educators.</p>
                             </CardContent>
                         </Card>
                         <Card className="hover:shadow-xl hover:-translate-y-2 transition-transform duration-300">
@@ -370,7 +370,7 @@ export default function LandingPage() {
                                 <CheckCircle className="h-4 w-4 text-muted-foreground" />
                             </CardHeader>
                             <CardContent>
-                                <p className="text-xs text-muted-foreground">Get instant, detailed feedback to understand your strengths and weaknesses.</p>
+                                <p className="text-xs text-muted-foreground">Instant feedback on your performance.</p>
                             </CardContent>
                         </Card>
                     </div>
@@ -409,7 +409,7 @@ export default function LandingPage() {
             <section className="py-16 sm:py-20 bg-primary text-primary-foreground">
                 <div className="container mx-auto px-4 text-center">
                     <h2 className="text-3xl md:text-4xl font-bold mb-4">Ready to Get Started?</h2>
-                    <p className="text-lg mb-8 opacity-90">Join thousands of users and start your journey to IGCSE success today.</p>
+                    <p className="text-lg mb-8 opacity-90">Join thousands of students achieving top grades.</p>
                     <Button asChild size="lg" variant="secondary" className="shadow-lg">
                         <Link href="/signup">Sign Up Now</Link>
                     </Button>

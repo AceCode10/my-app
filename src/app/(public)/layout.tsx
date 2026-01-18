@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Menu, Search, ChevronDown, BookOpen, Layers, FileText, Target, User } from "lucide-react";
+import { Menu, Search, ChevronDown, BookOpen, Layers, FileText, Target, User, LogOut, LayoutDashboard, Sparkles } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/hooks/use-user';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -133,14 +133,49 @@ export default function PublicLayout({
                         {userLoading ? (
                             <div className="w-10 h-10 rounded-full bg-muted animate-pulse" />
                         ) : user ? (
-                            <Link href={user.role === 'teacher' ? '/teacher' : user.role === 'super_admin' || user.role === 'content_moderator' ? '/admin' : '/student'}>
-                                <Avatar className="h-10 w-10 cursor-pointer hover:ring-2 hover:ring-primary transition-all">
-                                    <AvatarImage src={user.avatar_url || undefined} alt={user.display_name || 'User'} />
-                                    <AvatarFallback className="bg-primary text-primary-foreground">
-                                        {(user.display_name || user.email || 'U').charAt(0).toUpperCase()}
-                                    </AvatarFallback>
-                                </Avatar>
-                            </Link>
+                            <>
+                                {/* Upgrade Button - show for non-premium users */}
+                                {user.subscription_tier === 'free' && (
+                                    <Button asChild className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold">
+                                        <Link href="/pricing">
+                                            <Sparkles className="w-4 h-4 mr-1" />
+                                            Upgrade
+                                        </Link>
+                                    </Button>
+                                )}
+                                {/* Avatar with Dropdown */}
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Avatar className="h-10 w-10 cursor-pointer hover:ring-2 hover:ring-primary transition-all">
+                                            <AvatarImage src={user.avatar_url || undefined} alt={user.display_name || 'User'} />
+                                            <AvatarFallback className="bg-primary text-primary-foreground">
+                                                {(user.display_name || user.email || 'U').charAt(0).toUpperCase()}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-48">
+                                        <DropdownMenuItem asChild>
+                                            <Link href={user.role === 'teacher' ? '/teacher' : user.role === 'super_admin' || user.role === 'content_moderator' ? '/admin' : '/student'} className="cursor-pointer">
+                                                <LayoutDashboard className="mr-2 h-4 w-4" />
+                                                Dashboard
+                                            </Link>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem 
+                                            onClick={async () => {
+                                                const { createClient } = await import('@/lib/supabase/client');
+                                                const supabase = createClient();
+                                                await supabase.auth.signOut();
+                                                router.push('/');
+                                                router.refresh();
+                                            }}
+                                            className="cursor-pointer text-destructive focus:text-destructive"
+                                        >
+                                            <LogOut className="mr-2 h-4 w-4" />
+                                            Logout
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </>
                         ) : (
                             <>
                                 <Button asChild variant="ghost">

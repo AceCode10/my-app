@@ -38,13 +38,38 @@ export function useRealtimeGamification(options: RealtimeGamificationOptions) {
   useEffect(() => {
     if (!userId) return;
 
-    // Initial fetch
+    // Initial fetch (creates record if doesn't exist)
     const fetchInitialData = async () => {
-      const { data } = await supabase
+      let { data, error } = await supabase
         .from('user_gamification')
         .select('*')
         .eq('user_id', userId)
         .single();
+
+      // If record doesn't exist, create it
+      if (error && (error.code === 'PGRST116' || error.code === '406')) {
+        const { data: newData, error: insertError } = await supabase
+          .from('user_gamification')
+          .insert({
+            user_id: userId,
+            total_xp: 0,
+            xp_this_week: 0,
+            xp_level: 1,
+            xp_progress_to_next_level: 0,
+            xp_needed_for_next_level: 100,
+            current_streak: 0,
+            longest_streak: 0,
+            total_quizzes_completed: 0,
+            total_notes_viewed: 0,
+            total_time_spent_minutes: 0
+          })
+          .select()
+          .single();
+        
+        if (!insertError) {
+          data = newData;
+        }
+      }
 
       if (data) {
         prevValues.current = {

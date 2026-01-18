@@ -23,7 +23,7 @@ import { useUser } from '@/hooks/use-user';
 import { createClient } from '@/lib/supabase/client';
 import type { Quiz, Question, QuizAttempt } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { generateQuizQuestions, generateModelAnswer, GenerateModelAnswerOutput } from '@/lib/ai-placeholders';
+// AI features have been disabled - using manual question creation instead
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -55,7 +55,8 @@ export function QuizClient({ topic, classId }: QuizClientProps) {
   const [answerLog, setAnswerLog] = useState<AnswerRecord[]>([]);
   const [isLoadingAi, setIsLoadingAi] = useState(false);
   const [isFeedbackLoading, setIsFeedbackLoading] = useState(false);
-  const [feedbackData, setFeedbackData] = useState<GenerateModelAnswerOutput | null>(null);
+  // AI feedback disabled - manual feedback only
+  const [feedbackMessage, setFeedbackMessage] = useState<string>('');
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
 
   const supabase = createClient();
@@ -108,7 +109,13 @@ export function QuizClient({ topic, classId }: QuizClientProps) {
             description: 'Generating a new quiz with AI. This may take a moment...'
         });
         
-        const aiResult = await generateQuizQuestions({ topic, numQuestions: 5 });
+        // AI quiz generation disabled - please create questions manually
+        toast({
+          title: 'AI Features Disabled',
+          description: 'Please create questions manually in the admin panel.',
+          variant: 'destructive'
+        });
+        return;
         
         const aiQuiz: Quiz = {
             id: `ai-${Date.now()}`,

@@ -208,7 +208,7 @@ const StudentDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-purple-100 text-sm">Total XP</p>
-                <p className="text-3xl font-bold mt-1">{(gamification?.xp ?? stats.xp).toLocaleString()}</p>
+                <p className="text-3xl font-bold mt-1">{(gamification?.total_xp ?? stats.xp).toLocaleString()}</p>
                 <p className="text-purple-100 text-xs mt-1">Level {gamification?.xp_level ?? 1}</p>
               </div>
               <div className="p-3 bg-white/20 rounded-full">
@@ -305,26 +305,26 @@ const StudentDashboard = () => {
           <CardDescription>Choose how you want to practice today</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Button variant="default" className="h-24 flex-col gap-2" asChild>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+            <Button variant="default" className="h-20 sm:h-24 flex-col gap-1 sm:gap-2" asChild>
               <Link href="/student/subjects">
-                <Target className="h-6 w-6" />
-                <span>Topical Questions</span>
-                <span className="text-xs opacity-80">Practice by topic</span>
+                <Target className="h-5 w-5 sm:h-6 sm:w-6" />
+                <span className="text-sm sm:text-base">Topical Questions</span>
+                <span className="text-xs opacity-80 hidden sm:inline">Practice by topic</span>
               </Link>
             </Button>
-            <Button variant="outline" className="h-24 flex-col gap-2" asChild>
+            <Button variant="outline" className="h-20 sm:h-24 flex-col gap-1 sm:gap-2" asChild>
               <Link href="/student/papers">
-                <FileText className="h-6 w-6" />
-                <span>Past Papers</span>
-                <span className="text-xs opacity-80">Full exam practice</span>
+                <FileText className="h-5 w-5 sm:h-6 sm:w-6" />
+                <span className="text-sm sm:text-base">Past Papers</span>
+                <span className="text-xs opacity-80 hidden sm:inline">Full exam practice</span>
               </Link>
             </Button>
-            <Button variant="outline" className="h-24 flex-col gap-2" asChild>
+            <Button variant="outline" className="h-20 sm:h-24 flex-col gap-1 sm:gap-2" asChild>
               <Link href="/student/classes">
-                <GraduationCap className="h-6 w-6" />
-                <span>My Classes</span>
-                <span className="text-xs opacity-80">View assignments</span>
+                <GraduationCap className="h-5 w-5 sm:h-6 sm:w-6" />
+                <span className="text-sm sm:text-base">My Classes</span>
+                <span className="text-xs opacity-80 hidden sm:inline">View assignments</span>
               </Link>
             </Button>
           </div>

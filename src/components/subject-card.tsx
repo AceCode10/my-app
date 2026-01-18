@@ -59,7 +59,7 @@ export const SubjectCard = memo(function SubjectCard({ name, code, path, icon, c
     return (
         <Link href={path} className="block group">
             <div className={cn(
-                "relative overflow-hidden rounded-2xl p-6 h-full min-h-[180px]",
+                "relative overflow-hidden rounded-2xl p-6 h-[200px]",
                 "bg-gradient-to-br shadow-lg",
                 "hover:shadow-2xl hover:scale-105 transition-all duration-300",
                 "border border-white/10",

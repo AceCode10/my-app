@@ -6,21 +6,12 @@ import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { 
   ChevronRight, 
-  FileText, 
   BookOpen, 
-  Target, 
-  ArrowRight, 
-  Play,
-  Sparkles,
-  PenTool,
-  Users,
-  ClipboardList,
-  Settings
+  ArrowRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
+import { Progress } from '@/components/ui/progress';
 
 const supabase = createClient();
 
@@ -77,11 +68,10 @@ export default function TeacherSubjectPage({ params }: SubjectPageProps) {
   });
 
   // Fetch resource counts
-  const { data: resourceCounts = { notes: 0, questions: 0, papers: 0 } } = useQuery({
-    queryKey: ['teacher-subject-resource-counts', subjectData?.id],
+  const { data: resourceData } = useQuery({
+    queryKey: ['subject-resources', subjectData?.id],
     queryFn: async () => {
       if (!subjectData?.id) return { notes: 0, questions: 0, papers: 0 };
-      
       const topicIds = topics.map(t => t.id);
       
       // Count notes
@@ -114,85 +104,15 @@ export default function TeacherSubjectPage({ params }: SubjectPageProps) {
     enabled: !!subjectData?.id && topics.length >= 0,
   });
 
-  // Resource cards configuration - for students/viewing
-  const resourceCards = [
-    {
-      title: 'Revision Notes',
-      description: 'Comprehensive study notes with clear explanations and examples',
-      icon: BookOpen,
-      href: `/resources/revision-notes/${subjectSlug}`,
-      count: resourceCounts.notes,
-      countLabel: 'notes',
-      color: 'text-blue-500',
-      bgColor: 'bg-blue-500/10',
-      borderColor: 'hover:border-blue-500/50',
-      gradient: 'from-blue-500/20 to-blue-600/5',
-    },
-    {
-      title: 'Topical Questions',
-      description: 'Practice questions organized by topic to master each concept',
-      icon: Target,
-      href: `/resources/topical-questions/${subjectSlug}`,
-      count: resourceCounts.questions,
-      countLabel: 'questions',
-      color: 'text-emerald-500',
-      bgColor: 'bg-emerald-500/10',
-      borderColor: 'hover:border-emerald-500/50',
-      gradient: 'from-emerald-500/20 to-emerald-600/5',
-    },
-    {
-      title: 'Past Papers',
-      description: 'Official exam papers with mark schemes and examiner reports',
-      icon: FileText,
-      href: `/resources/past-papers/${subjectSlug}`,
-      count: resourceCounts.papers,
-      countLabel: 'papers',
-      color: 'text-purple-500',
-      bgColor: 'bg-purple-500/10',
-      borderColor: 'hover:border-purple-500/50',
-      gradient: 'from-purple-500/20 to-purple-600/5',
-    },
-  ];
-
-  // Teacher action cards
-  const teacherActions = [
-    {
-      title: 'Manage Notes',
-      description: 'Create and edit revision notes for your students',
-      icon: PenTool,
-      href: `/teacher/notes?subject=${subjectSlug}`,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-100 dark:bg-blue-900/50',
-    },
-    {
-      title: 'Question Bank',
-      description: 'Browse and manage practice questions',
-      icon: Target,
-      href: `/teacher/questions?subject=${subjectSlug}`,
-      color: 'text-emerald-600',
-      bgColor: 'bg-emerald-100 dark:bg-emerald-900/50',
-    },
-    {
-      title: 'Create Test',
-      description: 'Build custom assessments for your classes',
-      icon: ClipboardList,
-      href: `/teacher/test-builder/new?subject=${subjectSlug}`,
-      color: 'text-amber-600',
-      bgColor: 'bg-amber-100 dark:bg-amber-900/50',
-    },
-  ];
-
   if (isLoading) {
     return (
-      <div className="space-y-8">
+      <div className="space-y-6">
         <Skeleton className="h-6 w-48" />
-        <div className="text-center space-y-4">
-          <Skeleton className="h-20 w-20 rounded-2xl mx-auto" />
-          <Skeleton className="h-10 w-64 mx-auto" />
-          <Skeleton className="h-6 w-32 mx-auto" />
+        <div className="grid grid-cols-3 gap-4">
+          {[1, 2, 3].map(i => <Skeleton key={i} className="h-20 rounded-xl" />)}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[1, 2, 3].map(i => <Skeleton key={i} className="h-52 rounded-2xl" />)}
+          {[1, 2, 3].map(i => <Skeleton key={i} className="h-40 rounded-2xl" />)}
         </div>
       </div>
     );
@@ -217,239 +137,99 @@ export default function TeacherSubjectPage({ params }: SubjectPageProps) {
   }
 
   return (
-    <div className="space-y-8">
-      {/* Breadcrumb */}
+    <div className="space-y-6">
+      {/* Breadcrumb with subject name */}
       <div className="flex items-center text-sm text-muted-foreground">
         <Link href="/teacher/subjects" className="hover:text-primary transition-colors">My Subjects</Link>
         <ChevronRight className="h-4 w-4 mx-2" />
         <span className="font-medium text-foreground">{subjectData.name}</span>
-      </div>
-
-      {/* Hero Section */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary/10 via-primary/5 to-background border p-8 md:p-12">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-primary/5 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2" />
-        
-        <div className="relative z-10 text-center">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-primary/10 border border-primary/20 mb-6 shadow-lg">
-            <BookOpen className="w-10 h-10 text-primary" />
-          </div>
-          
-          <h1 className="text-4xl md:text-5xl font-extrabold text-foreground mb-3">
-            {subjectData.name}
-          </h1>
-          
-          {subjectData.code && (
-            <Badge variant="secondary" className="text-base px-4 py-1.5 mb-4">
-              Syllabus: {subjectData.code}
-            </Badge>
-          )}
-          
-          <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
-            Manage resources and create assessments for your students.
-          </p>
-        </div>
-      </div>
-
-      {/* Teacher Quick Actions */}
-      <div>
-        <h2 className="text-2xl font-bold text-foreground mb-2">Teacher Actions</h2>
-        <p className="text-muted-foreground mb-6">Manage content and create assessments</p>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {teacherActions.map((action) => (
-            <Link key={action.title} href={action.href}>
-              <div className="bg-card p-5 rounded-xl border hover:border-primary/50 hover:shadow-lg transition-all duration-200 group h-full">
-                <div className="flex items-center gap-4">
-                  <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", action.bgColor)}>
-                    <action.icon className={cn("w-6 h-6", action.color)} />
-                  </div>
-                  <div className="flex-grow">
-                    <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
-                      {action.title}
-                    </h3>
-                    <p className="text-sm text-muted-foreground">{action.description}</p>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </div>
-
-      {/* Resource Cards */}
-      <div>
-        <h2 className="text-2xl font-bold text-foreground mb-2">Study Resources</h2>
-        <p className="text-muted-foreground mb-6">Browse available resources for this subject</p>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {resourceCards.map((resource) => (
-            <Link key={resource.title} href={resource.href}>
-              <div className={cn(
-                "relative overflow-hidden bg-card p-6 rounded-2xl border-2 border-transparent transition-all duration-300 h-full flex flex-col group",
-                "hover:shadow-xl hover:-translate-y-1",
-                resource.borderColor
-              )}>
-                {/* Gradient background */}
-                <div className={cn(
-                  "absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-100 transition-opacity duration-300",
-                  resource.gradient
-                )} />
-                
-                <div className="relative z-10">
-                  <div className={cn(
-                    "w-14 h-14 rounded-xl flex items-center justify-center mb-4 transition-transform group-hover:scale-110",
-                    resource.bgColor
-                  )}>
-                    <resource.icon className={cn("w-7 h-7", resource.color)} />
-                  </div>
-                  
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-bold text-xl text-foreground">{resource.title}</h3>
-                    {resource.count > 0 && (
-                      <Badge variant="secondary" className="font-semibold">
-                        {resource.count}
-                      </Badge>
-                    )}
-                  </div>
-                  
-                  <p className="text-muted-foreground text-sm flex-grow mb-4">
-                    {resource.description}
-                  </p>
-                  
-                  <div className={cn(
-                    "flex items-center font-semibold transition-all group-hover:gap-3",
-                    resource.color
-                  )}>
-                    <span>Explore {resource.title}</span>
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </div>
-
-      {/* Topics Section */}
-      <div>
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-foreground mb-1">Topics</h2>
-            <p className="text-muted-foreground">
-              {topics.length} topics available for {subjectData.name}
-            </p>
-          </div>
-          {topics.length > 6 && (
-            <Link href={`/resources/topical-questions/${subjectSlug}`}>
-              <Button variant="outline">
-                View All Topics
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </Link>
-          )}
-        </div>
-        
-        {topics.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {topics.slice(0, 9).map((topic: any, index: number) => (
-              <Link 
-                key={topic.id} 
-                href={`/resources/topical-questions/${subjectSlug}/${topic.slug}`}
-              >
-                <div className="bg-card p-5 rounded-xl border hover:border-primary/50 hover:shadow-md transition-all duration-200 group h-full">
-                  <div className="flex items-start gap-4">
-                    <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold">
-                      {index + 1}
-                    </div>
-                    <div className="flex-grow min-w-0">
-                      <h4 className="font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-1">
-                        {topic.name}
-                      </h4>
-                      {topic.description && (
-                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                          {topic.description}
-                        </p>
-                      )}
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all flex-shrink-0" />
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-16 bg-card rounded-2xl border">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-muted mb-4">
-              <BookOpen className="w-8 h-8 text-muted-foreground" />
-            </div>
-            <h3 className="text-xl font-semibold text-foreground mb-2">No Topics Available Yet</h3>
-            <p className="text-muted-foreground max-w-md mx-auto">
-              Topics for {subjectData.name} are being added. Check back soon!
-            </p>
-          </div>
+        {subjectData.code && (
+          <>
+            <span className="mx-2">•</span>
+            <span className="text-muted-foreground">{subjectData.code}</span>
+          </>
         )}
       </div>
 
-      {/* Quick Start Section */}
-      {(resourceCounts.papers > 0 || resourceCounts.questions > 0) && (
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary/10 via-primary/5 to-background border p-8">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-2xl" />
-          
-          <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-xl bg-primary/20 flex items-center justify-center">
-                <Sparkles className="w-7 h-7 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-bold text-xl text-foreground">Preview Resources</h3>
-                <p className="text-muted-foreground">
-                  View resources as your students would see them
-                </p>
+      {/* Teacher Actions */}
+      <div className="grid grid-cols-3 gap-4">
+        <Link href={`/teacher/notes?subject=${subjectSlug}`}>
+          <div className="bg-card p-4 rounded-xl border hover:border-primary hover:shadow-lg transition-all duration-200 text-center group">
+            <div className="text-2xl mb-1 group-hover:scale-110 transition-transform">✏️</div>
+            <div className="font-medium text-xs">Manage Notes</div>
+          </div>
+        </Link>
+        
+        <Link href={`/teacher/questions?subject=${subjectSlug}`}>
+          <div className="bg-card p-4 rounded-xl border hover:border-primary hover:shadow-lg transition-all duration-200 text-center group">
+            <div className="text-2xl mb-1 group-hover:scale-110 transition-transform">📝</div>
+            <div className="font-medium text-xs">Manage Questions</div>
+          </div>
+        </Link>
+        
+        <Link href={`/teacher/test-builder/new?subject=${subjectSlug}`}>
+          <div className="bg-card p-4 rounded-xl border hover:border-primary hover:shadow-lg transition-all duration-200 text-center group">
+            <div className="text-2xl mb-1 group-hover:scale-110 transition-transform">📋</div>
+            <div className="font-medium text-xs">Create Test</div>
+          </div>
+        </Link>
+      </div>
+
+      {/* Resource Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Notes Card */}
+        <Link href={`/resources/revision-notes/${subjectSlug}`}>
+          <div className="bg-card p-6 rounded-2xl border hover:border-blue-500 hover:shadow-lg transition-all group h-full">
+            <div className="flex items-center justify-between mb-4">
+              <div className="text-4xl">📖</div>
+              <div className="text-right">
+                <div className="text-2xl font-bold text-foreground">{resourceData?.notes || 0}</div>
+                <div className="text-xs text-muted-foreground">notes</div>
               </div>
             </div>
-            
-            <div className="flex flex-wrap gap-3">
-              {resourceCounts.questions > 0 && (
-                <Link href={`/resources/topical-questions/${subjectSlug}`}>
-                  <Button size="lg" className="shadow-lg">
-                    <Play className="w-4 h-4 mr-2" />
-                    Topical Questions
-                  </Button>
-                </Link>
-              )}
-              {resourceCounts.papers > 0 && (
-                <Link href={`/resources/past-papers/${subjectSlug}`}>
-                  <Button size="lg" variant="outline">
-                    <FileText className="w-4 h-4 mr-2" />
-                    Past Papers
-                  </Button>
-                </Link>
-              )}
+            <h3 className="font-semibold text-lg mb-2 group-hover:text-blue-500 transition-colors">Revision Notes</h3>
+            <div className="mt-4 flex items-center text-sm text-blue-500 font-medium">
+              View Notes
+              <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
             </div>
           </div>
-        </div>
-      )}
+        </Link>
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-card p-4 rounded-xl border text-center">
-          <div className="text-3xl font-bold text-primary mb-1">{topics.length}</div>
-          <div className="text-sm text-muted-foreground">Topics</div>
-        </div>
-        <div className="bg-card p-4 rounded-xl border text-center">
-          <div className="text-3xl font-bold text-blue-500 mb-1">{resourceCounts.notes}</div>
-          <div className="text-sm text-muted-foreground">Notes</div>
-        </div>
-        <div className="bg-card p-4 rounded-xl border text-center">
-          <div className="text-3xl font-bold text-emerald-500 mb-1">{resourceCounts.questions}</div>
-          <div className="text-sm text-muted-foreground">Questions</div>
-        </div>
-        <div className="bg-card p-4 rounded-xl border text-center">
-          <div className="text-3xl font-bold text-purple-500 mb-1">{resourceCounts.papers}</div>
-          <div className="text-sm text-muted-foreground">Past Papers</div>
-        </div>
+        {/* Topical Questions Card */}
+        <Link href={`/resources/topical-questions/${subjectSlug}`}>
+          <div className="bg-card p-6 rounded-2xl border hover:border-emerald-500 hover:shadow-lg transition-all group h-full">
+            <div className="flex items-center justify-between mb-4">
+              <div className="text-4xl">📝</div>
+              <div className="text-right">
+                <div className="text-2xl font-bold text-foreground">{resourceData?.questions || 0}</div>
+                <div className="text-xs text-muted-foreground">questions</div>
+              </div>
+            </div>
+            <h3 className="font-semibold text-lg mb-2 group-hover:text-emerald-500 transition-colors">Topical Questions</h3>
+            <div className="mt-4 flex items-center text-sm text-emerald-500 font-medium">
+              View Questions
+              <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </div>
+        </Link>
+
+        {/* Past Papers Card */}
+        <Link href={`/resources/past-papers/${subjectSlug}`}>
+          <div className="bg-card p-6 rounded-2xl border hover:border-purple-500 hover:shadow-lg transition-all group h-full">
+            <div className="flex items-center justify-between mb-4">
+              <div className="text-4xl">📄</div>
+              <div className="text-right">
+                <div className="text-2xl font-bold text-foreground">{resourceData?.papers || 0}</div>
+                <div className="text-xs text-muted-foreground">papers</div>
+              </div>
+            </div>
+            <h3 className="font-semibold text-lg mb-2 group-hover:text-purple-500 transition-colors">Past Papers</h3>
+            <div className="mt-4 flex items-center text-sm text-purple-500 font-medium">
+              View Papers
+              <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </div>
+        </Link>
       </div>
     </div>
   );

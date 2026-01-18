@@ -10,18 +10,18 @@ import Image from "next/image";
 const features = [
   {
     icon: Users,
-    title: "Effortless Class Management",
-    description: "Create classes, generate unique join codes, and manage student enrollment with ease. Approve requests and see your class roster at a glance."
+    title: "Class Management",
+    description: "Create classes with join codes, manage enrollment, and view your roster instantly."
   },
   {
     icon: Bot,
-    title: "AI-Powered Assessment Builder",
-    description: "Save hours of prep time. Generate high-quality, syllabus-aligned quizzes for any topic in seconds using our advanced AI."
+    title: "AI Assessment Builder",
+    description: "Generate syllabus-aligned quizzes in seconds. Save hours of prep time."
   },
   {
     icon: BarChart3,
-    title: "Insightful Performance Analytics",
-    description: "Go beyond scores. Track class-wide performance, identify common misconceptions by topic, and monitor individual student progress."
+    title: "Performance Analytics",
+    description: "Track class performance, identify weak topics, and monitor student progress."
   }
 ];
 
@@ -35,7 +35,7 @@ export default function TeacherPage() {
             Empower Your Teaching with <span className="text-primary">AI Tools</span>
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
-            The ultimate toolkit for IGCSE teachers. Spend less time on admin and more time inspiring your students.
+            Less admin, more teaching. The complete toolkit for IGCSE educators.
           </p>
           <div className="flex justify-center gap-4">
             <Button asChild size="lg">
@@ -49,8 +49,8 @@ export default function TeacherPage() {
       <section className="py-16 sm:py-20">
         <div className="container mx-auto px-4">
             <div className="text-center mb-12">
-                <h2 className="text-3xl md:text-4xl font-bold text-foreground">Your All-in-One Teaching Assistant</h2>
-                <p className="text-lg text-muted-foreground mt-2">Tools designed to save you time and enhance student learning.</p>
+                <h2 className="text-3xl md:text-4xl font-bold text-foreground">Everything You Need</h2>
+                <p className="text-lg text-muted-foreground mt-2">Save time. Enhance learning.</p>
             </div>
             <div className="grid md:grid-cols-3 gap-8">
                 {features.map((feature, i) => (
@@ -85,27 +85,27 @@ export default function TeacherPage() {
                       />
                   </div>
                   <div>
-                      <h2 className="text-3xl font-bold text-foreground mb-6">A Seamless Workflow for Modern Educators</h2>
+                      <h2 className="text-3xl font-bold text-foreground mb-6">Simple 3-Step Workflow</h2>
                       <ul className="space-y-4 text-muted-foreground">
                           <li className="flex items-start">
                               <Check className="h-6 w-6 text-primary mr-3 flex-shrink-0 mt-1"/>
                               <div>
                                   <h4 className="font-semibold text-foreground">1. Create Your Class</h4>
-                                  <p>Set up your classes in minutes and get a unique code to share with your students.</p>
+                                  <p>Set up in minutes. Share the join code with students.</p>
                               </div>
                           </li>
                           <li className="flex items-start">
                               <Check className="h-6 w-6 text-primary mr-3 flex-shrink-0 mt-1"/>
                               <div>
-                                  <h4 className="font-semibold text-foreground">2. Build or Generate Assessments</h4>
-                                  <p>Create quizzes from scratch or let our AI generate them based on specific IGCSE topics.</p>
+                                  <h4 className="font-semibold text-foreground">2. Build Assessments</h4>
+                                  <p>Create manually or use AI to generate topic-based quizzes.</p>
                               </div>
                           </li>
                           <li className="flex items-start">
                               <Check className="h-6 w-6 text-primary mr-3 flex-shrink-0 mt-1"/>
                               <div>
-                                  <h4 className="font-semibold text-foreground">3. Assign & Analyze</h4>
-                                  <p>Schedule assessments with due dates and track student performance in real-time on your analytics dashboard.</p>
+                                  <h4 className="font-semibold text-foreground">3. Assign & Track</h4>
+                                  <p>Set due dates and monitor performance in real-time.</p>
                               </div>
                           </li>
                       </ul>
@@ -122,8 +122,8 @@ export default function TeacherPage() {
       {/* CTA Section */}
       <section className="py-16 sm:py-20 bg-primary text-primary-foreground">
           <div className="container mx-auto px-4 text-center">
-              <h2 className="text-3xl md:text-4xl font-bold mb-4">Join Hundreds of Teachers Transforming Their Classrooms</h2>
-              <p className="text-lg mb-8 opacity-90">Sign up today and discover a smarter way to teach.</p>
+              <h2 className="text-3xl md:text-4xl font-bold mb-4">Join Hundreds of Teachers</h2>
+              <p className="text-lg mb-8 opacity-90">Start teaching smarter today.</p>
               <Button asChild size="lg" variant="secondary" className="shadow-lg">
                   <Link href="/signup?plan=teacher">Sign Up for a Teacher Account</Link>
               </Button>
