@@ -19,6 +19,7 @@ import {
   Upload,
   Target,
   ChevronDown,
+  Monitor,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -93,6 +94,7 @@ export default function AdminSidebar({ adminRole }: AdminSidebarProps) {
       defaultOpen: false,
       items: [
         { href: '/admin/settings', label: 'System Settings', icon: Settings },
+        { href: '/admin/monitoring', label: 'App Monitoring', icon: Monitor },
         { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
         { href: '/admin/audit-logs', label: 'Audit Logs', icon: Activity },
       ],
@@ -126,6 +128,7 @@ export default function AdminSidebar({ adminRole }: AdminSidebarProps) {
       icon: BarChart3,
       defaultOpen: false,
       items: [
+        { href: '/admin/monitoring', label: 'App Monitoring', icon: Monitor },
         { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
       ],
     },

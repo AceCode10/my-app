@@ -86,7 +86,7 @@ export function FlashcardViewer({
         <div className="text-center">
           <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
           <h3 className="text-2xl font-bold mb-2">All Done! 🎉</h3>
-          <p className="text-gray-600 mb-4">You've reviewed all flashcards</p>
+          <p className="text-muted-foreground mb-4">You've reviewed all flashcards</p>
           <Button onClick={onComplete}>Finish Session</Button>
         </div>
       </div>
@@ -98,10 +98,10 @@ export function FlashcardViewer({
       {/* Progress Header */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-gray-700">
+          <span className="text-sm font-medium text-foreground">
             Card {currentIndex + 1} of {questions.length}
           </span>
-          <span className="text-sm text-gray-600">
+          <span className="text-sm text-muted-foreground">
             {reviewedCards.size} reviewed
           </span>
         </div>
@@ -121,13 +121,13 @@ export function FlashcardViewer({
           <Card
             className={cn(
               'absolute inset-0 backface-hidden',
-              'bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200'
+              'bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-2 border-blue-200 dark:border-blue-800'
             )}
           >
             <CardContent className="flex flex-col items-center justify-center h-full p-8">
               <Badge className="mb-4 bg-blue-500">Question</Badge>
               <div className="text-center">
-                <p className="text-2xl font-medium text-gray-900 mb-4">
+                <p className="text-2xl font-medium text-foreground mb-4">
                   {currentCard.stem_markdown}
                 </p>
                 {currentCard.image_url && (
@@ -138,7 +138,7 @@ export function FlashcardViewer({
                   />
                 )}
               </div>
-              <p className="text-sm text-gray-500 mt-6">Click to reveal answer</p>
+              <p className="text-sm text-muted-foreground mt-6">Click to reveal answer</p>
             </CardContent>
           </Card>
 
@@ -146,22 +146,22 @@ export function FlashcardViewer({
           <Card
             className={cn(
               'absolute inset-0 backface-hidden rotate-y-180',
-              'bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-200'
+              'bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-2 border-green-200 dark:border-green-800'
             )}
           >
             <CardContent className="flex flex-col items-center justify-center h-full p-8">
               <Badge className="mb-4 bg-green-500">Answer</Badge>
               <div className="text-center mb-6">
-                <p className="text-xl font-medium text-gray-900 mb-4">
+                <p className="text-xl font-medium text-foreground mb-4">
                   {currentCard.correct_answer}
                 </p>
                 {currentCard.explanation && (
-                  <div className="mt-4 p-4 bg-white/50 rounded-lg">
-                    <p className="text-sm text-gray-700">{currentCard.explanation}</p>
+                  <div className="mt-4 p-4 bg-background/50 rounded-lg">
+                    <p className="text-sm text-muted-foreground">{currentCard.explanation}</p>
                   </div>
                 )}
               </div>
-              <p className="text-sm text-gray-500">Click to flip back</p>
+              <p className="text-sm text-muted-foreground">Click to flip back</p>
             </CardContent>
           </Card>
         </div>
@@ -172,46 +172,46 @@ export function FlashcardViewer({
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <Button
             variant="outline"
-            className="h-20 flex-col gap-2 border-2 border-red-200 hover:bg-red-50"
+            className="h-20 flex-col gap-2 border-2 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-950"
             onClick={() => handleConfidence('dont_know')}
             disabled={isUpdating}
           >
             <span className="text-2xl">😕</span>
             <span className="text-sm font-medium">Don't Know</span>
-            <span className="text-xs text-gray-500">Review in 1 day</span>
+            <span className="text-xs text-muted-foreground">Review in 1 day</span>
           </Button>
 
           <Button
             variant="outline"
-            className="h-20 flex-col gap-2 border-2 border-yellow-200 hover:bg-yellow-50"
+            className="h-20 flex-col gap-2 border-2 border-yellow-200 dark:border-yellow-800 hover:bg-yellow-50 dark:hover:bg-yellow-950"
             onClick={() => handleConfidence('need_practice')}
             disabled={isUpdating}
           >
             <span className="text-2xl">🤔</span>
             <span className="text-sm font-medium">Need Practice</span>
-            <span className="text-xs text-gray-500">Review in 3 days</span>
+            <span className="text-xs text-muted-foreground">Review in 3 days</span>
           </Button>
 
           <Button
             variant="outline"
-            className="h-20 flex-col gap-2 border-2 border-blue-200 hover:bg-blue-50"
+            className="h-20 flex-col gap-2 border-2 border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-950"
             onClick={() => handleConfidence('got_it')}
             disabled={isUpdating}
           >
             <span className="text-2xl">😊</span>
             <span className="text-sm font-medium">Got It</span>
-            <span className="text-xs text-gray-500">Review in 7 days</span>
+            <span className="text-xs text-muted-foreground">Review in 7 days</span>
           </Button>
 
           <Button
             variant="outline"
-            className="h-20 flex-col gap-2 border-2 border-green-200 hover:bg-green-50"
+            className="h-20 flex-col gap-2 border-2 border-green-200 dark:border-green-800 hover:bg-green-50 dark:hover:bg-green-950"
             onClick={() => handleConfidence('mastered')}
             disabled={isUpdating}
           >
             <span className="text-2xl">🎉</span>
             <span className="text-sm font-medium">Mastered</span>
-            <span className="text-xs text-gray-500">Review in 30 days</span>
+            <span className="text-xs text-muted-foreground">Review in 30 days</span>
           </Button>
         </div>
       )}
@@ -257,8 +257,8 @@ export function FlashcardViewer({
       </div>
 
       {/* Keyboard Shortcuts Hint */}
-      <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-        <p className="text-xs text-gray-600 text-center">
+      <div className="mt-6 p-4 bg-muted/50 rounded-lg">
+        <p className="text-xs text-muted-foreground text-center">
           <strong>Keyboard shortcuts:</strong> Space to flip • 1-4 for confidence • ← → to navigate
         </p>
       </div>

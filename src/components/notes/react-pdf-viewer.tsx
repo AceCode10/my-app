@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { 
   ZoomIn, ZoomOut, Maximize2, Minimize2, Sun, Moon, 
-  Sparkles, Loader2, Menu, BookOpen
+  Sparkles, Loader2, Menu, BookOpen, ChevronLeft, ChevronRight
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
@@ -56,7 +57,37 @@ export function ReactPDFViewer({
   const [scale, setScale] = useState(1.2);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [showSidebar, setShowSidebar] = useState(true);
+  const [showSidebar, setShowSidebar] = useState(false); // Hidden by default on mobile
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Check if mobile on mount and window resize
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 1024;
+      setIsMobile(mobile);
+      // Show sidebar by default on desktop, hide on mobile
+      if (!mobile) {
+        setShowSidebar(true);
+      }
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Get current topic index and adjacent topics for navigation
+  const { currentTopicIndex, previousTopic, nextTopic } = useMemo(() => {
+    if (!currentTopicSlug || topics.length === 0) {
+      return { currentTopicIndex: -1, previousTopic: null, nextTopic: null };
+    }
+    const index = topics.findIndex(t => t.slug === currentTopicSlug);
+    return {
+      currentTopicIndex: index,
+      previousTopic: index > 0 ? topics[index - 1] : null,
+      nextTopic: index < topics.length - 1 ? topics[index + 1] : null,
+    };
+  }, [topics, currentTopicSlug]);
   const [showMagicMenu, setShowMagicMenu] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -340,16 +371,19 @@ export function ReactPDFViewer({
     <div
       ref={containerRef}
       className={cn(
-        'relative flex bg-white overflow-hidden',
+        'relative flex bg-white dark:bg-neutral-900 overflow-hidden',
         isFullscreen && 'fixed inset-0 z-50 rounded-none',
         isDarkMode && 'dark',
         className
       )}
       style={{ height: isFullscreen ? '100vh' : '85vh' }}
     >
-      {/* Topics Sidebar */}
+      {/* Topics Sidebar - Hidden on mobile by default */}
       {topics.length > 0 && showSidebar && !isFullscreen && (
-        <aside className="w-64 border-r bg-gray-50 dark:bg-neutral-900 flex-shrink-0 overflow-y-auto">
+        <aside className={cn(
+          "border-r bg-gray-50 dark:bg-neutral-900 flex-shrink-0 overflow-y-auto",
+          isMobile ? "absolute left-0 top-0 bottom-0 z-40 w-64 shadow-xl" : "w-64"
+        )}>
           {/* Subject Header */}
           {subjectName && (
             <div className="p-4 border-b border-gray-200 dark:border-neutral-700">
@@ -635,6 +669,52 @@ export function ReactPDFViewer({
           )}
         </div>
 
+        {/* Chapter Navigation - Bottom */}
+        {topics.length > 0 && (previousTopic || nextTopic) && !isFullscreen && (
+          <div className={cn(
+            "flex items-center justify-between px-3 py-2 border-t gap-2",
+            isDarkMode ? "bg-neutral-900 border-neutral-700" : "bg-gray-50 border-gray-200"
+          )}>
+            {previousTopic ? (
+              <Link
+                href={`/resources/revision-notes/${subjectSlug}/${previousTopic.slug}`}
+                className={cn(
+                  "flex items-center gap-1 px-3 py-1.5 rounded-md text-sm transition-colors flex-1 min-w-0",
+                  isDarkMode 
+                    ? "bg-neutral-800 hover:bg-neutral-700 text-white" 
+                    : "bg-white hover:bg-gray-100 text-gray-700 border"
+                )}
+              >
+                <ChevronLeft className="w-4 h-4 flex-shrink-0" />
+                <span className="truncate">{previousTopic.name}</span>
+              </Link>
+            ) : (
+              <div className="flex-1" />
+            )}
+            
+            <span className="text-xs text-gray-500 flex-shrink-0 px-2">
+              {currentTopicIndex + 1} / {topics.length}
+            </span>
+            
+            {nextTopic ? (
+              <Link
+                href={`/resources/revision-notes/${subjectSlug}/${nextTopic.slug}`}
+                className={cn(
+                  "flex items-center gap-1 px-3 py-1.5 rounded-md text-sm transition-colors flex-1 min-w-0 justify-end",
+                  isDarkMode 
+                    ? "bg-primary hover:bg-primary/90 text-white" 
+                    : "bg-primary hover:bg-primary/90 text-white"
+                )}
+              >
+                <span className="truncate">{nextTopic.name}</span>
+                <ChevronRight className="w-4 h-4 flex-shrink-0" />
+              </Link>
+            ) : (
+              <div className="flex-1" />
+            )}
+          </div>
+        )}
+
         {/* Bottom Toolbar */}
         <div className={cn(
           "flex items-center justify-between px-4 py-2 border-t",
@@ -645,7 +725,12 @@ export function ReactPDFViewer({
             {topics.length > 0 && !isFullscreen && (
               <button
                 onClick={() => setShowSidebar(s => !s)}
-                className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-neutral-800 transition-colors"
+                className={cn(
+                  "p-1.5 rounded transition-colors",
+                  showSidebar 
+                    ? "bg-primary text-white" 
+                    : "hover:bg-gray-100 dark:hover:bg-neutral-800"
+                )}
                 title="Toggle sidebar"
               >
                 <Menu className="w-4 h-4" />

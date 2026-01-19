@@ -1007,13 +1007,13 @@ export default function ClassDetailsPage() {
       </div>
 
       <Tabs defaultValue="people" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-6">
-          <TabsTrigger value="people"><Users className="mr-2 h-4 w-4"/>People</TabsTrigger>
-          <TabsTrigger value="announcements"><MessageSquare className="mr-2 h-4 w-4"/>Announcements</TabsTrigger>
-          <TabsTrigger value="tests"><ClipboardList className="mr-2 h-4 w-4"/>Tests</TabsTrigger>
-          <TabsTrigger value="messages"><Mail className="mr-2 h-4 w-4"/>Messages</TabsTrigger>
-          <TabsTrigger value="analytics"><BarChart className="mr-2 h-4 w-4"/>Analytics</TabsTrigger>
-          <TabsTrigger value="settings"><Settings className="mr-2 h-4 w-4"/>Settings</TabsTrigger>
+        <TabsList className="flex flex-wrap h-auto gap-1 p-1 w-full">
+          <TabsTrigger value="people" className="flex-1 min-w-[100px]"><Users className="mr-1.5 h-4 w-4 hidden sm:inline"/>People</TabsTrigger>
+          <TabsTrigger value="announcements" className="flex-1 min-w-[100px]"><MessageSquare className="mr-1.5 h-4 w-4 hidden sm:inline"/>Announcements</TabsTrigger>
+          <TabsTrigger value="tests" className="flex-1 min-w-[100px]"><ClipboardList className="mr-1.5 h-4 w-4 hidden sm:inline"/>Tests</TabsTrigger>
+          <TabsTrigger value="messages" className="flex-1 min-w-[100px]"><Mail className="mr-1.5 h-4 w-4 hidden sm:inline"/>Messages</TabsTrigger>
+          <TabsTrigger value="analytics" className="flex-1 min-w-[100px]"><BarChart className="mr-1.5 h-4 w-4 hidden sm:inline"/>Analytics</TabsTrigger>
+          <TabsTrigger value="settings" className="flex-1 min-w-[100px]"><Settings className="mr-1.5 h-4 w-4 hidden sm:inline"/>Settings</TabsTrigger>
         </TabsList>
         
         <TabsContent value="people" className="mt-6">

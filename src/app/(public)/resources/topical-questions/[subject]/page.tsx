@@ -174,17 +174,6 @@ export default function SubjectTopicalQuestionsPage({
         </Link>
       </div>
 
-      {/* Header */}
-      <div className="mb-8">
-        {isLoading ? (
-          <Skeleton className="h-10 w-64" />
-        ) : (
-          <h1 className="text-3xl font-extrabold text-foreground">
-            {subject?.name}
-          </h1>
-        )}
-      </div>
-
       {/* Topics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {isLoading ? (

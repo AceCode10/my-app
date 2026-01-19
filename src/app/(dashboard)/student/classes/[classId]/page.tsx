@@ -743,20 +743,20 @@ export default function StudentClassDetailsPage() {
       </div>
 
       <Tabs defaultValue="assignments" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 h-12 p-1 bg-muted/50 rounded-xl">
+        <TabsList className="flex flex-wrap h-auto gap-1 p-1 w-full bg-muted/50 rounded-xl">
           <TabsTrigger 
             value="assignments" 
-            className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
+            className="flex-1 min-w-[70px] rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
           >
-            <ClipboardList className="mr-2 h-4 w-4" />
+            <ClipboardList className="mr-1.5 h-4 w-4 hidden sm:inline" />
             <span className="hidden sm:inline">Assignments</span>
             <span className="sm:hidden">Work</span>
           </TabsTrigger>
           <TabsTrigger 
             value="announcements"
-            className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all relative"
+            className="flex-1 min-w-[70px] rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all relative"
           >
-            <Bell className="mr-2 h-4 w-4" />
+            <Bell className="mr-1.5 h-4 w-4 hidden sm:inline" />
             <span className="hidden sm:inline">Announcements</span>
             <span className="sm:hidden">News</span>
             {announcementCount > 0 && (
@@ -767,17 +767,17 @@ export default function StudentClassDetailsPage() {
           </TabsTrigger>
           <TabsTrigger 
             value="people"
-            className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
+            className="flex-1 min-w-[70px] rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
           >
-            <Users className="mr-2 h-4 w-4" />
+            <Users className="mr-1.5 h-4 w-4 hidden sm:inline" />
             <span className="hidden sm:inline">People</span>
             <span className="sm:hidden">Class</span>
           </TabsTrigger>
           <TabsTrigger 
             value="messages"
-            className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all relative"
+            className="flex-1 min-w-[70px] rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all relative"
           >
-            <Mail className="mr-2 h-4 w-4" />
+            <Mail className="mr-1.5 h-4 w-4 hidden sm:inline" />
             <span className="hidden sm:inline">Messages</span>
             <span className="sm:hidden">Chat</span>
             {unreadMessageCount > 0 && (

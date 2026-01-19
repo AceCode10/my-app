@@ -228,22 +228,23 @@ export default function StudentPapersPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-          <FileText className="h-8 w-8 text-primary" />
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
+          <FileText className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
           Full Paper Practice
         </h1>
-        <p className="text-muted-foreground mt-1">
+        <p className="text-muted-foreground mt-1 text-sm sm:text-base">
           Full exam practice under timed conditions
         </p>
       </div>
 
       {/* Filters */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+        <CardContent className="p-4 sm:pt-6">
+          <div className="space-y-4">
+            {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -254,70 +255,73 @@ export default function StudentPapersPage() {
               />
             </div>
 
-            <Select value={filterExamBoard} onValueChange={setFilterExamBoard}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Boards" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Boards</SelectItem>
-                {examBoards.map(board => (
-                  <SelectItem key={board.id} value={board.id}>
-                    {board.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* Filter Dropdowns */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <Select value={filterExamBoard} onValueChange={setFilterExamBoard}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Boards" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Boards</SelectItem>
+                  {examBoards.map(board => (
+                    <SelectItem key={board.id} value={board.id}>
+                      {board.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-            <Select value={filterLevel} onValueChange={(value) => {
-              setFilterLevel(value);
-              // Reset subject filter when level changes if current subject doesn't match
-              if (value !== 'all' && filterSubject !== 'all') {
-                const selectedSubject = subjects.find(s => s.id === filterSubject);
-                if (selectedSubject && selectedSubject.level !== value) {
-                  setFilterSubject('all');
+              <Select value={filterLevel} onValueChange={(value) => {
+                setFilterLevel(value);
+                // Reset subject filter when level changes if current subject doesn't match
+                if (value !== 'all' && filterSubject !== 'all') {
+                  const selectedSubject = subjects.find(s => s.id === filterSubject);
+                  if (selectedSubject && selectedSubject.level !== value) {
+                    setFilterSubject('all');
+                  }
                 }
-              }
-            }}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Levels" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Levels</SelectItem>
-                {LEVELS.map(level => (
-                  <SelectItem key={level.id} value={level.id}>
-                    {level.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Levels" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Levels</SelectItem>
+                  {LEVELS.map(level => (
+                    <SelectItem key={level.id} value={level.id}>
+                      {level.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-            <Select value={filterSubject} onValueChange={setFilterSubject}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Subjects" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Subjects</SelectItem>
-                {filteredSubjects.map(subject => (
-                  <SelectItem key={subject.id} value={subject.id}>
-                    {subject.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <Select value={filterSubject} onValueChange={setFilterSubject}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Subjects" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Subjects</SelectItem>
+                  {filteredSubjects.map(subject => (
+                    <SelectItem key={subject.id} value={subject.id}>
+                      {subject.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-            <Select value={filterYear} onValueChange={setFilterYear}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Years" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Years</SelectItem>
-                {years.map(year => (
-                  <SelectItem key={year} value={year.toString()}>
-                    {year}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <Select value={filterYear} onValueChange={setFilterYear}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Years" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Years</SelectItem>
+                  {years.map(year => (
+                    <SelectItem key={year} value={year.toString()}>
+                      {year}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -325,11 +329,11 @@ export default function StudentPapersPage() {
       {/* Papers Grid */}
       {filteredPapers.length === 0 ? (
         <Card>
-          <CardContent className="py-12">
+          <CardContent className="py-8 sm:py-12">
             <div className="text-center">
-              <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No papers available</h3>
-              <p className="text-muted-foreground">
+              <FileText className="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground mb-4" />
+              <h3 className="text-base sm:text-lg font-semibold mb-2">No papers available</h3>
+              <p className="text-muted-foreground text-sm">
                 {searchQuery || filterSubject !== 'all' || filterYear !== 'all'
                   ? 'Try adjusting your filters'
                   : 'Check back later for practice papers'}
@@ -338,7 +342,7 @@ export default function StudentPapersPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredPapers.map((paper) => (
             <Card 
               key={paper.id} 
@@ -346,60 +350,62 @@ export default function StudentPapersPage() {
               onClick={() => router.push(`/student/papers/${paper.id}`)}
             >
               <CardHeader className="pb-2">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-lg line-clamp-2 group-hover:text-primary transition-colors">
-                      {paper.title}
-                    </CardTitle>
-                    <CardDescription className="mt-1">
-                      {paper.subject?.name || 'General'}
-                    </CardDescription>
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-sm sm:text-base truncate">{paper.title}</h3>
+                      <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                        {paper.subject_name}
+                      </p>
+                    </div>
+                    {getAttemptBadge(paper.id)}
                   </div>
-                  {getAttemptBadge(paper.id)}
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-0">
                 <div className="space-y-3">
-                  {/* Paper Info */}
-                  <div className="flex flex-wrap gap-2">
-                    <Badge variant="outline">
-                      <Calendar className="h-3 w-3 mr-1" />
+                  {/* Metadata */}
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
                       {paper.year}
-                    </Badge>
-                    {paper.session && (
-                      <Badge variant="outline">{paper.session}</Badge>
-                    )}
-                    {paper.paper_number && (
-                      <Badge variant="secondary">{paper.paper_number}</Badge>
-                    )}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Target className="h-3 w-3" />
+                      {paper.duration} min
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <FileText className="h-3 w-3" />
+                      {paper.question_count || 0} questions
+                    </span>
                   </div>
 
-                  {/* Stats */}
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <Target className="h-4 w-4" />
-                      <span>{paper.question_count} questions</span>
-                    </div>
-                    {paper.duration_minutes && (
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-4 w-4" />
-                        <span>{paper.duration_minutes} min</span>
-                      </div>
-                    )}
-                    {paper.total_marks && (
-                      <div className="flex items-center gap-1">
-                        <BookOpen className="h-4 w-4" />
-                        <span>{paper.total_marks} marks</span>
-                      </div>
-                    )}
+                  {/* Action Buttons */}
+                  <div className="flex gap-2">
+                    <Button 
+                      size="sm" 
+                      className="flex-1 text-xs"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/student/papers/${paper.id}/practice`);
+                      }}
+                    >
+                      <Play className="h-3 w-3 mr-1" />
+                      Practice
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="flex-1 text-xs"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/student/papers/${paper.id}/results`);
+                      }}
+                    >
+                      <History className="h-3 w-3 mr-1" />
+                      Results
+                    </Button>
                   </div>
-
-                  {/* Action */}
-                  <Button className="w-full mt-2" variant="outline">
-                    <Play className="h-4 w-4 mr-2" />
-                    Start Practice
-                    <ChevronRight className="h-4 w-4 ml-auto" />
-                  </Button>
                 </div>
               </CardContent>
             </Card>

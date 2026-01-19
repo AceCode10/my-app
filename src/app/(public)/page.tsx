@@ -166,7 +166,7 @@ function RotatingText() {
   const currentWord = rotatingWords[currentIndex];
 
   return (
-    <span className="relative inline-flex justify-start overflow-hidden h-[1.2em] w-[280px] sm:w-[320px] md:w-[380px] align-bottom">
+    <span className="relative inline-flex justify-start overflow-hidden h-[1.2em] w-[200px] sm:w-[280px] md:w-[320px] lg:w-[380px] align-bottom">
       <span
         className={cn(
           "absolute left-0 inline-flex items-center justify-center px-4 py-1 rounded-lg text-white font-extrabold transition-all duration-300 ease-out",
@@ -282,8 +282,8 @@ const testimonials = [
     },
     {
         quote: "As a teacher, I can finally track my students' progress effectively. Highly recommended for all educators.",
-        name: "David Miller",
-        title: "GCSE Teacher",
+        name: "David Mutale",
+        title: "IGCSE Teacher",
         avatar: "2"
     }
 ];
@@ -292,21 +292,21 @@ export default function LandingPage() {
     return (
         <div className="bg-background text-foreground">
             {/* Hero Section with Rotating Text */}
-            <section className="relative overflow-hidden pt-20 md:pt-32 pb-12 md:pb-24">
+            <section className="relative overflow-hidden pt-16 sm:pt-20 md:pt-32 pb-12 md:pb-24">
                 <FloatingIconsBackground />
                 <div className="container mx-auto px-4 text-center relative z-10">
-                    <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-foreground mb-4 leading-tight flex flex-wrap items-center justify-center gap-3">
+                    <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-foreground mb-4 leading-tight flex flex-col sm:flex-row flex-wrap items-center justify-center gap-2 sm:gap-3">
                         <span>High Quality Resources for</span>
                         <RotatingText />
                     </h1>
-                    <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
+                    <p className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto mb-6 sm:mb-8 px-4">
                         Topical questions, past papers, and revision notes for IGCSE, GCSE & A Level.
                     </p>
-                    <div className="flex flex-col sm:flex-row justify-center gap-4">
-                        <Button asChild size="lg" className="shadow-lg">
+                    <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4 px-4">
+                        <Button asChild size="lg" className="shadow-lg w-full sm:w-auto">
                             <Link href="/signup">Get Started for Free</Link>
                         </Button>
-                        <Button asChild size="lg" variant="outline">
+                        <Button asChild size="lg" variant="outline" className="w-full sm:w-auto">
                             <Link href="/signup?plan=teacher">I'm a teacher</Link>
                         </Button>
                     </div>
@@ -314,29 +314,29 @@ export default function LandingPage() {
             </section>
 
             {/* Exam Boards Carousel Section */}
-            <section className="py-12 bg-muted/30 border-y">
+            <section className="py-8 sm:py-12 bg-muted/30 border-y">
                 <div className="container mx-auto px-4">
-                    <div className="text-center mb-6">
-                        <h2 className="text-2xl md:text-3xl font-bold text-foreground">Supported Exam Boards</h2>
-                        <p className="text-muted-foreground mt-2">All major exam boards supported</p>
+                    <div className="text-center mb-4 sm:mb-6">
+                        <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">Supported Exam Boards</h2>
+                        <p className="text-sm sm:text-base text-muted-foreground mt-2">All major exam boards supported</p>
                     </div>
                 </div>
                 <ExamBoardCarousel />
                 <div className="container mx-auto px-4 text-center mt-4">
-                    <Button asChild variant="outline" size="sm">
+                    <Button asChild variant="outline" size="sm" className="w-full sm:w-auto">
                         <Link href="/subjects">Explore All Subjects</Link>
                     </Button>
                 </div>
             </section>
 
             {/* Features Section */}
-            <section id="features" className="py-16 sm:py-20 bg-background">
+            <section id="features" className="py-12 sm:py-16 md:py-20 bg-background">
                 <div className="container mx-auto px-4">
-                    <div className="text-center mb-12">
-                        <h2 className="text-3xl md:text-4xl font-bold text-foreground">Why Choose Us?</h2>
-                        <p className="text-lg text-muted-foreground mt-2">Everything you need in one place.</p>
+                    <div className="text-center mb-8 sm:mb-12">
+                        <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground">Why Choose Us?</h2>
+                        <p className="text-base sm:text-lg text-muted-foreground mt-2">Everything you need in one place.</p>
                     </div>
-                    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
                         <Card className="hover:shadow-xl hover:-translate-y-2 transition-transform duration-300">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                 <CardTitle className="text-sm font-medium">Interactive Quizzes</CardTitle>
@@ -378,26 +378,26 @@ export default function LandingPage() {
             </section>
 
             {/* Testimonials Section */}
-            <section className="py-16 sm:py-20 bg-muted/50">
+            <section className="py-12 sm:py-16 md:py-20 bg-muted/50">
                 <div className="container mx-auto px-4">
-                    <div className="text-center mb-12">
-                        <h2 className="text-3xl md:text-4xl font-bold text-foreground">Loved by Students and Teachers Alike</h2>
+                    <div className="text-center mb-8 sm:mb-12">
+                        <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground px-4">Loved by Students and Teachers Alike</h2>
                     </div>
-                    <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 max-w-4xl mx-auto">
                         {testimonials.map((testimonial, index) => (
                             <Card key={index} className="bg-background shadow-lg">
                                 <CardContent className="pt-6 flex flex-col items-center text-center">
                                     <Image 
                                       src={`https://picsum.photos/seed/${testimonial.avatar}/100/100`} 
                                       alt={testimonial.name}
-                                      width={80}
-                                      height={80}
-                                      className="rounded-full mb-4"
+                                      width={60}
+                                      height={60}
+                                      className="rounded-full mb-3 sm:mb-4 sm:w-20 sm:h-20"
                                       data-ai-hint="portrait person"
                                     />
-                                    <p className="text-muted-foreground italic mb-4">"{testimonial.quote}"</p>
-                                    <div className="font-semibold text-foreground">{testimonial.name}</div>
-                                    <div className="text-sm text-primary font-medium">{testimonial.title}</div>
+                                    <p className="text-sm sm:text-base text-muted-foreground italic mb-3 sm:mb-4">"{testimonial.quote}"</p>
+                                    <div className="font-semibold text-foreground text-sm sm:text-base">{testimonial.name}</div>
+                                    <div className="text-xs sm:text-sm text-primary font-medium">{testimonial.title}</div>
                                  </CardContent>
                             </Card>
                         ))}
@@ -406,11 +406,11 @@ export default function LandingPage() {
             </section>
 
             {/* CTA Section */}
-            <section className="py-16 sm:py-20 bg-primary text-primary-foreground">
+            <section className="py-12 sm:py-16 md:py-20 bg-primary text-primary-foreground">
                 <div className="container mx-auto px-4 text-center">
-                    <h2 className="text-3xl md:text-4xl font-bold mb-4">Ready to Get Started?</h2>
-                    <p className="text-lg mb-8 opacity-90">Join thousands of students achieving top grades.</p>
-                    <Button asChild size="lg" variant="secondary" className="shadow-lg">
+                    <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3 sm:mb-4">Ready to Get Started?</h2>
+                    <p className="text-base sm:text-lg mb-6 sm:mb-8 opacity-90">Join thousands of students achieving top grades.</p>
+                    <Button asChild size="lg" variant="secondary" className="shadow-lg w-full sm:w-auto">
                         <Link href="/signup">Sign Up Now</Link>
                     </Button>
                 </div>

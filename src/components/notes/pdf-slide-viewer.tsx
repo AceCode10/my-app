@@ -281,26 +281,26 @@ export function PDFSlideViewer({
           }}
         />
 
-        {/* Left/Right navigation arrows - subtle, on sides */}
+        {/* Left/Right navigation arrows - visible in all modes */}
         <button
           onClick={() => goToPage(currentPage - 1)}
           disabled={currentPage <= 1}
           className={cn(
-            "absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/20 hover:bg-black/40 transition-all z-20",
+            "absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 p-2 sm:p-3 rounded-full bg-gray-900/80 dark:bg-black/60 hover:bg-gray-800 dark:hover:bg-gray-900/80 transition-all z-20 shadow-lg border border-gray-600 dark:border-gray-700",
             currentPage <= 1 && "opacity-30 cursor-not-allowed"
           )}
         >
-          <ChevronLeft className="w-8 h-8 text-white" />
+          <ChevronLeft className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
         </button>
         <button
           onClick={() => goToPage(currentPage + 1)}
           disabled={currentPage >= totalPages}
           className={cn(
-            "absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/20 hover:bg-black/40 transition-all z-20",
+            "absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 p-2 sm:p-3 rounded-full bg-gray-900/80 dark:bg-black/60 hover:bg-gray-800 dark:hover:bg-gray-900/80 transition-all z-20 shadow-lg border border-gray-600 dark:border-gray-700",
             currentPage >= totalPages && "opacity-30 cursor-not-allowed"
           )}
         >
-          <ChevronRight className="w-8 h-8 text-white" />
+          <ChevronRight className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
         </button>
 
         {/* Transparent overlay for pointer - sits on top of PDF */}
@@ -406,24 +406,24 @@ export function PDFSlideViewer({
         />
       </div>
 
-      {/* Bottom controls - minimal like Tutopiya */}
-      <div className="flex items-center justify-between px-4 py-2 bg-gray-900">
+      {/* Bottom controls - mobile-friendly */}
+      <div className="flex items-center justify-between px-2 sm:px-4 py-2 sm:py-3 bg-gray-900 dark:bg-gray-950 border-t border-gray-700">
         {/* Left: Page number with navigation */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
           <button
             onClick={() => goToPage(currentPage - 1)}
             disabled={currentPage <= 1}
-            className="p-1.5 rounded bg-gray-800 text-white hover:bg-gray-700 disabled:opacity-40"
+            className="p-1.5 sm:p-2 rounded bg-gray-800 dark:bg-gray-900 text-white hover:bg-gray-700 dark:hover:bg-gray-800 disabled:opacity-40 transition-colors"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
-          <span className="bg-gray-800 text-white px-3 py-1.5 rounded text-sm font-medium min-w-[60px] text-center">
+          <span className="bg-gray-800 dark:bg-gray-900 text-white px-2 sm:px-3 py-1.5 rounded text-xs sm:text-sm font-medium min-w-[50px] sm:min-w-[60px] text-center">
             {currentPage} / {totalPages}
           </span>
           <button
             onClick={() => goToPage(currentPage + 1)}
             disabled={currentPage >= totalPages}
-            className="p-1.5 rounded bg-gray-800 text-white hover:bg-gray-700 disabled:opacity-40"
+            className="p-1.5 sm:p-2 rounded bg-gray-800 dark:bg-gray-900 text-white hover:bg-gray-700 dark:hover:bg-gray-800 disabled:opacity-40 transition-colors"
           >
             <ChevronRight className="w-4 h-4" />
           </button>
@@ -433,15 +433,15 @@ export function PDFSlideViewer({
         <div className="flex items-center gap-1">
           <button 
             onClick={zoomOut}
-            className="p-1.5 rounded bg-gray-800 text-white hover:bg-gray-700"
+            className="p-1.5 sm:p-2 rounded bg-gray-800 dark:bg-gray-900 text-white hover:bg-gray-700 dark:hover:bg-gray-800 transition-colors"
             title="Zoom out"
           >
             <ZoomOut className="w-4 h-4" />
           </button>
-          <span className="text-white text-xs px-2">{scale}%</span>
+          <span className="text-white text-xs sm:text-sm px-1 sm:px-2 font-medium">{scale}%</span>
           <button 
             onClick={zoomIn}
-            className="p-1.5 rounded bg-gray-800 text-white hover:bg-gray-700"
+            className="p-1.5 sm:p-2 rounded bg-gray-800 dark:bg-gray-900 text-white hover:bg-gray-700 dark:hover:bg-gray-800 transition-colors"
             title="Zoom in"
           >
             <ZoomIn className="w-4 h-4" />
@@ -454,7 +454,7 @@ export function PDFSlideViewer({
           <button
             onClick={() => setShowMagicMenu(m => !m)}
             className={cn(
-              'p-1.5 rounded bg-gray-800 text-white hover:bg-gray-700',
+              'p-1.5 sm:p-2 rounded bg-gray-800 dark:bg-gray-900 text-white hover:bg-gray-700 dark:hover:bg-gray-800 transition-colors',
               showMagicMenu && 'bg-primary'
             )}
             title="Magic shortcuts"
@@ -466,7 +466,7 @@ export function PDFSlideViewer({
           <button
             onClick={() => setShowPointer(p => !p)}
             className={cn(
-              'p-1.5 rounded bg-gray-800 text-white hover:bg-gray-700',
+              'p-1.5 sm:p-2 rounded bg-gray-800 dark:bg-gray-900 text-white hover:bg-gray-700 dark:hover:bg-gray-800 transition-colors',
               showPointer && 'bg-green-600'
             )}
             title="Annotate / Pointer"
@@ -477,7 +477,7 @@ export function PDFSlideViewer({
           {/* Fullscreen */}
           <button
             onClick={toggleFullscreen}
-            className="p-1.5 rounded bg-gray-800 text-white hover:bg-gray-700"
+            className="p-1.5 sm:p-2 rounded bg-gray-800 dark:bg-gray-900 text-white hover:bg-gray-700 dark:hover:bg-gray-800 transition-colors"
             title="Fullscreen"
           >
             {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}

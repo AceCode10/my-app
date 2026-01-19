@@ -254,6 +254,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <NotificationBell />
         </header>
 
+        {/* Desktop Header */}
+        <header className="hidden lg:flex items-center justify-end h-14 px-6 border-b bg-card">
+          <NotificationBell />
+        </header>
+
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto p-6">
           <ErrorBoundary>

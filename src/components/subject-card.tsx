@@ -59,7 +59,7 @@ export const SubjectCard = memo(function SubjectCard({ name, code, path, icon, c
     return (
         <Link href={path} className="block group">
             <div className={cn(
-                "relative overflow-hidden rounded-2xl p-6 h-[200px]",
+                "relative overflow-hidden rounded-2xl p-4 sm:p-6 h-[160px] sm:h-[200px]",
                 "bg-gradient-to-br shadow-lg",
                 "hover:shadow-2xl hover:scale-105 transition-all duration-300",
                 "border border-white/10",
@@ -71,9 +71,9 @@ export const SubjectCard = memo(function SubjectCard({ name, code, path, icon, c
                 {/* Content */}
                 <div className="relative z-10 flex flex-col h-full text-white">
                     {/* Icon */}
-                    <div className="mb-3">
+                    <div className="mb-2 sm:mb-3">
                         {iconUrl ? (
-                            <div className="w-10 h-10 relative">
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 relative">
                                 <Image 
                                     src={iconUrl} 
                                     alt={name}
@@ -82,13 +82,13 @@ export const SubjectCard = memo(function SubjectCard({ name, code, path, icon, c
                                 />
                             </div>
                         ) : (
-                            <IconComponent className="w-10 h-10 text-white" />
+                            <IconComponent className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
                         )}
                     </div>
                     
                     {/* Subject Name */}
                     <div className="flex-grow">
-                        <h3 className="font-bold text-white text-lg mb-1 line-clamp-2">
+                        <h3 className="font-bold text-white text-sm sm:text-lg mb-1 line-clamp-2 leading-tight">
                             {name}
                         </h3>
                         {code && (
@@ -98,10 +98,10 @@ export const SubjectCard = memo(function SubjectCard({ name, code, path, icon, c
                     
                     {/* Progress Bar (only shown for authenticated users with progress) */}
                     {showProgress && (
-                        <div className="mt-4 space-y-1">
+                        <div className="mt-2 sm:mt-4 space-y-1">
                             <Progress 
                                 value={progress} 
-                                className="h-2 bg-white/20"
+                                className="h-1.5 sm:h-2 bg-white/20"
                                 indicatorClassName="bg-white"
                             />
                             <p className="text-xs text-white/90 font-medium">

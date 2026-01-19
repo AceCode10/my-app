@@ -259,14 +259,14 @@ export default function StudentNotesPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-          <BookOpen className="h-8 w-8 text-primary" />
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
+          <BookOpen className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
           Revision Notes
         </h1>
-        <p className="text-muted-foreground mt-1">
+        <p className="text-muted-foreground mt-1 text-sm sm:text-base">
           Track your reading progress across all topics
         </p>
       </div>
@@ -274,52 +274,52 @@ export default function StudentNotesPage() {
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <FileText className="h-5 w-5 text-primary" />
+          <CardContent className="p-4 sm:pt-6">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="p-1.5 sm:p-2 bg-primary/10 rounded-lg">
+                <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{stats.totalNotes}</p>
+                <p className="text-xl sm:text-2xl font-bold">{stats.totalNotes}</p>
                 <p className="text-xs text-muted-foreground">Total Notes</p>
               </div>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-500/10 rounded-lg">
-                <CheckCircle2 className="h-5 w-5 text-green-500" />
+          <CardContent className="p-4 sm:pt-6">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="p-1.5 sm:p-2 bg-green-500/10 rounded-lg">
+                <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-green-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{stats.completedNotes}</p>
+                <p className="text-xl sm:text-2xl font-bold">{stats.completedNotes}</p>
                 <p className="text-xs text-muted-foreground">Completed</p>
               </div>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-yellow-500/10 rounded-lg">
-                <TrendingUp className="h-5 w-5 text-yellow-500" />
+          <CardContent className="p-4 sm:pt-6">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="p-1.5 sm:p-2 bg-yellow-500/10 rounded-lg">
+                <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{stats.inProgressNotes}</p>
+                <p className="text-xl sm:text-2xl font-bold">{stats.inProgressNotes}</p>
                 <p className="text-xs text-muted-foreground">In Progress</p>
               </div>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-500/10 rounded-lg">
-                <Clock className="h-5 w-5 text-blue-500" />
+          <CardContent className="p-4 sm:pt-6">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="p-1.5 sm:p-2 bg-blue-500/10 rounded-lg">
+                <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{formatTime(stats.totalTimeSpent)}</p>
+                <p className="text-xl sm:text-2xl font-bold">{formatTime(stats.totalTimeSpent)}</p>
                 <p className="text-xs text-muted-foreground">Time Spent</p>
               </div>
             </div>
@@ -329,8 +329,8 @@ export default function StudentNotesPage() {
 
       {/* Filters & Search */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row gap-4">
+        <CardContent className="p-4 sm:pt-6">
+          <div className="flex flex-col gap-4">
             <div className="flex-1">
               <NotesSearch
                 placeholder="Search notes..."
@@ -341,7 +341,7 @@ export default function StudentNotesPage() {
               />
             </div>
             <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-              <SelectTrigger className="w-full sm:w-48">
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="All subjects" />
               </SelectTrigger>
               <SelectContent>
@@ -359,34 +359,34 @@ export default function StudentNotesPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="all">All Notes</TabsTrigger>
-          <TabsTrigger value="in-progress">
+        <TabsList className="w-full flex flex-wrap justify-start gap-1 h-auto p-1">
+          <TabsTrigger value="all" className="text-xs sm:text-sm">All Notes</TabsTrigger>
+          <TabsTrigger value="in-progress" className="text-xs sm:text-sm">
             In Progress
             {stats.inProgressNotes > 0 && (
-              <Badge variant="secondary" className="ml-2">{stats.inProgressNotes}</Badge>
+              <Badge variant="secondary" className="ml-1 sm:ml-2 text-xs">{stats.inProgressNotes}</Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="completed">Completed</TabsTrigger>
-          <TabsTrigger value="bookmarked">
-            <BookmarkCheck className="h-4 w-4 mr-1" />
+          <TabsTrigger value="completed" className="text-xs sm:text-sm">Completed</TabsTrigger>
+          <TabsTrigger value="bookmarked" className="text-xs sm:text-sm">
+            <BookmarkCheck className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
             Bookmarked
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value={activeTab} className="mt-6">
+        <TabsContent value={activeTab} className="mt-4 sm:mt-6">
           {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {[...Array(6)].map((_, i) => (
                 <Skeleton key={i} className="h-48" />
               ))}
             </div>
           ) : filteredNotes.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center">
-                <BookOpen className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-                <h3 className="text-lg font-medium">No notes found</h3>
-                <p className="text-muted-foreground mt-1">
+              <CardContent className="py-8 sm:py-12 text-center">
+                <BookOpen className="h-10 w-10 sm:h-12 sm:w-12 mx-auto text-muted-foreground/50 mb-4" />
+                <h3 className="text-base sm:text-lg font-medium">No notes found</h3>
+                <p className="text-muted-foreground mt-1 text-sm">
                   {activeTab === 'bookmarked' 
                     ? "You haven't bookmarked any notes yet"
                     : activeTab === 'completed'
@@ -398,7 +398,7 @@ export default function StudentNotesPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredNotes.map((note) => (
                 <NoteCard key={note.id} note={note} />
               ))}
@@ -410,14 +410,14 @@ export default function StudentNotesPage() {
       {/* Continue Reading Section */}
       {stats.inProgressNotes > 0 && activeTab === 'all' && (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-primary" />
+          <CardHeader className="pb-4">
+            <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
               Continue Reading
             </CardTitle>
-            <CardDescription>Pick up where you left off</CardDescription>
+            <CardDescription className="text-sm">Pick up where you left off</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0">
             <div className="space-y-3">
               {notes
                 .filter(n => n.progress_percentage > 0 && n.progress_percentage < 100)
@@ -429,21 +429,21 @@ export default function StudentNotesPage() {
                 .slice(0, 3)
                 .map((note) => (
                   <Link key={note.id} href={`/notes/${note.slug}`}>
-                    <div className="flex items-center gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-medium truncate">{note.title}</h4>
+                        <h4 className="font-medium truncate text-sm sm:text-base">{note.title}</h4>
                         <p className="text-sm text-muted-foreground truncate">
                           {(note.subject as any)?.name}
                         </p>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <div className="w-24">
+                      <div className="flex items-center gap-2 sm:gap-3 self-end sm:self-auto">
+                        <div className="w-20 sm:w-24">
                           <Progress value={note.progress_percentage} className="h-2" />
                         </div>
-                        <span className="text-sm text-muted-foreground w-10">
+                        <span className="text-sm text-muted-foreground w-8 sm:w-10 text-right">
                           {note.progress_percentage}%
                         </span>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       </div>
                     </div>
                   </Link>

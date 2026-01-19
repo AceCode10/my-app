@@ -4,7 +4,7 @@
  */
 
 // Core display components
-export { NotificationBell } from './notification-bell';
+export { NotificationBell } from '@/components/notification-bell';
 export { Leaderboard } from './leaderboard';
 export { XPProgressBar } from './xp-progress-bar';
 export { StreakDisplay } from './streak-display';

@@ -210,6 +210,55 @@ export function NotesViewer({
     window.print();
   }, []);
 
+  const handlePreviousChapter = useCallback(() => {
+    if (!currentSection) return;
+    
+    const flatSections = flattenSections(sections);
+    const currentIndex = flatSections.findIndex(s => s.id === currentSection.id);
+    
+    if (currentIndex > 0) {
+      const prevSection = flatSections[currentIndex - 1];
+      setCurrentSection(prevSection);
+      
+      // Scroll to top of content
+      if (contentRef.current) {
+        contentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+  }, [currentSection, sections]);
+
+  const handleNextChapter = useCallback(() => {
+    if (!currentSection) return;
+    
+    const flatSections = flattenSections(sections);
+    const currentIndex = flatSections.findIndex(s => s.id === currentSection.id);
+    
+    if (currentIndex < flatSections.length - 1) {
+      const nextSection = flatSections[currentIndex + 1];
+      setCurrentSection(nextSection);
+      
+      // Scroll to top of content
+      if (contentRef.current) {
+        contentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+  }, [currentSection, sections]);
+
+  // Get current and adjacent chapter info
+  const getAdjacentChapters = useCallback(() => {
+    if (!currentSection) return { previous: null, next: null };
+    
+    const flatSections = flattenSections(sections);
+    const currentIndex = flatSections.findIndex(s => s.id === currentSection.id);
+    
+    return {
+      previous: currentIndex > 0 ? flatSections[currentIndex - 1] : null,
+      next: currentIndex < flatSections.length - 1 ? flatSections[currentIndex + 1] : null
+    };
+  }, [currentSection, sections]);
+
+  const { previous: previousChapter, next: nextChapter } = getAdjacentChapters();
+
   // Handle scroll progress tracking and auto-complete
   useEffect(() => {
     let completionTriggered = false;
@@ -508,7 +557,7 @@ export function NotesViewer({
             {/* Section Footer */}
             {currentSection && userId && (
               <div className="mt-12 pt-6 border-t">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-6">
                   <div className="text-sm text-muted-foreground">
                     {completedSectionIds.has(currentSection.id) ? (
                       <span className="flex items-center gap-2 text-green-600">
@@ -526,6 +575,64 @@ export function NotesViewer({
                     </Button>
                   )}
                 </div>
+
+                {/* Chapter Navigation */}
+                {(previousChapter || nextChapter) && (
+                  <div className="border-t pt-6">
+                    <div className="flex items-center justify-between gap-4">
+                      {/* Previous Chapter */}
+                      {previousChapter ? (
+                        <Button 
+                          variant="outline" 
+                          onClick={handlePreviousChapter}
+                          className="flex-1 sm:flex-none"
+                        >
+                          <ChevronLeft className="h-4 w-4 mr-2" />
+                          <div className="text-left">
+                            <div className="text-xs text-muted-foreground">Previous</div>
+                            <div className="text-sm font-medium truncate max-w-[150px] sm:max-w-none">
+                              {previousChapter.title}
+                            </div>
+                          </div>
+                        </Button>
+                      ) : (
+                        <div className="flex-1 sm:flex-none" />
+                      )}
+
+                      {/* Progress Indicator */}
+                      <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>
+                          {sections.findIndex(s => s.id === currentSection.id) + 1} / {sections.length}
+                        </span>
+                      </div>
+
+                      {/* Next Chapter */}
+                      {nextChapter ? (
+                        <Button 
+                          onClick={handleNextChapter}
+                          className="flex-1 sm:flex-none"
+                        >
+                          <div className="text-right">
+                            <div className="text-xs text-muted-foreground">Next</div>
+                            <div className="text-sm font-medium truncate max-w-[150px] sm:max-w-none">
+                              {nextChapter.title}
+                            </div>
+                          </div>
+                          <ChevronRight className="h-4 w-4 ml-2" />
+                        </Button>
+                      ) : (
+                        <div className="flex-1 sm:flex-none" />
+                      )}
+                    </div>
+
+                    {/* Mobile Progress Indicator */}
+                    <div className="flex sm:hidden items-center justify-center gap-2 text-xs text-muted-foreground mt-4">
+                      <span>
+                        {sections.findIndex(s => s.id === currentSection.id) + 1} / {sections.length}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </article>

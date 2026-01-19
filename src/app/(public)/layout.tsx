@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { allSubjects } from '@/lib/subjects';
 import { cn } from '@/lib/utils';
+import { OrganizationJsonLd, WebsiteJsonLd, SoftwareApplicationJsonLd } from '@/components/seo/json-ld';
 
 
 const NavLink = ({ href, children }: { href: string, children: React.ReactNode }) => (
@@ -54,6 +55,11 @@ export default function PublicLayout({
 
   return (
     <div className="bg-background text-foreground flex flex-col min-h-screen">
+        {/* Structured Data for SEO */}
+        <OrganizationJsonLd />
+        <WebsiteJsonLd />
+        <SoftwareApplicationJsonLd />
+        
         <header className="bg-background/80 backdrop-blur-lg sticky top-0 z-50 border-b">
             <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between h-16">
@@ -135,7 +141,7 @@ export default function PublicLayout({
                         ) : user ? (
                             <>
                                 {/* Upgrade Button - show for non-premium users */}
-                                {user.subscription_tier === 'free' && (
+                                {(user.subscription_tier === 'basic' || !user.subscription_tier) && (
                                     <Button asChild className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold">
                                         <Link href="/pricing">
                                             <Sparkles className="w-4 h-4 mr-1" />
@@ -197,13 +203,11 @@ export default function PublicLayout({
             {isMobileMenuOpen && (
                 <div className="md:hidden border-t">
                     <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-                        <Link href="/resources/topical-questions" className="block px-3 py-2 rounded-md text-base font-medium text-primary hover:text-primary-foreground hover:bg-primary">⭐ Topical Questions</Link>
-                        <Link href="/resources/past-papers" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:text-primary-foreground hover:bg-primary">Past Papers</Link>
-                        <Link href="/resources/revision-notes" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:text-primary-foreground hover:bg-primary">Revision Notes</Link>
-                        <Link href="/resources/quizzes" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:text-primary-foreground hover:bg-primary">Quizzes</Link>
-                        <Link href="/pricing" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:text-primary-foreground hover:bg-primary">Pricing</Link>
-                        <Link href="/teacher" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:text-primary-foreground hover:bg-primary">For Teachers</Link>
-                        <Link href="/faq" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:text-primary-foreground hover:bg-primary">FAQ</Link>
+                        <Link href="/resources/topical-questions" onClick={() => setIsMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-base font-medium text-primary hover:text-primary-foreground hover:bg-primary">Topical Questions</Link>
+                        <Link href="/resources/past-papers" onClick={() => setIsMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:text-primary-foreground hover:bg-primary">Past Papers</Link>
+                        <Link href="/resources/revision-notes" onClick={() => setIsMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:text-primary-foreground hover:bg-primary">Revision Notes</Link>
+                        <Link href="/pricing" onClick={() => setIsMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:text-primary-foreground hover:bg-primary">Pricing</Link>
+                        <Link href="/for-teachers" onClick={() => setIsMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:text-primary-foreground hover:bg-primary">For Teachers</Link>
                     </div>
                     <div className="pt-4 pb-3 border-t">
                         <div className="px-5">
@@ -249,16 +253,16 @@ export default function PublicLayout({
                     <div>
                         <h3 className="text-sm font-semibold text-foreground tracking-wider uppercase">Company</h3>
                         <ul className="mt-4 space-y-2">
-                            <li><Link href="#" className="hover:text-primary">About Us</Link></li>
-                            <li><Link href="#" className="hover:text-primary">Contact</Link></li>
+                            <li><Link href="/about" className="hover:text-primary">About Us</Link></li>
+                            <li><Link href="/contact" className="hover:text-primary">Contact</Link></li>
                             <li><Link href="/faq" className="hover:text-primary">FAQ</Link></li>
                         </ul>
                     </div>
                     <div>
                         <h3 className="text-sm font-semibold text-foreground tracking-wider uppercase">Legal</h3>
                         <ul className="mt-4 space-y-2">
-                            <li><Link href="#" className="hover:text-primary">Privacy Policy</Link></li>
-                            <li><Link href="#" className="hover:text-primary">Terms of Service</Link></li>
+                            <li><Link href="/privacy" className="hover:text-primary">Privacy Policy</Link></li>
+                            <li><Link href="/terms" className="hover:text-primary">Terms of Service</Link></li>
                         </ul>
                     </div>
                     <div className="col-span-2 sm:col-span-1">

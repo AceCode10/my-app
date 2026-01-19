@@ -117,52 +117,52 @@ function LoginContent() {
     
 
     return (
-        <div className="bg-background text-foreground flex items-center justify-center min-h-screen">
-            <div className="max-w-md w-full px-4 sm:px-6 lg:px-8 mx-auto">
+        <div className="bg-background text-foreground flex items-center justify-center min-h-screen p-4">
+            <div className="max-w-md w-full mx-auto">
                 <div className="p-6 sm:p-8 bg-card rounded-2xl shadow-lg">
-                    <h2 className="text-2xl font-bold text-card-foreground text-center mb-2">
+                    <h2 className="text-xl sm:text-2xl font-bold text-card-foreground text-center mb-2">
                         {isTeacher ? 'Welcome Back, Teacher!' : 'Welcome Back!'}
                     </h2>
-                    <p className="text-center text-muted-foreground mb-6">
+                    <p className="text-center text-sm sm:text-base text-muted-foreground mb-6">
                         {isTeacher ? 'Log in to access your teacher dashboard.' : 'Log in to continue your learning journey.'}
                     </p>
                     <form className="space-y-4" onSubmit={handleSubmit}>
                         <div className="relative">
-                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
                             <input
                                 type="email"
                                 placeholder="Email Address"
-                                className="w-full pl-10 pr-4 py-3 rounded-lg border bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                                className="w-full pl-9 sm:pl-10 pr-4 py-2.5 sm:py-3 rounded-lg border bg-background text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-primary"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
                             />
                         </div>
                         <div className="relative">
-                            <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                            <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
                             <input
                                 type="password"
                                 placeholder="Password"
-                                className="w-full pl-10 pr-4 py-3 rounded-lg border bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                                className="w-full pl-9 sm:pl-10 pr-4 py-2.5 sm:py-3 rounded-lg border bg-background text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-primary"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
                             />
                         </div>
-                        <button type="submit" className="w-full bg-primary text-primary-foreground font-bold py-3 rounded-lg hover:bg-primary/90 transition-colors shadow-md disabled:bg-primary/50" disabled={isSubmitting}>
+                        <button type="submit" className="w-full bg-primary text-primary-foreground font-bold py-2.5 sm:py-3 rounded-lg hover:bg-primary/90 transition-colors shadow-md disabled:bg-primary/50 text-sm sm:text-base" disabled={isSubmitting}>
                             {isSubmitting ? 'Logging In...' : 'Log In'}
                         </button>
                     </form>
-                    <div className="flex items-center my-6">
+                    <div className="flex items-center my-5 sm:my-6">
                         <div className="flex-grow border-t"></div>
-                        <span className="mx-4 text-muted-foreground text-sm">OR</span>
+                        <span className="mx-3 sm:mx-4 text-muted-foreground text-xs sm:text-sm">OR</span>
                         <div className="flex-grow border-t"></div>
                     </div>
-                    <button onClick={handleGoogleSignIn} disabled={isSubmitting} className="w-full flex items-center justify-center space-x-2 border font-medium py-3 rounded-lg hover:bg-muted/50 transition-colors disabled:opacity-50">
-                        <img src="https://www.google.com/ficon.ico" alt="Google icon" className="w-5 h-5" />
+                    <button onClick={handleGoogleSignIn} disabled={isSubmitting} className="w-full flex items-center justify-center space-x-2 border font-medium py-2.5 sm:py-3 rounded-lg hover:bg-muted/50 transition-colors disabled:opacity-50 text-sm sm:text-base">
+                        <img src="https://www.google.com/ficon.ico" alt="Google icon" className="w-4 h-4 sm:w-5 sm:h-5" />
                         <span>Sign in with Google</span>
                     </button>
-                    <p className="text-center text-sm text-muted-foreground mt-6">
+                    <p className="text-center text-xs sm:text-sm text-muted-foreground mt-5 sm:mt-6">
                         Don't have an account?{' '}
                         {isTeacher ? (
                             <Link href="/signup?plan=teacher" className="font-medium text-primary hover:underline">

@@ -46,17 +46,17 @@ export function QuestionNavigator({
         
         {/* Progress Stats */}
         <div className="grid grid-cols-3 gap-2 mt-4 text-sm">
-          <div className="text-center p-2 bg-green-50 rounded">
-            <div className="font-bold text-green-700">{stats.answered}</div>
-            <div className="text-green-600 text-xs">Answered</div>
+          <div className="text-center p-2 bg-green-50 dark:bg-green-950 rounded">
+            <div className="font-bold text-green-700 dark:text-green-400">{stats.answered}</div>
+            <div className="text-green-600 dark:text-green-500 text-xs">Answered</div>
           </div>
-          <div className="text-center p-2 bg-gray-50 rounded">
-            <div className="font-bold text-gray-700">{stats.unanswered}</div>
-            <div className="text-gray-600 text-xs">Unanswered</div>
+          <div className="text-center p-2 bg-muted/50 rounded">
+            <div className="font-bold text-foreground">{stats.unanswered}</div>
+            <div className="text-muted-foreground text-xs">Unanswered</div>
           </div>
-          <div className="text-center p-2 bg-yellow-50 rounded">
-            <div className="font-bold text-yellow-700">{stats.flagged}</div>
-            <div className="text-yellow-600 text-xs">Flagged</div>
+          <div className="text-center p-2 bg-yellow-50 dark:bg-yellow-950 rounded">
+            <div className="font-bold text-yellow-700 dark:text-yellow-400">{stats.flagged}</div>
+            <div className="text-yellow-600 dark:text-yellow-500 text-xs">Flagged</div>
           </div>
         </div>
       </CardHeader>
@@ -75,16 +75,16 @@ export function QuestionNavigator({
                   onClick={() => onNavigate(index)}
                   className={cn(
                     'relative h-12 w-full',
-                    isAnswered && !isCurrent && 'bg-green-50 border-green-500 hover:bg-green-100',
+                    isAnswered && !isCurrent && 'bg-green-50 dark:bg-green-950 border-green-500 hover:bg-green-100 dark:hover:bg-green-900',
                     isFlagged && 'ring-2 ring-yellow-400'
                   )}
                 >
                   <div className="flex flex-col items-center gap-1">
                     <span className="font-semibold">{index + 1}</span>
                     <div className="flex gap-1">
-                      {isAnswered && <Check className="w-3 h-3 text-green-600" />}
-                      {isFlagged && <Flag className="w-3 h-3 text-yellow-600" />}
-                      {!isAnswered && !isCurrent && <Circle className="w-3 h-3 text-gray-400" />}
+                      {isAnswered && <Check className="w-3 h-3 text-green-600 dark:text-green-400" />}
+                      {isFlagged && <Flag className="w-3 h-3 text-yellow-600 dark:text-yellow-400" />}
+                      {!isAnswered && !isCurrent && <Circle className="w-3 h-3 text-muted-foreground" />}
                     </div>
                   </div>
                 </Button>
@@ -94,21 +94,21 @@ export function QuestionNavigator({
         </ScrollArea>
 
         {/* Legend */}
-        <div className="mt-4 pt-4 border-t space-y-2 text-xs text-gray-600">
+        <div className="mt-4 pt-4 border-t space-y-2 text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-green-50 border border-green-500 rounded" />
+            <div className="w-4 h-4 bg-green-50 dark:bg-green-950 border border-green-500 rounded" />
             <span>Answered</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-white border border-gray-300 rounded" />
+            <div className="w-4 h-4 bg-background border border-border rounded" />
             <span>Not answered</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-white border-2 border-yellow-400 rounded" />
+            <div className="w-4 h-4 bg-background border-2 border-yellow-400 rounded" />
             <span>Flagged for review</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-blue-500 rounded" />
+            <div className="w-4 h-4 bg-primary rounded" />
             <span>Current question</span>
           </div>
         </div>

@@ -306,36 +306,38 @@ export default function ClassesPage() {
     };
 
     return (
-        <div className="">
-            <h2 className="text-3xl font-bold text-foreground mb-4">My Classes</h2>
-            <p className="text-muted-foreground mb-8">View enrolled classes or join with a code</p>
+        <div className="space-y-6">
+            <div>
+                <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">My Classes</h2>
+                <p className="text-muted-foreground">View enrolled classes or join with a code</p>
+            </div>
             
             {/* Pending Invitations Section */}
             {!isLoadingInvitations && invitations.length > 0 && (
-                <Card className="mb-8 border-primary/50 bg-primary/5">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
+                <Card className="border-primary/50 bg-primary/5">
+                    <CardHeader className="pb-4">
+                        <CardTitle className="flex items-center gap-2 text-lg">
                             <Mail className="h-5 w-5 text-primary" />
                             Class Invitations ({invitations.length})
                         </CardTitle>
-                        <CardDescription>You have pending invitations from teachers</CardDescription>
+                        <CardDescription className="text-sm">You have pending invitations from teachers</CardDescription>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="pt-0">
                         <div className="space-y-3">
                             {invitations.map((invitation) => (
                                 <div 
                                     key={invitation.id}
-                                    className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-background rounded-lg border gap-4"
+                                    className="flex flex-col gap-3 p-4 bg-background rounded-lg border"
                                 >
                                     <div className="flex-1">
-                                        <h4 className="font-semibold text-foreground mb-1">
+                                        <h4 className="font-semibold text-foreground mb-1 text-sm sm:text-base leading-tight">
                                             {invitation.classes?.users?.display_name || 'A teacher'} has invited you to join {invitation.classes?.name || 'a class'}
                                         </h4>
-                                        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                             <span>Subject: {invitation.classes?.subjects?.name || 'Unknown Subject'}</span>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 self-end sm:self-auto">
                                         <Button
                                             variant="outline"
                                             size="sm"
@@ -373,57 +375,61 @@ export default function ClassesPage() {
                 </Card>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 space-y-4">
-                    <h3 className="text-xl font-bold text-foreground">Enrolled Classes</h3>
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 lg:gap-8">
+                <div className="xl:col-span-2 space-y-4">
+                    <h3 className="text-lg sm:text-xl font-bold text-foreground">Enrolled Classes</h3>
                     {isLoadingClasses ? (
-                         Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-40 w-full" />)
+                         <div className="space-y-4">
+                             {Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-32 sm:h-40 w-full" />)}
+                         </div>
                     ) : classes && classes.length > 0 ? (
-                        classes.map(cls => (
-                            <Link href={`/student/classes/${cls.id}`} key={cls.id}>
-                                <Card className="hover:border-primary transition-colors">
-                                    <CardHeader>
-                                        <div className="flex items-start justify-between">
-                                            <div>
-                                                <CardTitle className="text-xl">{cls.name}</CardTitle>
-                                                <CardDescription className="mt-1">
-                                                    {cls.subjects?.name || 'Unknown Subject'}
-                                                </CardDescription>
+                        <div className="space-y-4">
+                            {classes.map(cls => (
+                                <Link href={`/student/classes/${cls.id}`} key={cls.id}>
+                                    <Card className="hover:border-primary transition-colors">
+                                        <CardHeader className="pb-3">
+                                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                                                <div className="flex-1">
+                                                    <CardTitle className="text-lg sm:text-xl">{cls.name}</CardTitle>
+                                                    <CardDescription className="mt-1">
+                                                        {cls.subjects?.name || 'Unknown Subject'}
+                                                    </CardDescription>
+                                                </div>
+                                                <Badge variant="secondary" className="w-fit">
+                                                    <GraduationCap className="h-3 w-3 mr-1" />
+                                                    Active
+                                                </Badge>
                                             </div>
-                                            <Badge variant="secondary">
-                                                <GraduationCap className="h-3 w-3 mr-1" />
-                                                Active
-                                            </Badge>
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-6 text-sm text-muted-foreground">
-                                                <div className="flex items-center gap-2">
-                                                    <Users className="h-4 w-4" />
-                                                    <span>{cls._count?.enrollments || 0} students</span>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <BookOpen className="h-4 w-4" />
-                                                    <span>{cls._count?.assignments || 0} assignments</span>
-                                                </div>
-                                                {cls.users && (
+                                        </CardHeader>
+                                        <CardContent className="pt-0">
+                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                                <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                                                     <div className="flex items-center gap-2">
-                                                        <span>Teacher: {cls.users.display_name}</span>
+                                                        <Users className="h-4 w-4" />
+                                                        <span>{cls._count?.enrollments || 0} students</span>
                                                     </div>
-                                                )}
+                                                    <div className="flex items-center gap-2">
+                                                        <BookOpen className="h-4 w-4" />
+                                                        <span>{cls._count?.assignments || 0} assignments</span>
+                                                    </div>
+                                                    {cls.users && (
+                                                        <div className="flex items-center gap-2">
+                                                            <span>Teacher: {cls.users.display_name}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center text-primary font-semibold">
+                                                    View Class <ArrowRight className="ml-2 h-4 w-4" />
+                                                </div>
                                             </div>
-                                            <div className="flex items-center text-primary font-semibold">
-                                                View Class <ArrowRight className="ml-2 h-4 w-4" />
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            </Link>
-                        ))
+                                        </CardContent>
+                                    </Card>
+                                </Link>
+                            ))}
+                        </div>
                      ) : (
-                        <Card className="text-center p-12 border-dashed">
-                            <GraduationCap className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                        <Card className="text-center p-8 sm:p-12 border-dashed">
+                            <GraduationCap className="h-10 w-10 sm:h-12 sm:w-12 mx-auto text-muted-foreground mb-4" />
                             <h3 className="font-semibold text-foreground mb-2">No Classes Yet</h3>
                             <p className="text-muted-foreground text-sm">Join a class using the code provided by your teacher.</p>
                         </Card>
@@ -431,9 +437,9 @@ export default function ClassesPage() {
                 </div>
                 <div>
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Join a New Class</CardTitle>
-                            <CardDescription>Enter the class code provided by your teacher</CardDescription>
+                        <CardHeader className="pb-4">
+                            <CardTitle className="text-lg">Join a New Class</CardTitle>
+                            <CardDescription className="text-sm">Enter the class code provided by your teacher</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="space-y-2">

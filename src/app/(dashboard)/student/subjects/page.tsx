@@ -120,16 +120,17 @@ export default function SubjectsPage() {
     return (
         <div className="space-y-6">
             {/* Header with user preferences summary */}
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+            <div className="flex flex-col gap-4">
                 <div>
-                    <h2 className="text-3xl font-bold text-foreground">My Subjects</h2>
+                    <h2 className="text-2xl sm:text-3xl font-bold text-foreground">My Subjects</h2>
                     <p className="text-muted-foreground mt-1">Your personalized learning dashboard</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                     {mySubjects.length > 0 && (
                         <Button 
                             variant={editMode ? "default" : "outline"}
                             onClick={() => setEditMode(!editMode)}
+                            className="w-full sm:w-auto"
                         >
                             {editMode ? (
                                 <><X className="mr-2 h-4 w-4" />Done</>
@@ -137,7 +138,7 @@ export default function SubjectsPage() {
                                 <><Trash2 className="mr-2 h-4 w-4" />Edit</>                            )}
                         </Button>
                     )}
-                    <Button asChild>
+                    <Button asChild className="w-full sm:w-auto">
                         <Link href="/student/subjects/add">
                             <PlusCircle className="mr-2 h-4 w-4" />
                             Add Subjects
@@ -150,7 +151,7 @@ export default function SubjectsPage() {
             {(selectedBoardsInfo.length > 0 || userLevel || userCountry) && (
                 <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
                     <CardContent className="pt-4 pb-4">
-                        <div className="flex flex-wrap items-center gap-4">
+                        <div className="flex flex-col gap-3">
                             {userCountry && (
                                 <div className="flex items-center gap-2">
                                     <Globe className="h-4 w-4 text-muted-foreground" />
@@ -158,9 +159,9 @@ export default function SubjectsPage() {
                                 </div>
                             )}
                             {selectedBoardsInfo.length > 0 && (
-                                <div className="flex items-center gap-2">
+                                <div className="flex flex-col gap-2">
                                     <span className="text-sm text-muted-foreground">Exam Boards:</span>
-                                    <div className="flex gap-1">
+                                    <div className="flex flex-wrap gap-1">
                                         {selectedBoardsInfo.map(board => (
                                             <Badge key={board.id} variant="secondary" className={board.color + ' text-white text-xs'}>
                                                 {board.shortName}
@@ -175,10 +176,10 @@ export default function SubjectsPage() {
                                     <Badge variant="outline">{userLevel.toUpperCase().replace('_', ' ')}</Badge>
                                 </div>
                             )}
-                            <Button variant="ghost" size="sm" asChild className="ml-auto">
+                            <Button variant="ghost" size="sm" asChild className="w-full sm:w-auto mt-2">
                                 <Link href="/student/settings">
                                     <Settings className="h-4 w-4 mr-1" />
-                                    Edit
+                                    Edit Preferences
                                 </Link>
                             </Button>
                         </div>
@@ -188,16 +189,16 @@ export default function SubjectsPage() {
             
             {/* Subjects Grid */}
             {isLoading ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
                     {Array.from({ length: 8 }).map((_, i) => (
                         <Skeleton key={i} className="h-[180px] w-full rounded-xl" />
                     ))}
                 </div>
             ) : mySubjects.length === 0 ? (
-                <Card className="text-center p-12 border-dashed">
-                    <BookOpen className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="text-xl font-semibold text-foreground mb-2">No Subjects Selected</h3>
-                    <p className="text-muted-foreground max-w-md mx-auto">
+                <Card className="text-center p-8 sm:p-12 border-dashed">
+                    <BookOpen className="h-12 w-12 sm:h-16 sm:w-16 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-lg sm:text-xl font-semibold text-foreground mb-2">No Subjects Selected</h3>
+                    <p className="text-muted-foreground max-w-md mx-auto text-sm sm:text-base">
                         {user?.onboarding_completed 
                             ? "You skipped subject selection during setup. Use the 'Add Subjects' button above to get started!"
                             : "Use the 'Add Subjects' button above to add subjects you're studying."
@@ -214,7 +215,7 @@ export default function SubjectsPage() {
                     </div>
 
                     {/* Subject cards grid */}
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
                         {mySubjects.map((subject) => subject && (
                             <div key={subject.slug} className="relative group">
                                 {editMode && (

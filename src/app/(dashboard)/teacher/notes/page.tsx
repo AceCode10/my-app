@@ -90,13 +90,13 @@ const TeacherNotesPage = () => {
     };
 
     return (
-        <div>
-             <div className="flex items-center justify-between mb-6">
+        <div className="space-y-4 sm:space-y-6">
+             <div className="flex flex-col gap-4">
                 <div>
-                    <h2 className="text-3xl font-bold text-foreground">My Revision Notes</h2>
-                    <p className="text-muted-foreground mt-1">Manage all the revision notes you have created.</p>
+                    <h2 className="text-2xl sm:text-3xl font-bold text-foreground">My Revision Notes</h2>
+                    <p className="text-muted-foreground mt-1 text-sm sm:text-base">Manage all the revision notes you have created.</p>
                 </div>
-                 <Button asChild>
+                 <Button asChild className="w-full sm:w-auto sm:self-start">
                     <Link href="/teacher/notes/new">
                         <PlusCircle className="mr-2 h-4 w-4" />
                         Create New Note
@@ -104,19 +104,19 @@ const TeacherNotesPage = () => {
                 </Button>
             </div>
 
-            <Card className="mb-6">
-                <CardHeader>
-                    <CardTitle className="flex items-center"><Search className="mr-2"/> Filter My Notes</CardTitle>
+            <Card>
+                <CardHeader className="pb-4">
+                    <CardTitle className="flex items-center text-base sm:text-lg"><Search className="mr-2 h-4 w-4 sm:h-5 sm:w-5"/> Filter My Notes</CardTitle>
                 </CardHeader>
-                <CardContent className="flex flex-col md:flex-row gap-4">
+                <CardContent className="flex flex-col gap-4 pt-0">
                     <Input 
                         placeholder="Search by title..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="max-w-sm"
+                        className="w-full"
                     />
                     <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-                        <SelectTrigger className="w-full md:w-[180px]">
+                        <SelectTrigger className="w-full">
                             <SelectValue placeholder="Filter by subject" />
                         </SelectTrigger>
                         <SelectContent>
@@ -135,7 +135,8 @@ const TeacherNotesPage = () => {
                 </CardContent>
              </Card>
 
-            <Card>
+            {/* Desktop Table View */}
+            <Card className="hidden md:block">
                 <CardContent className="pt-6">
                     <Table>
                         <TableHeader>
@@ -209,17 +210,87 @@ const TeacherNotesPage = () => {
                     </Table>
                 </CardContent>
             </Card>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-3">
+                {isLoading ? (
+                    Array.from({ length: 3 }).map((_, i) => (
+                        <Card key={i}>
+                            <CardContent className="p-4">
+                                <Skeleton className="h-5 w-3/4 mb-2" />
+                                <Skeleton className="h-4 w-1/2 mb-3" />
+                                <div className="flex gap-2">
+                                    <Skeleton className="h-6 w-16" />
+                                    <Skeleton className="h-6 w-12" />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))
+                ) : error ? (
+                    <Card>
+                        <CardContent className="p-6 text-center text-destructive">
+                            Error loading notes: {error.message}
+                        </CardContent>
+                    </Card>
+                ) : notes.length === 0 ? (
+                    <Card>
+                        <CardContent className="p-8 text-center">
+                            <p className="text-muted-foreground">No notes found. Get started by creating one.</p>
+                        </CardContent>
+                    </Card>
+                ) : (
+                    notes.map(note => (
+                        <Card key={note.id} className="hover:border-primary transition-colors">
+                            <CardContent className="p-4">
+                                <div className="flex items-start justify-between gap-3 mb-3">
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="font-semibold text-sm sm:text-base truncate">{note.title}</h3>
+                                        <p className="text-xs text-muted-foreground capitalize mt-1">
+                                            {note.subject_id?.replace(/-/g, ' ')}
+                                            {note.topic_id && ` • ${note.topic_id.split('-').slice(1).join(' ')}`}
+                                        </p>
+                                    </div>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button aria-haspopup="true" size="icon" variant="ghost" className="flex-shrink-0">
+                                                <MoreHorizontal className="h-4 w-4" />
+                                                <span className="sr-only">Toggle menu</span>
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuItem asChild><Link href={`/teacher/notes/${note.id}`}>Edit</Link></DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => handleDeleteClick(note.id)}>Delete</DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2 text-xs">
+                                    <Badge variant={getBadgeVariant(note.visibility)} className="text-xs">
+                                        {note.visibility || 'public'}
+                                    </Badge>
+                                    <span className="text-muted-foreground flex items-center gap-1">
+                                        <Eye className="h-3 w-3" />
+                                        {note.view_count || 0}
+                                    </span>
+                                    <span className="text-muted-foreground">
+                                        {note.updated_at ? format(new Date(note.updated_at), 'PP') : 'N/A'}
+                                    </span>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))
+                )}
+            </div>
             <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-                <AlertDialogContent>
+                <AlertDialogContent className="max-w-[90vw] sm:max-w-lg">
                     <AlertDialogHeader>
-                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                    <AlertDialogDescription>
+                    <AlertDialogTitle className="text-base sm:text-lg">Are you sure?</AlertDialogTitle>
+                    <AlertDialogDescription className="text-sm">
                         This action cannot be undone. This will permanently delete the note from the database.
                     </AlertDialogDescription>
                     </AlertDialogHeader>
-                    <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDeleteConfirm}>Delete</AlertDialogAction>
+                    <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+                    <AlertDialogCancel className="w-full sm:w-auto">Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeleteConfirm} className="w-full sm:w-auto">Delete</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

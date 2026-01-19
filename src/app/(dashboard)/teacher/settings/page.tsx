@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useUser } from '@/hooks/use-user';
 import { useTheme } from 'next-themes';
 import { 
-    Bell, Sun, Moon, ShieldCheck, User, Upload, CreditCard, Loader2
+    Bell, Sun, Moon, ShieldCheck, User, Upload, CreditCard, Loader2, Globe, Trash2, LogOut, GraduationCap, Check, School
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,27 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { createClient } from '@/lib/supabase/client';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { COUNTRIES } from '@/lib/countries';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { ExamBoardSelector } from '@/components/exam-board-selector';
+import { EXAM_BOARDS } from '@/lib/exam-boards';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 
 const avatars = [
@@ -22,15 +43,27 @@ const avatars = [
 ];
 
 function SettingsPage() {
-    const { user } = useUser();
+    const { user, loading: isUserLoading } = useUser();
     const supabase = createClient();
     const { toast } = useToast();
     const { theme, setTheme } = useTheme();
+    const router = useRouter();
 
     const [displayName, setDisplayName] = useState('');
     const [avatarUrl, setAvatarUrl] = useState('');
+    const [schoolName, setSchoolName] = useState('');
+    const [selectedExamBoards, setSelectedExamBoards] = useState<string[]>([]);
+    const [selectedCountry, setSelectedCountry] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [notifications, setNotifications] = useState({ requests: true, submissions: true });
+    const [isSavingExamBoards, setIsSavingExamBoards] = useState(false);
+    const [isSavingCountry, setIsSavingCountry] = useState(false);
+    const [notifications, setNotifications] = useState({ 
+        studentRequests: true, 
+        submissions: true,
+        classUpdates: true,
+        weeklyReport: false
+    });
+    const [isSavingNotifications, setIsSavingNotifications] = useState(false);
     const [mounted, setMounted] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -39,6 +72,12 @@ function SettingsPage() {
         if (user) {
             setDisplayName(user.display_name || '');
             setAvatarUrl(user.avatar_url || `https://placehold.co/128x128/3b82f6/ffffff?text=${(user.display_name || 'T').charAt(0)}`);
+            setSchoolName(user.school_name || '');
+            setSelectedExamBoards(user.exam_boards || []);
+            setSelectedCountry(user.country || '');
+            if (user.notification_preferences) {
+                setNotifications(prev => ({ ...prev, ...user.notification_preferences }));
+            }
         }
     }, [user]);
 
@@ -53,7 +92,7 @@ function SettingsPage() {
         }
     };
 
-    const handleSaveChanges = async (e: React.FormEvent) => {
+    const handleSaveProfile = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!user) {
             toast({ variant: 'destructive', title: 'Error', description: 'Not authenticated.' });
@@ -66,7 +105,8 @@ function SettingsPage() {
                 .from('users')
                 .update({
                     display_name: displayName,
-                    avatar_url: avatarUrl
+                    avatar_url: avatarUrl,
+                    school_name: schoolName
                 })
                 .eq('id', user.id);
 
@@ -79,29 +119,132 @@ function SettingsPage() {
             setIsLoading(false);
         }
     };
+
+    const handleSaveExamBoards = async () => {
+        if (!user) return;
+
+        setIsSavingExamBoards(true);
+        try {
+            const { error } = await supabase
+                .from('users')
+                .update({
+                    exam_boards: selectedExamBoards,
+                    onboarding_completed: true
+                })
+                .eq('id', user.id);
+
+            if (error) throw error;
+            toast({ title: 'Success', description: 'Your exam board preferences have been saved.' });
+        } catch (error) {
+            console.error('Error updating exam boards:', error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to update exam boards.' });
+        } finally {
+            setIsSavingExamBoards(false);
+        }
+    };
+
+    const handleSaveCountry = async () => {
+        if (!user) return;
+        
+        setIsSavingCountry(true);
+        try {
+            const { error } = await supabase
+                .from('users')
+                .update({ country: selectedCountry })
+                .eq('id', user.id);
+
+            if (error) throw error;
+            toast({ title: 'Success', description: 'Your country has been updated.' });
+        } catch (error) {
+            console.error('Error updating country:', error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to update country.' });
+        } finally {
+            setIsSavingCountry(false);
+        }
+    };
+
+    const handleSaveNotifications = async () => {
+        if (!user) return;
+        
+        setIsSavingNotifications(true);
+        try {
+            const { error } = await supabase
+                .from('users')
+                .update({ notification_preferences: notifications })
+                .eq('id', user.id);
+
+            if (error) throw error;
+            toast({ title: 'Success', description: 'Notification preferences saved.' });
+        } catch (error) {
+            console.error('Error updating notifications:', error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to save notification preferences.' });
+        } finally {
+            setIsSavingNotifications(false);
+        }
+    };
+
+    const handleSignOut = async () => {
+        await supabase.auth.signOut();
+        router.push('/');
+        router.refresh();
+    };
+
+    const handlePasswordReset = async () => {
+        if (!user?.email) return;
+        
+        try {
+            const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+                redirectTo: `${window.location.origin}/auth/callback?next=/teacher/settings`,
+            });
+            
+            if (error) throw error;
+            toast({ title: 'Email Sent', description: 'Check your email for a password reset link.' });
+        } catch (error) {
+            console.error('Error sending reset email:', error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to send password reset email.' });
+        }
+    };
     
-    if (!mounted || !user) {
-        return null; // or a loading skeleton
+    if (!mounted || isUserLoading) {
+        return (
+            <div className="space-y-8">
+                <Skeleton className="h-10 w-48" />
+                <Skeleton className="h-64 w-full" />
+                <Skeleton className="h-48 w-full" />
+            </div>
+        );
+    }
+
+    if (!user) {
+        return (
+            <div className="text-center py-12">
+                <p className="text-muted-foreground">Please log in to view settings.</p>
+            </div>
+        );
     }
 
     const email = user.email || 'teacher@example.com';
     const usernameInitial = (displayName || 'T').charAt(0);
+    const isSubscribed = user.subscription_tier === 'pro' || user.subscription_tier === 'teacher';
 
     return (
         <div>
-            <h2 className="text-3xl font-bold text-foreground mb-8">Settings</h2>
-            <div className="space-y-8">
+            <h2 className="text-3xl font-bold text-foreground mb-2">Settings</h2>
+            <p className="text-muted-foreground mb-8">Manage your teacher account preferences and settings</p>
+            
+            <div className="max-w-3xl space-y-6">
+                {/* Profile Information */}
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center"><User className="mr-2 h-5 w-5" /> Profile Information</CardTitle>
-                        <CardDescription>Manage your account details.</CardDescription>
+                        <CardDescription>Manage your public profile and account details.</CardDescription>
                     </CardHeader>
-                     <form onSubmit={handleSaveChanges}>
+                     <form onSubmit={handleSaveProfile}>
                         <CardContent className="space-y-6">
                             <div className="flex items-center space-x-6">
                                 <Avatar className="h-24 w-24">
                                     <AvatarImage src={avatarUrl} alt={displayName} />
-                                    <AvatarFallback>{usernameInitial}</AvatarFallback>
+                                    <AvatarFallback className="text-2xl">{usernameInitial}</AvatarFallback>
                                 </Avatar>
                                 <div className="space-y-2">
                                     <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
@@ -119,7 +262,7 @@ function SettingsPage() {
                                     <p className="text-xs text-muted-foreground">Or choose an avatar:</p>
                                     <div className="flex space-x-2">
                                         {avatars.map((av, index) => (
-                                            <button key={index} type="button" onClick={() => setAvatarUrl(av)} className={`rounded-full overflow-hidden border-2 ${avatarUrl === av ? 'border-primary' : 'border-transparent'}`}>
+                                            <button key={index} type="button" onClick={() => setAvatarUrl(av)} className={`rounded-full overflow-hidden border-2 transition-all ${avatarUrl === av ? 'border-primary ring-2 ring-primary/20' : 'border-transparent hover:border-muted-foreground/50'}`}>
                                                 <Avatar className="h-10 w-10">
                                                     <AvatarImage src={av} />
                                                 </Avatar>
@@ -128,19 +271,35 @@ function SettingsPage() {
                                     </div>
                                 </div>
                             </div>
-                            <div className="space-y-4">
+                            <div className="grid gap-4 sm:grid-cols-2">
                                 <div>
-                                    <label className="text-sm font-medium text-foreground">Full Name</label>
+                                    <Label htmlFor="displayName">Full Name</Label>
                                     <Input 
+                                        id="displayName"
                                         type="text" 
                                         value={displayName} 
                                         onChange={(e) => setDisplayName(e.target.value)}
-                                        className="mt-1 w-full" 
+                                        className="mt-1" 
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-sm font-medium text-foreground">Email Address</label>
-                                    <Input type="email" value={email} className="mt-1 w-full bg-muted/50" disabled />
+                                    <Label htmlFor="email">Email Address</Label>
+                                    <Input id="email" type="email" value={email} className="mt-1 bg-muted/50" disabled />
+                                    <p className="text-xs text-muted-foreground mt-1">Email cannot be changed</p>
+                                </div>
+                            </div>
+                            <div>
+                                <Label htmlFor="schoolName">School / Institution</Label>
+                                <div className="relative mt-1">
+                                    <School className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    <Input 
+                                        id="schoolName"
+                                        type="text" 
+                                        value={schoolName} 
+                                        onChange={(e) => setSchoolName(e.target.value)}
+                                        className="pl-10"
+                                        placeholder="Enter your school name"
+                                    />
                                 </div>
                             </div>
                         </CardContent>
@@ -152,7 +311,79 @@ function SettingsPage() {
                         </CardFooter>
                     </form>
                 </Card>
+
+                {/* Exam Board Preference */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center">
+                            <GraduationCap className="mr-2 h-5 w-5" /> 
+                            Exam Board Preferences
+                        </CardTitle>
+                        <CardDescription>
+                            Select the exam boards you teach. This helps filter content and resources.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <ExamBoardSelector
+                            selectedBoards={selectedExamBoards}
+                            onSelectionChange={setSelectedExamBoards}
+                        />
+                        {selectedExamBoards.length > 0 && (
+                            <p className="text-sm text-muted-foreground">
+                                <Check className="inline h-4 w-4 text-green-500 mr-1" />
+                                {selectedExamBoards.length} exam board{selectedExamBoards.length > 1 ? 's' : ''} selected: {' '}
+                                {selectedExamBoards.map(id => EXAM_BOARDS.find(b => b.id === id)?.shortName).join(', ')}
+                            </p>
+                        )}
+                    </CardContent>
+                    <CardFooter>
+                        <Button 
+                            onClick={handleSaveExamBoards} 
+                            disabled={isSavingExamBoards}
+                        >
+                            {isSavingExamBoards ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            {isSavingExamBoards ? 'Saving...' : 'Save Exam Boards'}
+                        </Button>
+                    </CardFooter>
+                </Card>
+
+                {/* Country/Region */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center">
+                            <Globe className="mr-2 h-5 w-5" /> 
+                            Country / Region
+                        </CardTitle>
+                        <CardDescription>
+                            Your country helps us customize content and recommendations.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Select value={selectedCountry} onValueChange={setSelectedCountry}>
+                            <SelectTrigger className="w-full max-w-xs">
+                                <SelectValue placeholder="Select your country" />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-[300px]">
+                                {COUNTRIES.map(country => (
+                                    <SelectItem key={country.code} value={country.code}>
+                                        {country.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </CardContent>
+                    <CardFooter>
+                        <Button 
+                            onClick={handleSaveCountry} 
+                            disabled={isSavingCountry || !selectedCountry}
+                        >
+                            {isSavingCountry ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            {isSavingCountry ? 'Saving...' : 'Save Country'}
+                        </Button>
+                    </CardFooter>
+                </Card>
                 
+                {/* Appearance */}
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center"><Sun className="mr-2 h-5 w-5"/> Appearance</CardTitle>
@@ -160,57 +391,179 @@ function SettingsPage() {
                     </CardHeader>
                     <CardContent>
                         <div>
-                            <label className="text-sm font-medium text-foreground">Theme</label>
-                            <div className="mt-2 grid grid-cols-2 gap-4">
-                                <button onClick={() => setTheme('light')} className={`p-4 rounded-lg border-2 ${theme === 'light' ? 'border-primary' : 'border'}`}><div className="flex items-center space-x-3"><Sun className="w-6 h-6 text-yellow-500"/> <span className="font-semibold">Light Mode</span></div></button>
-                                <button onClick={() => setTheme('dark')} className={`p-4 rounded-lg border-2 ${theme === 'dark' ? 'border-primary' : 'border'}`}><div className="flex items-center space-x-3"><Moon className="w-6 h-6 text-blue-500"/> <span className="font-semibold">Dark Mode</span></div></button>
+                            <Label className="text-sm font-medium">Theme</Label>
+                            <div className="mt-3 grid grid-cols-2 gap-4">
+                                <button 
+                                    onClick={() => setTheme('light')} 
+                                    className={`p-4 rounded-lg border-2 transition-all ${theme === 'light' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}
+                                >
+                                    <div className="flex items-center space-x-3">
+                                        <Sun className="w-6 h-6 text-yellow-500"/>
+                                        <span className="font-semibold">Light Mode</span>
+                                    </div>
+                                </button>
+                                <button 
+                                    onClick={() => setTheme('dark')} 
+                                    className={`p-4 rounded-lg border-2 transition-all ${theme === 'dark' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}
+                                >
+                                    <div className="flex items-center space-x-3">
+                                        <Moon className="w-6 h-6 text-blue-500"/>
+                                        <span className="font-semibold">Dark Mode</span>
+                                    </div>
+                                </button>
                             </div>
                         </div>
                     </CardContent>
                 </Card>
                 
+                {/* Notifications */}
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center"><Bell className="mr-2 h-5 w-5"/> Notifications</CardTitle>
-                        <CardDescription>Manage how you receive notifications.</CardDescription>
+                        <CardDescription>Manage how you receive notifications and updates.</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-3">
-                        <div className="flex justify-between items-center">
-                            <p className="text-muted-foreground">Email on new student requests</p>
-                            <button onClick={() => setNotifications(p=>({...p, requests: !p.requests}))} className={`w-12 h-6 rounded-full p-1 transition-colors ${notifications.requests ? 'bg-primary' : 'bg-muted'}`}>
-                                <div className={`w-4 h-4 rounded-full bg-background transform transition-transform ${notifications.requests ? 'translate-x-6' : ''}`}></div>
-                            </button>
+                    <CardContent className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                                <Label>Student Requests</Label>
+                                <p className="text-sm text-muted-foreground">Get notified when students request to join your class</p>
+                            </div>
+                            <Switch 
+                                checked={notifications.studentRequests} 
+                                onCheckedChange={(checked) => setNotifications(p => ({ ...p, studentRequests: checked }))}
+                            />
                         </div>
-                        <div className="flex justify-between items-center">
-                            <p className="text-muted-foreground">Email on assessment submissions</p>
-                            <button onClick={() => setNotifications(p=>({...p, submissions: !p.submissions}))} className={`w-12 h-6 rounded-full p-1 transition-colors ${notifications.submissions ? 'bg-primary' : 'bg-muted'}`}>
-                                <div className={`w-4 h-4 rounded-full bg-background transform transition-transform ${notifications.submissions ? 'translate-x-6' : ''}`}></div>
-                            </button>
+                        <Separator />
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                                <Label>Assessment Submissions</Label>
+                                <p className="text-sm text-muted-foreground">Get notified when students submit assessments</p>
+                            </div>
+                            <Switch 
+                                checked={notifications.submissions} 
+                                onCheckedChange={(checked) => setNotifications(p => ({ ...p, submissions: checked }))}
+                            />
+                        </div>
+                        <Separator />
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                                <Label>Class Updates</Label>
+                                <p className="text-sm text-muted-foreground">Get notified about class activity and announcements</p>
+                            </div>
+                            <Switch 
+                                checked={notifications.classUpdates} 
+                                onCheckedChange={(checked) => setNotifications(p => ({ ...p, classUpdates: checked }))}
+                            />
+                        </div>
+                        <Separator />
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                                <Label>Weekly Class Report</Label>
+                                <p className="text-sm text-muted-foreground">Receive a weekly summary of class performance</p>
+                            </div>
+                            <Switch 
+                                checked={notifications.weeklyReport} 
+                                onCheckedChange={(checked) => setNotifications(p => ({ ...p, weeklyReport: checked }))}
+                            />
+                        </div>
+                    </CardContent>
+                    <CardFooter>
+                        <Button onClick={handleSaveNotifications} disabled={isSavingNotifications}>
+                            {isSavingNotifications ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            {isSavingNotifications ? 'Saving...' : 'Save Preferences'}
+                        </Button>
+                    </CardFooter>
+                </Card>
+
+                {/* Security */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center"><ShieldCheck className="mr-2 h-5 w-5"/> Security</CardTitle>
+                        <CardDescription>Manage your account security settings.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="font-medium">Password</p>
+                                <p className="text-sm text-muted-foreground">Change your account password</p>
+                            </div>
+                            <Button variant="secondary" onClick={handlePasswordReset}>
+                                Reset Password
+                            </Button>
+                        </div>
+                        <Separator />
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="font-medium">Sign Out</p>
+                                <p className="text-sm text-muted-foreground">Sign out from all devices</p>
+                            </div>
+                            <Button variant="outline" onClick={handleSignOut}>
+                                <LogOut className="mr-2 h-4 w-4" />
+                                Sign Out
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+                
+                {/* Subscription */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center"><CreditCard className="mr-2 h-5 w-5" /> Subscription</CardTitle>
+                        <CardDescription>Manage your subscription and billing.</CardDescription>
+                    </CardHeader>
+                     <CardContent>
+                         <div className={`p-4 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 ${isSubscribed ? 'bg-green-500/10 border border-green-500/30' : 'bg-primary/10 border border-primary'}`}>
+                            <div>
+                                <p className={`font-bold ${isSubscribed ? 'text-green-600 dark:text-green-400' : 'text-primary'}`}>
+                                    {isSubscribed ? 'Teacher Plan' : 'Free Plan'}
+                                </p>
+                                <p className={`text-sm ${isSubscribed ? 'text-green-600/80 dark:text-green-400/80' : 'text-primary/80'}`}>
+                                    {isSubscribed ? 'Your teacher account benefits are active.' : 'Upgrade to unlock all teacher features.'}
+                                </p>
+                            </div>
+                            <Button variant={isSubscribed ? 'secondary' : 'default'} asChild>
+                                <Link href="/pricing">
+                                    {isSubscribed ? 'Manage Subscription' : 'Upgrade Now'}
+                                </Link>
+                            </Button>
                         </div>
                     </CardContent>
                 </Card>
 
-                <Card>
+                {/* Danger Zone */}
+                <Card className="border-destructive/50">
                     <CardHeader>
-                        <CardTitle className="flex items-center"><ShieldCheck className="mr-2 h-5 w-5"/> Security</CardTitle>
+                        <CardTitle className="flex items-center text-destructive">
+                            <Trash2 className="mr-2 h-5 w-5" /> 
+                            Danger Zone
+                        </CardTitle>
+                        <CardDescription>Irreversible actions for your account.</CardDescription>
                     </CardHeader>
-                    <CardContent className="flex justify-between items-center">
-                        <p className="text-muted-foreground">Change your account password.</p>
-                        <Button variant="secondary">Change Password</Button>
-                    </CardContent>
-                </Card>
-                
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center"><CreditCard className="mr-2 h-5 w-5" /> Subscription</CardTitle>
-                    </CardHeader>
-                     <CardContent>
-                         <div className="p-4 bg-primary/10 border border-primary rounded-lg flex justify-between items-center">
+                    <CardContent>
+                        <div className="flex items-center justify-between">
                             <div>
-                                <p className="font-bold text-primary">Teacher Plan</p>
-                                <p className="text-sm text-primary/80">Your teacher account benefits are active.</p>
+                                <p className="font-medium">Delete Account</p>
+                                <p className="text-sm text-muted-foreground">Permanently delete your account, classes, and all data</p>
                             </div>
-                            <Button variant="secondary">Manage Subscription</Button>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="destructive">Delete Account</Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This action cannot be undone. This will permanently delete your account and remove all your data from our servers, including your classes, assessments, and student records.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                            Delete Account
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
                         </div>
                     </CardContent>
                 </Card>

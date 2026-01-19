@@ -128,16 +128,6 @@ export default function SubjectRevisionNotesPage({
         </span>
       </div>
 
-      {/* Header */}
-      <div className="mb-8">
-        {isLoading ? (
-          <Skeleton className="h-10 w-64" />
-        ) : (
-          <h1 className="text-3xl font-extrabold text-foreground">
-            {subject?.name}
-          </h1>
-        )}
-      </div>
 
       {/* Topics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -171,9 +161,9 @@ export default function SubjectRevisionNotesPage({
                   <div className="flex items-start justify-between mb-2">
                     <h3 className="font-bold text-lg text-foreground">{topic.name}</h3>
                     {noteCount > 0 && (
-                      <Badge variant="secondary" className="ml-2">
-                        {noteCount} note{noteCount !== 1 ? 's' : ''}
-                      </Badge>
+                      <span className="ml-2 flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-semibold flex items-center justify-center">
+                        {noteCount}
+                      </span>
                     )}
                   </div>
                   {topic.description && (

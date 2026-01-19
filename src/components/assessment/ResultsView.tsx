@@ -52,7 +52,7 @@ export function ResultsView({
   const timeSpentSeconds = timeSpent % 60;
 
   return (
-    <div className={cn('min-h-screen bg-gray-50 py-8', className)}>
+    <div className={cn('min-h-screen bg-background py-8', className)}>
       <div className="container mx-auto px-4 max-w-6xl">
         {/* Header Card */}
         <Card className="mb-8">
@@ -60,7 +60,7 @@ export function ResultsView({
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-3xl mb-2">{assessment.title}</CardTitle>
-                <p className="text-gray-600">Assessment Results</p>
+                <p className="text-muted-foreground">Assessment Results</p>
               </div>
               <div className="flex gap-2">
                 {onGoHome && (
@@ -88,11 +88,11 @@ export function ResultsView({
             {/* Score Display */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
               {/* Overall Score */}
-              <div className="text-center p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg">
-                <div className="text-5xl font-bold text-blue-600 mb-2">
+              <div className="text-center p-6 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 rounded-lg">
+                <div className="text-5xl font-bold text-blue-600 dark:text-blue-400 mb-2">
                   {percentage.toFixed(1)}%
                 </div>
-                <div className="text-gray-600 mb-2">Overall Score</div>
+                <div className="text-muted-foreground mb-2">Overall Score</div>
                 <Badge className={cn(
                   'text-lg px-4 py-1',
                   isPassed ? 'bg-green-500' : 'bg-red-500'
@@ -102,24 +102,24 @@ export function ResultsView({
               </div>
 
               {/* Grade */}
-              <div className="text-center p-6 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg">
-                <div className="text-5xl font-bold text-purple-600 mb-2">
+              <div className="text-center p-6 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 rounded-lg">
+                <div className="text-5xl font-bold text-purple-600 dark:text-purple-400 mb-2">
                   {gradeLetter}
                 </div>
-                <div className="text-gray-600 mb-2">Grade</div>
-                <div className="text-sm text-gray-500">
+                <div className="text-muted-foreground mb-2">Grade</div>
+                <div className="text-sm text-muted-foreground">
                   {score} / {maxScore} marks
                 </div>
               </div>
 
               {/* Time Taken */}
-              <div className="text-center p-6 bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg">
-                <div className="text-3xl font-bold text-amber-600 mb-2">
+              <div className="text-center p-6 bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950 dark:to-amber-900 rounded-lg">
+                <div className="text-3xl font-bold text-amber-600 dark:text-amber-400 mb-2">
                   {timeSpentMinutes}:{timeSpentSeconds.toString().padStart(2, '0')}
                 </div>
-                <div className="text-gray-600 mb-2">Time Taken</div>
+                <div className="text-muted-foreground mb-2">Time Taken</div>
                 {assessment.duration_minutes && (
-                  <div className="text-sm text-gray-500">
+                  <div className="text-sm text-muted-foreground">
                     of {assessment.duration_minutes} minutes
                   </div>
                 )}
@@ -129,46 +129,46 @@ export function ResultsView({
             {/* Progress Bar */}
             <div className="mb-6">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700">Score Progress</span>
-                <span className="text-sm text-gray-600">{score} / {maxScore}</span>
+                <span className="text-sm font-medium text-foreground">Score Progress</span>
+                <span className="text-sm text-muted-foreground">{score} / {maxScore}</span>
               </div>
               <Progress value={percentage} className="h-3" />
             </div>
 
             {/* Statistics Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="flex items-center gap-3 p-4 bg-green-50 rounded-lg">
-                <CheckCircle className="w-8 h-8 text-green-600" />
+              <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-950 rounded-lg">
+                <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
                 <div>
-                  <div className="text-2xl font-bold text-green-600">{correctCount}</div>
-                  <div className="text-sm text-green-700">Correct</div>
+                  <div className="text-2xl font-bold text-green-600 dark:text-green-400">{correctCount}</div>
+                  <div className="text-sm text-green-700 dark:text-green-300">Correct</div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 p-4 bg-red-50 rounded-lg">
-                <XCircle className="w-8 h-8 text-red-600" />
+              <div className="flex items-center gap-3 p-4 bg-red-50 dark:bg-red-950 rounded-lg">
+                <XCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
                 <div>
-                  <div className="text-2xl font-bold text-red-600">{incorrectCount}</div>
-                  <div className="text-sm text-red-700">Incorrect</div>
+                  <div className="text-2xl font-bold text-red-600 dark:text-red-400">{incorrectCount}</div>
+                  <div className="text-sm text-red-700 dark:text-red-300">Incorrect</div>
                 </div>
               </div>
 
               {needsGradingCount > 0 && (
-                <div className="flex items-center gap-3 p-4 bg-yellow-50 rounded-lg">
-                  <AlertCircle className="w-8 h-8 text-yellow-600" />
+                <div className="flex items-center gap-3 p-4 bg-yellow-50 dark:bg-yellow-950 rounded-lg">
+                  <AlertCircle className="w-8 h-8 text-yellow-600 dark:text-yellow-400" />
                   <div>
-                    <div className="text-2xl font-bold text-yellow-600">{needsGradingCount}</div>
-                    <div className="text-sm text-yellow-700">Pending</div>
+                    <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{needsGradingCount}</div>
+                    <div className="text-sm text-yellow-700 dark:text-yellow-300">Pending</div>
                   </div>
                 </div>
               )}
 
               {unansweredCount > 0 && (
-                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-                  <AlertCircle className="w-8 h-8 text-gray-600" />
+                <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-lg">
+                  <AlertCircle className="w-8 h-8 text-muted-foreground" />
                   <div>
-                    <div className="text-2xl font-bold text-gray-600">{unansweredCount}</div>
-                    <div className="text-sm text-gray-700">Skipped</div>
+                    <div className="text-2xl font-bold text-muted-foreground">{unansweredCount}</div>
+                    <div className="text-sm text-muted-foreground">Skipped</div>
                   </div>
                 </div>
               )}
@@ -176,14 +176,14 @@ export function ResultsView({
 
             {/* Pending Grading Notice */}
             {needsGradingCount > 0 && (
-              <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="mt-6 p-4 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg">
                 <div className="flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5" />
+                  <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mt-0.5" />
                   <div>
-                    <h4 className="font-semibold text-yellow-900 mb-1">
+                    <h4 className="font-semibold text-yellow-900 dark:text-yellow-100 mb-1">
                       Manual Grading Required
                     </h4>
-                    <p className="text-sm text-yellow-800">
+                    <p className="text-sm text-yellow-800 dark:text-yellow-200">
                       {needsGradingCount} question{needsGradingCount === 1 ? '' : 's'} require{needsGradingCount === 1 ? 's' : ''} manual grading by your teacher. 
                       Your final score may change once grading is complete.
                     </p>
@@ -194,14 +194,14 @@ export function ResultsView({
 
             {/* Teacher Feedback */}
             {teacherFeedback && (
-              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
                 <div className="flex items-start gap-3">
-                  <Award className="w-5 h-5 text-blue-600 mt-0.5" />
+                  <Award className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
                   <div>
-                    <h4 className="font-semibold text-blue-900 mb-2">
+                    <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
                       Teacher's Feedback
                     </h4>
-                    <p className="text-sm text-blue-800 whitespace-pre-wrap">
+                    <p className="text-sm text-blue-800 dark:text-blue-200 whitespace-pre-wrap">
                       {teacherFeedback}
                     </p>
                   </div>

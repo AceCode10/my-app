@@ -17,7 +17,7 @@ Your Python parser is already well-structured with:
 3. **Click "New Project" → "Deploy from GitHub repo"**
 4. **Select your repository**
 5. **Configure:**
-   - **Root directory:** `python-parser/`
+   - **Root directory:** `![alt text](image.png)`
    - **Build command:** `pip install -r requirements.txt`
    - **Start command:** `python app.py`
    - **Port:** Railway auto-detects (your app uses default 5000)

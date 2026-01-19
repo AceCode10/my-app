@@ -51,7 +51,7 @@ export function ExamBoardOnboarding({
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-950 dark:to-indigo-950 p-4">
       <Card className="w-full max-w-4xl shadow-xl">
         <CardHeader className="text-center space-y-2">
           <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
@@ -78,7 +78,7 @@ export function ExamBoardOnboarding({
                   'text-left space-y-2',
                   selectedBoardId === board.id
                     ? 'border-primary bg-primary/5 shadow-lg'
-                    : 'border-gray-200 bg-white hover:border-gray-300'
+                    : 'border-border bg-card hover:border-muted-foreground/50'
                 )}
               >
                 {selectedBoardId === board.id && (
@@ -88,11 +88,11 @@ export function ExamBoardOnboarding({
                 )}
 
                 <div className="font-bold text-xl">{board.name}</div>
-                <div className="text-sm font-medium text-gray-600">
+                <div className="text-sm font-medium text-muted-foreground">
                   {board.full_name}
                 </div>
                 {board.description && (
-                  <div className="text-xs text-gray-500 mt-2">
+                  <div className="text-xs text-muted-foreground/80 mt-2">
                     {board.description}
                   </div>
                 )}
@@ -101,7 +101,7 @@ export function ExamBoardOnboarding({
           </div>
 
           {/* Info Box */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
+          <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4 text-sm text-blue-800 dark:text-blue-200">
             <p className="font-medium mb-1">💡 Don't worry!</p>
             <p>You can change this anytime in your settings, and you can always browse content from all exam boards.</p>
           </div>
@@ -131,7 +131,7 @@ export function ExamBoardOnboarding({
           </div>
 
           {allowSkip && (
-            <p className="text-xs text-center text-gray-500">
+            <p className="text-xs text-center text-muted-foreground">
               Skipping will show you content from all exam boards
             </p>
           )}
@@ -184,11 +184,11 @@ export function ExamBoardSettings() {
               'hover:shadow-md text-left',
               selectedBoardId === null
                 ? 'border-primary bg-primary/5'
-                : 'border-gray-200 hover:border-gray-300'
+                : 'border-border hover:border-muted-foreground/50'
             )}
           >
             <div className="font-medium">All Exam Boards</div>
-            <div className="text-xs text-gray-500 mt-1">
+            <div className="text-xs text-muted-foreground mt-1">
               Show content from all boards
             </div>
           </button>
@@ -202,11 +202,11 @@ export function ExamBoardSettings() {
                 'hover:shadow-md text-left',
                 selectedBoardId === board.id
                   ? 'border-primary bg-primary/5'
-                  : 'border-gray-200 hover:border-gray-300'
+                  : 'border-border hover:border-muted-foreground/50'
               )}
             >
               <div className="font-medium">{board.name}</div>
-              <div className="text-xs text-gray-500 mt-1">
+              <div className="text-xs text-muted-foreground mt-1">
                 {board.full_name}
               </div>
             </button>

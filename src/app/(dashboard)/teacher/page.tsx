@@ -144,25 +144,25 @@ const DashboardView = ({
     const selectedBoardsInfo = EXAM_BOARDS.filter(b => userExamBoards.includes(b.id));
 
     return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
         {/* Header with User Preferences */}
-        <div className="flex flex-col md:flex-row justify-between md:items-start gap-4">
+        <div className="flex flex-col gap-4">
             <div>
-                <h2 className="text-3xl font-bold text-foreground">Welcome back, {getFriendlyName(user?.display_name, user?.email)}!</h2>
-                <p className="text-muted-foreground mt-1">Your teaching overview at a glance</p>
+                <h2 className="text-2xl sm:text-3xl font-bold text-foreground">Welcome back, {getFriendlyName(user?.display_name, user?.email)}!</h2>
+                <p className="text-muted-foreground mt-1 text-sm sm:text-base">Your teaching overview at a glance</p>
             </div>
-            <div className="flex flex-col items-end gap-2">
-                <div className="flex flex-wrap items-center gap-3 justify-end">
+            <div className="flex flex-col gap-2">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                     {userCountry && (
                         <div className="flex items-center gap-1">
-                            <Globe className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm">{getCountryName(userCountry)}</span>
+                            <Globe className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
+                            <span className="text-xs sm:text-sm">{getCountryName(userCountry)}</span>
                         </div>
                     )}
                     {selectedBoardsInfo.length > 0 && (
                         <div className="flex items-center gap-1">
-                            <span className="text-sm text-muted-foreground">Board:</span>
-                            <div className="flex gap-1">
+                            <span className="text-xs sm:text-sm text-muted-foreground">Board:</span>
+                            <div className="flex gap-1 flex-wrap">
                                 {selectedBoardsInfo.map(board => (
                                     <Badge key={board.id} variant="secondary" className={board.color + ' text-white text-xs'}>
                                         {board.shortName}
@@ -173,20 +173,20 @@ const DashboardView = ({
                     )}
                     {userLevels.length > 0 && (
                         <div className="flex items-center gap-1">
-                            <GraduationCap className="h-4 w-4 text-muted-foreground" />
+                            <GraduationCap className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
                             <div className="flex gap-1 flex-wrap">
-                                {userLevels.slice(0, 3).map(level => (
+                                {userLevels.slice(0, 2).map(level => (
                                     <Badge key={level} variant="outline" className="text-xs">
                                         {level.toUpperCase().replace('_', ' ')}
                                     </Badge>
                                 ))}
-                                {userLevels.length > 3 && (
-                                    <Badge variant="outline" className="text-xs">+{userLevels.length - 3}</Badge>
+                                {userLevels.length > 2 && (
+                                    <Badge variant="outline" className="text-xs">+{userLevels.length - 2}</Badge>
                                 )}
                             </div>
                         </div>
                     )}
-                    <Button variant="ghost" size="sm" asChild>
+                    <Button variant="ghost" size="sm" asChild className="ml-auto">
                         <Link href="/teacher/settings"><Settings className="h-4 w-4" /></Link>
                     </Button>
                 </div>
@@ -194,42 +194,42 @@ const DashboardView = ({
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             <Card>
-                <CardContent className="pt-6">
+                <CardContent className="p-4 sm:pt-6">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm text-muted-foreground">Active Classes</p>
-                            <p className="text-2xl font-bold">{isLoadingClasses ? '...' : classes?.length || 0}</p>
+                            <p className="text-xs sm:text-sm text-muted-foreground">Active Classes</p>
+                            <p className="text-xl sm:text-2xl font-bold">{isLoadingClasses ? '...' : classes?.length || 0}</p>
                         </div>
-                        <div className="p-3 rounded-full bg-blue-500/10">
-                            <GraduationCap className="h-5 w-5 text-blue-500" />
+                        <div className="p-2 sm:p-3 rounded-full bg-blue-500/10">
+                            <GraduationCap className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500" />
                         </div>
                     </div>
                 </CardContent>
             </Card>
             <Card>
-                <CardContent className="pt-6">
+                <CardContent className="p-4 sm:pt-6">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm text-muted-foreground">Pending Reviews</p>
-                            <p className="text-2xl font-bold text-yellow-600">{stats.pendingReviews}</p>
+                            <p className="text-xs sm:text-sm text-muted-foreground">Pending Reviews</p>
+                            <p className="text-xl sm:text-2xl font-bold text-yellow-600">{stats.pendingReviews}</p>
                         </div>
-                        <div className="p-3 rounded-full bg-yellow-500/10">
-                            <Clock className="h-5 w-5 text-yellow-500" />
+                        <div className="p-2 sm:p-3 rounded-full bg-yellow-500/10">
+                            <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-500" />
                         </div>
                     </div>
                 </CardContent>
             </Card>
             <Card>
-                <CardContent className="pt-6">
+                <CardContent className="p-4 sm:pt-6">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm text-muted-foreground">Avg Score</p>
-                            <p className="text-2xl font-bold">{stats.avgClassScore}%</p>
+                            <p className="text-xs sm:text-sm text-muted-foreground">Avg Score</p>
+                            <p className="text-xl sm:text-2xl font-bold">{stats.avgClassScore}%</p>
                         </div>
-                        <div className="p-3 rounded-full bg-indigo-500/10">
-                            <TrendingUp className="h-5 w-5 text-indigo-500" />
+                        <div className="p-2 sm:p-3 rounded-full bg-indigo-500/10">
+                            <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-500" />
                         </div>
                     </div>
                 </CardContent>
@@ -238,46 +238,46 @@ const DashboardView = ({
 
         {/* Quick Actions */}
         <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <Layers className="h-5 w-5 text-primary" />
+            <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <Layers className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                     Quick Actions
                 </CardTitle>
-                <CardDescription>Get things done quickly</CardDescription>
+                <CardDescription className="text-sm">Get things done quickly</CardDescription>
             </CardHeader>
-            <CardContent>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-                    <Button variant="default" className="h-20 flex-col gap-2 relative" asChild>
+            <CardContent className="pt-0">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
+                    <Button variant="default" className="h-16 sm:h-20 flex-col gap-1 sm:gap-2 relative text-xs sm:text-sm" asChild>
                         <Link href="/teacher/submissions">
-                            <ClipboardCheck className="h-6 w-6" />
-                            <span>Review Submissions</span>
+                            <ClipboardCheck className="h-5 w-5 sm:h-6 sm:w-6" />
+                            <span className="leading-tight text-center">Review Submissions</span>
                             {stats.pendingReviews > 0 && (
-                                <Badge variant="destructive" className="absolute -top-1 -right-1">{stats.pendingReviews}</Badge>
+                                <Badge variant="destructive" className="absolute -top-1 -right-1 text-xs">{stats.pendingReviews}</Badge>
                             )}
                         </Link>
                     </Button>
-                    <Button variant="outline" className="h-20 flex-col gap-2 bg-primary/5 border-primary/30 hover:bg-primary/10" asChild>
+                    <Button variant="outline" className="h-16 sm:h-20 flex-col gap-1 sm:gap-2 bg-primary/5 border-primary/30 hover:bg-primary/10 text-xs sm:text-sm" asChild>
                         <Link href="/teacher/test-builder">
-                            <Hammer className="h-6 w-6 text-primary" />
-                            <span>Test Builder</span>
+                            <Hammer className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+                            <span className="leading-tight text-center">Test Builder</span>
                         </Link>
                     </Button>
-                    <Button variant="outline" className="h-20 flex-col gap-2" asChild>
+                    <Button variant="outline" className="h-16 sm:h-20 flex-col gap-1 sm:gap-2 text-xs sm:text-sm" asChild>
                         <Link href="/teacher/assessments">
-                            <FileText className="h-6 w-6" />
-                            <span>Create Assessment</span>
+                            <FileText className="h-5 w-5 sm:h-6 sm:w-6" />
+                            <span className="leading-tight text-center">Create Assessment</span>
                         </Link>
                     </Button>
-                    <Button variant="outline" className="h-20 flex-col gap-2" asChild>
+                    <Button variant="outline" className="h-16 sm:h-20 flex-col gap-1 sm:gap-2 text-xs sm:text-sm" asChild>
                         <Link href="/teacher/classes">
-                            <Users className="h-6 w-6" />
-                            <span>Manage Classes</span>
+                            <Users className="h-5 w-5 sm:h-6 sm:w-6" />
+                            <span className="leading-tight text-center">Manage Classes</span>
                         </Link>
                     </Button>
-                    <Button variant="outline" className="h-20 flex-col gap-2" asChild>
+                    <Button variant="outline" className="h-16 sm:h-20 flex-col gap-1 sm:gap-2 text-xs sm:text-sm" asChild>
                         <Link href="/teacher/analytics">
-                            <BarChart3 className="h-6 w-6" />
-                            <span>View Analytics</span>
+                            <BarChart3 className="h-5 w-5 sm:h-6 sm:w-6" />
+                            <span className="leading-tight text-center">View Analytics</span>
                         </Link>
                     </Button>
                 </div>
@@ -285,16 +285,16 @@ const DashboardView = ({
         </Card>
 
         {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
             {/* My Classes */}
             <Card className="lg:col-span-2">
-                <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
+                <CardHeader className="pb-4">
+                    <CardTitle className="flex items-center justify-between text-base sm:text-lg">
                         <span className="flex items-center gap-2">
-                            <GraduationCap className="h-5 w-5" />
+                            <GraduationCap className="h-4 w-4 sm:h-5 sm:w-5" />
                             My Classes
                         </span>
-                        <Button variant="ghost" size="sm" asChild>
+                        <Button variant="ghost" size="sm" asChild className="text-xs sm:text-sm">
                             <Link href="/teacher/classes">View All</Link>
                         </Button>
                     </CardTitle>
@@ -320,23 +320,23 @@ const DashboardView = ({
                                     <Link 
                                         key={c.id} 
                                         href={`/teacher/classes/${c.id}`}
-                                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border rounded-lg hover:bg-muted/50 transition-colors gap-3"
                                     >
                                         <div className="flex items-center gap-3">
-                                            <div className="p-2 rounded-md bg-muted">
-                                                {React.cloneElement(icon as React.ReactElement, {"className": "w-5 h-5 text-primary"} as any)}
+                                            <div className="p-2 rounded-md bg-muted flex-shrink-0">
+                                                {React.cloneElement(icon as React.ReactElement, {"className": "w-4 h-4 sm:w-5 sm:h-5 text-primary"} as any)}
                                             </div>
-                                            <div>
-                                                <h4 className="font-semibold">{c.name}</h4>
-                                                <p className="text-sm text-muted-foreground">Code: {c.join_code}</p>
+                                            <div className="min-w-0 flex-1">
+                                                <h4 className="font-semibold text-sm sm:text-base truncate">{c.name}</h4>
+                                                <p className="text-xs sm:text-sm text-muted-foreground">Code: {c.join_code}</p>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-3">
-                                            <Badge variant="secondary" className="flex items-center gap-1">
+                                        <div className="flex items-center gap-2 sm:gap-3 self-end sm:self-auto">
+                                            <Badge variant="secondary" className="flex items-center gap-1 text-xs">
                                                 <Users className="h-3 w-3" />
                                                 {studentCount} student{studentCount !== 1 ? 's' : ''}
                                             </Badge>
-                                            <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                                            <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                                         </div>
                                     </Link>
                                 );
@@ -348,13 +348,13 @@ const DashboardView = ({
 
             {/* Pending Submissions */}
             <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center justify-between text-base">
+                <CardHeader className="pb-4">
+                    <CardTitle className="flex items-center justify-between text-sm sm:text-base">
                         <span className="flex items-center gap-2">
                             <ClipboardCheck className="h-4 w-4" />
                             Pending Reviews
                         </span>
-                        <Button variant="ghost" size="sm" asChild>
+                        <Button variant="ghost" size="sm" asChild className="text-xs sm:text-sm">
                             <Link href="/teacher/submissions">View All</Link>
                         </Button>
                     </CardTitle>
@@ -391,9 +391,9 @@ const DashboardView = ({
 
         {/* Recent Activity */}
         <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <Activity className="h-5 w-5" />
+            <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <Activity className="h-4 w-4 sm:h-5 sm:w-5" />
                     Recent Activity
                 </CardTitle>
             </CardHeader>

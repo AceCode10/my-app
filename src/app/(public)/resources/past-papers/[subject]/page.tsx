@@ -249,20 +249,6 @@ export default function SubjectPastPapersPage({
         </span>
       </div>
 
-      {/* Header */}
-      <div className="mb-8">
-        {isLoading ? (
-          <Skeleton className="h-10 w-64" />
-        ) : (
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-extrabold text-foreground">
-              {subject?.name}
-            </h1>
-            {subject?.code && <Badge variant="outline">{subject.code}</Badge>}
-          </div>
-        )}
-      </div>
-
       {/* Filters */}
       <div className="flex flex-wrap gap-4 mb-8 p-4 bg-card rounded-xl border">
         <div className="flex items-center gap-2">
