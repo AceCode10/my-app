@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { createClient } from '@/lib/supabase/client';
+import { useDebounce } from '@/hooks/use-debounce';
 
 interface Paper {
   id: string;
@@ -91,6 +92,8 @@ export default function SubjectPastPapersPage({
   const [resourceTypeFilter, setResourceTypeFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  
   // Subject-specific configuration
   const [paperComponents, setPaperComponents] = useState<PaperComponent[]>([]);
 
@@ -162,8 +165,8 @@ export default function SubjectPastPapersPage({
     if (sessionFilter !== 'all' && paper.session !== sessionFilter) return false;
     if (componentFilter !== 'all' && paper.component_code !== componentFilter) return false;
     if (resourceTypeFilter !== 'all' && paper.resource_type !== resourceTypeFilter) return false;
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
+    if (debouncedSearchQuery) {
+      const query = debouncedSearchQuery.toLowerCase();
       return (
         paper.title?.toLowerCase().includes(query) ||
         paper.paper_number?.toLowerCase().includes(query) ||

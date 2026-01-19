@@ -7,6 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useDebounce } from '@/hooks/use-debounce';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -166,8 +167,8 @@ export function PeopleTab({ classId, className, joinCode, teacherId }: PeopleTab
   const pendingStudents = students.filter(s => s.status === 'pending');
 
   const filteredActiveStudents = activeStudents.filter(student => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
+    if (!debouncedSearchQuery) return true;
+    const query = debouncedSearchQuery.toLowerCase();
     return (
       student.users?.display_name?.toLowerCase().includes(query) ||
       student.users?.email?.toLowerCase().includes(query)

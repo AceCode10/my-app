@@ -1,6 +1,6 @@
 
 'use client'
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Menu, Search, ChevronDown, BookOpen, Layers, FileText, Target, User, LogOut, LayoutDashboard, Sparkles } from "lucide-react";
@@ -16,6 +16,7 @@ import {
 import { allSubjects } from '@/lib/subjects';
 import { cn } from '@/lib/utils';
 import { OrganizationJsonLd, WebsiteJsonLd, SoftwareApplicationJsonLd } from '@/components/seo/json-ld';
+import { useDebounce } from '@/hooks/use-debounce';
 
 
 const NavLink = ({ href, children }: { href: string, children: React.ReactNode }) => (
@@ -32,25 +33,50 @@ export default function PublicLayout({
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [isClient, setIsClient] = useState(false);
+    const [showDropdown, setShowDropdown] = useState(false);
     const router = useRouter();
     const { user, loading: userLoading } = useUser();
+    const searchRef = useRef<HTMLDivElement>(null);
+
+    const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
     useEffect(() => {
         setIsClient(true);
     }, []);
 
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+                setShowDropdown(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
     const handleSearchSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        const filteredSubjects = allSubjects.filter(subject =>
-            subject.name.toLowerCase().includes(searchQuery.toLowerCase())
-        );
         if (filteredSubjects.length > 0) {
             router.push(`/subjects/${filteredSubjects[0].slug}`);
+            setSearchQuery('');
+            setShowDropdown(false);
         }
     };
 
-    const filteredSubjects = searchQuery ? allSubjects.filter(subject =>
-        subject.name.toLowerCase().includes(searchQuery.toLowerCase())
+    const handleSearchChange = (value: string) => {
+        setSearchQuery(value);
+        setShowDropdown(value.length > 0);
+    };
+
+    const handleSubjectClick = () => {
+        setSearchQuery('');
+        setShowDropdown(false);
+    };
+
+    const filteredSubjects = debouncedSearchQuery ? allSubjects.filter(subject =>
+        subject.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase())
     ) : [];
 
   return (
@@ -104,36 +130,55 @@ export default function PublicLayout({
                             </DropdownMenu>
                         )}
                         <NavLink href="/pricing">Pricing</NavLink>
-                        <form onSubmit={handleSearchSubmit} className="relative w-full max-w-xs ml-4">
-                            <label htmlFor="search" className="sr-only">Search</label>
-                            <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <Search className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+                        <div ref={searchRef} className="relative w-full max-w-xs ml-4">
+                            <form onSubmit={handleSearchSubmit}>
+                                <label htmlFor="search" className="sr-only">Search</label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <Search className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+                                    </div>
+                                    <input
+                                        id="search"
+                                        name="search"
+                                        className="block w-full pl-10 pr-3 py-2 border border-border rounded-md leading-5 bg-background placeholder-muted-foreground focus:outline-none focus:placeholder-muted-foreground/70 focus:ring-1 focus:ring-ring focus:border-ring sm:text-sm"
+                                        placeholder="Search for a subject"
+                                        type="search"
+                                        value={searchQuery}
+                                        onChange={(e) => handleSearchChange(e.target.value)}
+                                        onFocus={() => searchQuery && setShowDropdown(true)}
+                                    />
                                 </div>
-                                <input
-                                    id="search"
-                                    name="search"
-                                    className="block w-full pl-10 pr-3 py-2 border border-border rounded-md leading-5 bg-background placeholder-muted-foreground focus:outline-none focus:placeholder-muted-foreground/70 focus:ring-1 focus:ring-ring focus:border-ring sm:text-sm"
-                                    placeholder="Search for a subject"
-                                    type="search"
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                />
-                            </div>
-                            {searchQuery && filteredSubjects.length > 0 && (
-                                <div className="absolute mt-1 w-full rounded-md bg-background shadow-lg z-10 border">
+                            </form>
+                            {showDropdown && filteredSubjects.length > 0 && (
+                                <div className="absolute mt-1 w-full rounded-md bg-background shadow-lg z-10 border max-h-96 overflow-y-auto">
                                     <ul>
-                                        {filteredSubjects.map(subject => (
+                                        {filteredSubjects.slice(0, 8).map(subject => (
                                             <li key={subject.slug}>
-                                                <Link href={`/subjects/${subject.slug}`} className="block px-4 py-2 text-sm text-foreground hover:bg-muted">
+                                                <Link 
+                                                    href={`/subjects/${subject.slug}`} 
+                                                    className="block px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                                                    onClick={handleSubjectClick}
+                                                >
                                                     {subject.name}
                                                 </Link>
                                             </li>
                                         ))}
                                     </ul>
+                                    {filteredSubjects.length > 8 && (
+                                        <div className="px-4 py-2 text-xs text-muted-foreground border-t">
+                                            +{filteredSubjects.length - 8} more results
+                                        </div>
+                                    )}
                                 </div>
                             )}
-                        </form>
+                            {showDropdown && searchQuery && filteredSubjects.length === 0 && (
+                                <div className="absolute mt-1 w-full rounded-md bg-background shadow-lg z-10 border">
+                                    <div className="px-4 py-3 text-sm text-muted-foreground">
+                                        No subjects found for "{searchQuery}"
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </nav>
                     <div className="hidden md:flex items-center space-x-2">
                         {userLoading ? (

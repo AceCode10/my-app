@@ -12,6 +12,7 @@ import { Search, Plus, Filter, ChevronRight } from 'lucide-react';
 import { testBuilderService } from '@/lib/test-builder/test-builder-service';
 import type { Question } from '@/types/assessment';
 import { cn } from '@/lib/utils';
+import { useDebounce } from '@/hooks/use-debounce';
 
 interface QuestionBankBrowserProps {
   onAddQuestion: (question: Question) => void;
@@ -39,6 +40,7 @@ export function QuestionBankBrowser({
   });
 
   const pageSize = 20;
+  const debouncedSearch = useDebounce(search, 400);
 
   // Initialize subject filter when subjectId prop changes
   useEffect(() => {
@@ -49,7 +51,7 @@ export function QuestionBankBrowser({
 
   useEffect(() => {
     loadQuestions();
-  }, [page, search, filters, examBoardId]);
+  }, [page, debouncedSearch, filters, examBoardId]);
 
   const loadQuestions = async () => {
     setLoading(true);
@@ -60,7 +62,7 @@ export function QuestionBankBrowser({
         topicId: filters.topicId || undefined,
         questionType: filters.questionType || undefined,
         difficulty: filters.difficulty || undefined,
-        search: search || undefined,
+        search: debouncedSearch || undefined,
         limit: pageSize,
         offset: page * pageSize
       });

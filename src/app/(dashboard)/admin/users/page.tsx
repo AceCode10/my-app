@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useDebounce } from '@/hooks/use-debounce';
 import {
   Search,
   Edit,
@@ -83,6 +84,8 @@ export default function UsersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRole, setFilterRole] = useState('all');
   const [filterTier, setFilterTier] = useState('all');
+
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -358,8 +361,8 @@ export default function UsersPage() {
 
   const filteredUsers = users.filter(user => {
     const matchesSearch = 
-      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (user.display_name?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
+      user.email.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+      (user.display_name?.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ?? false);
     const matchesRole = filterRole === 'all' || user.role === filterRole;
     const matchesTier = filterTier === 'all' || user.subscription_tier === filterTier;
     
