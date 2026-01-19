@@ -275,7 +275,7 @@ function ExamBoardCarousel() {
 
 const testimonials = [
     {
-        quote: "This platform transformed my study habits. The interactive quizzes are a game-changer for exam prep!",
+        quote: "This app has helped me a big deal. The interactive assessments are a game-changer for exam prep, not forgetting the Streaks!",
         name: "Aisha Khan",
         title: "A Level Student",
         avatar: "1"
