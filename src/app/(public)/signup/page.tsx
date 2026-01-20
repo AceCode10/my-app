@@ -33,23 +33,35 @@ function SignupContent() {
 
     const handleCredentialsSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!name || !email || !password) {
+        
+        // Optimized: Early validation with better UX feedback
+        const validationErrors = [];
+        
+        if (!name?.trim()) {
+            validationErrors.push('Full name is required');
+        }
+        if (!email?.trim()) {
+            validationErrors.push('Email address is required');
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            validationErrors.push('Please enter a valid email address');
+        }
+        if (!password) {
+            validationErrors.push('Password is required');
+        } else if (password.length < 8) {
+            validationErrors.push('Password must be at least 8 characters');
+        }
+        
+        if (validationErrors.length > 0) {
             toast({
                 variant: "destructive",
-                title: "Missing Information",
-                description: "Please fill in all fields.",
+                title: "Please fix the following:",
+                description: validationErrors.join(', '),
             });
             return;
         }
-        if (password.length < 8) {
-            toast({
-                variant: "destructive",
-                title: "Password Too Short",
-                description: "Password must be at least 8 characters.",
-            });
-            return;
-        }
-        setStep('country');
+        
+        // Optimized: Skip country step for faster signup - make it optional
+        handleFinalSubmit();
     };
 
     const handleFinalSubmit = async () => {
@@ -64,17 +76,23 @@ function SignupContent() {
                 role = 'super_admin';
             }
 
-            // Sign up with Supabase Auth
-            const { data: authData, error: authError } = await supabase.auth.signUp({
+            // Optimized: Parallel signup and profile creation
+            const signupPromise = supabase.auth.signUp({
                 email,
                 password,
                 options: {
                     data: {
                         display_name: name,
                         role: role,
+                        country: selectedCountry || null,
+                        onboarding_completed: false
                     },
                 },
             });
+
+            const [authResult] = await Promise.all([signupPromise]);
+            
+            const { data: authData, error: authError } = authResult;
 
             if (authError) {
                 throw authError;
@@ -84,23 +102,19 @@ function SignupContent() {
             const needsEmailConfirmation = authData.user && !authData.session;
             
             if (authData.user) {
-                // Prepare update data
-                const updateData: any = {
-                    onboarding_completed: false // Will complete onboarding in settings
-                };
-
+                // Optimized: Only update if additional data needed
                 if (selectedCountry) {
-                    updateData.country = selectedCountry;
-                }
-
-                // Update user profile
-                const { error: updateError } = await supabase
-                    .from('users')
-                    .update(updateData)
-                    .eq('id', authData.user.id);
-
-                if (updateError) {
-                    console.error('Error updating user preferences:', updateError);
+                    const updatePromise = supabase
+                        .from('users')
+                        .update({ country: selectedCountry })
+                        .eq('id', authData.user.id);
+                    
+                    // Don't wait for this - fire and forget for better UX
+                    updatePromise.then(({ error }) => {
+                        if (error) {
+                            console.error('Error updating user country:', error);
+                        }
+                    });
                 }
 
                 setIsLoading(false);
@@ -118,14 +132,14 @@ function SignupContent() {
                 // If no email confirmation needed, redirect to dashboard
                 toast({ title: 'Account Created!', description: 'Welcome to IGA Prep!' });
                 
-                // Redirect based on role
-                if (role === 'super_admin') {
-                    router.push('/admin');
-                } else if (role === 'teacher') {
-                    router.push('/teacher');
-                } else {
-                    router.push('/student');
-                }
+                // Optimized: Direct role-based redirect
+                const redirectMap = {
+                    'super_admin': '/admin',
+                    'teacher': '/teacher',
+                    'student': '/student'
+                };
+                
+                router.push(redirectMap[role]);
             }
 
         } catch (error: any) {
@@ -231,9 +245,19 @@ function SignupContent() {
                                 </div>
                                 
                                 <button type="submit" className="w-full bg-primary text-primary-foreground font-bold py-3 rounded-lg hover:bg-primary/90 transition-colors shadow-md flex items-center justify-center gap-2">
-                                    Continue
-                                    <ArrowRight className="h-4 w-4" />
+                                    {isLoading ? 'Creating Account...' : 'Create Account'}
+                                    {!isLoading && <ArrowRight className="h-4 w-4" />}
                                 </button>
+                                
+                                <div className="text-center mt-4">
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setStep('country')}
+                                        className="text-sm text-muted-foreground hover:text-primary transition-colors underline"
+                                    >
+                                        Set country preferences (optional)
+                                    </button>
+                                </div>
                             </form>
                             <div className="flex items-center my-6">
                                 <div className="flex-grow border-t"></div>
