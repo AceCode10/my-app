@@ -10,6 +10,7 @@ import { useGamificationStore } from '@/lib/gamification/stores/gamification-sto
 import { soundManager } from '@/lib/gamification/sound-manager';
 import { triggerConfetti } from '@/components/gamification/animations/confetti-burst';
 import { toast } from '@/components/gamification/animations/achievement-toast';
+import { xpPopup, type XPBonus } from '@/components/gamification/animations/xp-popup';
 import { gamificationIntegration, QuizCompletionData, NoteViewData } from '@/lib/gamification/integration';
 
 // Level thresholds
@@ -68,37 +69,59 @@ export function useGamificationEvents() {
     data: QuizCompletionData,
     options?: {
       showToast?: boolean;
+      showPopup?: boolean;
       position?: { x: number; y: number };
     }
   ) => {
-    const { showToast = true, position } = options || {};
+    const { showToast = false, showPopup = true, position } = options || {};
     
     // Calculate XP earned
     const baseXP = Math.round(data.percentage * 0.5); // 0.5 XP per percentage point
     let totalXP = baseXP;
     
+    // Build bonuses array for popup
+    const bonuses: XPBonus[] = [];
+    
     // Bonuses
-    if (data.isPerfectScore) totalXP += 20;
-    if (data.timeSpentMinutes < 5) totalXP += 10;
-    if (data.isFirstQuiz) totalXP += 25;
+    if (data.isPerfectScore) {
+      totalXP += 20;
+      bonuses.push({ type: 'perfectScore', label: 'Perfect Score!', amount: 20, icon: '🏆' });
+    }
+    if (data.timeSpentMinutes < 5) {
+      totalXP += 10;
+      bonuses.push({ type: 'speed', label: 'Speed Bonus', amount: 10, icon: '⚡' });
+    }
+    if (data.isFirstQuiz) {
+      totalXP += 25;
+      bonuses.push({ type: 'firstQuiz', label: 'First Quiz!', amount: 25, icon: '🎉' });
+    }
 
     // Get current state before update
     const currentXP = store.totalXP;
     const currentLevel = store.level;
-    const currentStreak = store.currentStreak;
 
-    // Trigger XP animation
+    // Trigger XP animation (floating +XP)
     store.addXPGain(totalXP, 'Quiz completed', position);
+
+    // Show Duolingo-style XP popup
+    if (showPopup) {
+      xpPopup.withBreakdown(
+        baseXP,
+        bonuses,
+        'Quiz Completed',
+        `You scored ${data.percentage}%!`
+      );
+    }
 
     // Check for level up
     const newTotalXP = currentXP + totalXP;
     const { level: newLevel, title: newTitle } = calculateLevelFromXP(newTotalXP);
     
     if (newLevel > currentLevel) {
-      // Delay level up to let XP animation play first
+      // Delay level up to let XP popup dismiss first
       setTimeout(() => {
         store.triggerLevelUp(currentLevel, newLevel, newTitle);
-      }, 1500);
+      }, 5500);
     }
 
     // Perfect score celebration
@@ -109,7 +132,7 @@ export function useGamificationEvents() {
       if (showToast) {
         setTimeout(() => {
           toast.achievement('Perfect Score! 💯', 'You answered every question correctly!', '🏆');
-        }, 2000);
+        }, 5500);
       }
     } else {
       soundManager.play('quiz_complete');
@@ -120,8 +143,8 @@ export function useGamificationEvents() {
       }
     }
 
-    // Show toast
-    if (showToast && !data.isPerfectScore) {
+    // Show toast (only if popup is disabled)
+    if (showToast && !showPopup && !data.isPerfectScore) {
       toast.xp(totalXP, `Quiz completed with ${data.percentage}% score`);
     }
 
@@ -153,26 +176,47 @@ export function useGamificationEvents() {
    */
   const handleNoteComplete = useCallback(async (
     data: NoteViewData,
-    options?: { showToast?: boolean }
+    options?: { showToast?: boolean; showPopup?: boolean }
   ) => {
-    const { showToast = true } = options || {};
+    const { showToast = false, showPopup = true } = options || {};
     
-    // Calculate XP
-    const xpEarned = Math.round(data.timeSpentMinutes * 2) + 
-      (data.completionPercentage >= 80 ? 10 : 0) +
-      (data.isFirstNote ? 15 : 0);
+    // Calculate base XP
+    const baseXP = Math.round(data.timeSpentMinutes * 2);
+    let totalXP = baseXP;
+    
+    // Build bonuses array
+    const bonuses: XPBonus[] = [];
+    
+    if (data.completionPercentage >= 80) {
+      totalXP += 10;
+      bonuses.push({ type: 'completion', label: 'Completed Reading', amount: 10, icon: '📖' });
+    }
+    if (data.isFirstNote) {
+      totalXP += 15;
+      bonuses.push({ type: 'firstNote', label: 'First Note!', amount: 15, icon: '🎉' });
+    }
 
-    // Trigger animation
-    store.addXPGain(xpEarned, 'Notes completed');
+    // Trigger floating XP animation
+    store.addXPGain(totalXP, 'Notes completed');
 
-    if (showToast) {
-      toast.xp(xpEarned, 'Finished reading notes');
+    // Show Duolingo-style XP popup
+    if (showPopup) {
+      xpPopup.withBreakdown(
+        baseXP,
+        bonuses,
+        'Notes Completed',
+        'Great job studying!'
+      );
+    }
+
+    if (showToast && !showPopup) {
+      toast.xp(totalXP, 'Finished reading notes');
     }
 
     // Call backend
     await gamificationIntegration.handleNoteView(data);
 
-    return { xpEarned };
+    return { xpEarned: totalXP };
   }, [store]);
 
   /**
@@ -228,24 +272,47 @@ export function useGamificationEvents() {
   /**
    * Handle daily goal completion
    */
-  const handleGoalComplete = useCallback((goalName: string, xpBonus: number) => {
+  const handleGoalComplete = useCallback((goalName: string, xpBonus: number, showPopup: boolean = true) => {
     soundManager.play('goal_complete');
     triggerConfetti.goalComplete();
     
     store.addXPGain(xpBonus, 'Daily goal completed');
-    toast.goal(goalName);
+    
+    if (showPopup) {
+      xpPopup.withBreakdown(
+        xpBonus,
+        [],
+        'Goal Completed!',
+        goalName
+      );
+    } else {
+      toast.goal(goalName);
+    }
   }, [store]);
 
   /**
    * Generic XP award with animation
+   * @param showPopup - If true, shows Duolingo-style popup. If false, just shows floating +XP
    */
   const awardXP = useCallback((
     amount: number,
     source: string,
-    position?: { x: number; y: number }
+    options?: {
+      position?: { x: number; y: number };
+      showPopup?: boolean;
+      message?: string;
+      bonuses?: XPBonus[];
+    }
   ) => {
+    const { position, showPopup = false, message, bonuses = [] } = options || {};
+    
     store.addXPGain(amount, source, position);
     soundManager.playXPGain(amount);
+    
+    if (showPopup) {
+      const baseXP = amount - bonuses.reduce((sum, b) => sum + b.amount, 0);
+      xpPopup.withBreakdown(baseXP, bonuses, source, message);
+    }
   }, [store]);
 
   /**

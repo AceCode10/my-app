@@ -15,8 +15,10 @@ export interface UserProgress {
   activity_type: ActivityType;
   subject_id: string | null;
   subject_name: string | null;
+  subject_slug: string | null;
   topic_id: string | null;
   topic_name: string | null;
+  topic_slug: string | null;
   note_id: string | null;
   question_id: string | null;
   progress_data: Record<string, any>;

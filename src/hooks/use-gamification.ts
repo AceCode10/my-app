@@ -26,8 +26,8 @@ export function useGamification() {
   const badgeService = new BadgeService();
   const notificationService = new NotificationService();
 
-  // Load all gamification data
-  const loadData = useCallback(async () => {
+  // Load all gamification data with retry logic
+  const loadData = useCallback(async (retryCount = 0) => {
     if (!user) return;
 
     try {
@@ -39,13 +39,25 @@ export function useGamification() {
         notificationService.getUnreadCount(user.id)
       ]);
 
+      // If gamification data is null and we haven't retried too many times, retry
+      if (!gamData && retryCount < 2) {
+        console.log('Gamification data not found, retrying...');
+        setTimeout(() => loadData(retryCount + 1), 1000);
+        return;
+      }
+
       setGamification(gamData);
-      setStreakData(streakInfo);
+      setStreakData(streakInfo || { current_streak: 0, longest_streak: 0, streak_freeze_count: 0 });
       setBadges(badgeList);
       setNotifications(notifList);
       setUnreadCount(unread);
     } catch (error) {
       console.error('Error loading gamification data:', error);
+      // Retry on error
+      if (retryCount < 2) {
+        setTimeout(() => loadData(retryCount + 1), 1000);
+        return;
+      }
     } finally {
       setLoading(false);
     }

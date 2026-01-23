@@ -29,7 +29,6 @@ const navItems = [
     { href: '/teacher/test-builder', label: 'Test Builder', icon: Hammer },
     { href: '/teacher/tests', label: 'My Tests', icon: FileText },
     { href: '/teacher/submissions', label: 'Submissions', icon: ClipboardCheck },
-    { href: '/teacher/flashcards', label: 'Flashcards', icon: Layers },
     { href: '/teacher/analytics', label: 'Analytics', icon: BarChart3 },
 ];
 

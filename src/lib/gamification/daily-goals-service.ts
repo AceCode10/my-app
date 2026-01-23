@@ -95,17 +95,27 @@ export class DailyGoalsService {
    * Get user's goal preferences
    */
   async getUserPreferences(userId: string): Promise<UserGoalPreferences | null> {
-    const { data, error } = await this.supabase
-      .from('user_goal_preferences')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
+    try {
+      const { data, error } = await this.supabase
+        .from('user_goal_preferences')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
 
-    if (error && error.code !== 'PGRST116') {
-      console.error('Error fetching user preferences:', error);
+      // Silently handle missing table (406) or no rows (PGRST116)
+      if (error && error.code !== 'PGRST116') {
+        // Don't log 406 errors (table doesn't exist) to avoid console spam
+        if (!error.message?.includes('406') && !error.message?.includes('relation')) {
+          console.error('Error fetching user preferences:', error);
+        }
+        return null;
+      }
+
+      return data;
+    } catch (e) {
+      // Silently handle any errors - table may not exist
+      return null;
     }
-
-    return data;
   }
 
   /**
@@ -115,24 +125,101 @@ export class DailyGoalsService {
     userId: string,
     preferences: Partial<Pick<UserGoalPreferences, 'preferred_difficulty' | 'primary_goal_type' | 'reminder_enabled' | 'reminder_time'>>
   ): Promise<UserGoalPreferences | null> {
-    const { data, error } = await this.supabase
-      .from('user_goal_preferences')
-      .upsert({
-        user_id: userId,
-        ...preferences,
-        updated_at: new Date().toISOString(),
-      }, {
-        onConflict: 'user_id',
-      })
-      .select()
-      .single();
+    try {
+      const { data, error } = await this.supabase
+        .from('user_goal_preferences')
+        .upsert({
+          user_id: userId,
+          ...preferences,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'user_id',
+        })
+        .select()
+        .single();
 
-    if (error) {
-      console.error('Error setting user preferences:', error);
+      if (error) {
+        // Silently handle missing table errors
+        if (!error.message?.includes('406') && !error.message?.includes('relation')) {
+          console.error('Error setting user preferences:', error);
+        }
+        return null;
+      }
+
+      // If difficulty changed, update today's goals with new targets
+      if (preferences.preferred_difficulty) {
+        await this.updateTodayGoalsDifficulty(userId, preferences.preferred_difficulty);
+      }
+
+      return data;
+    } catch (e) {
+      // Silently handle any errors - table may not exist
       return null;
     }
+  }
 
-    return data;
+  /**
+   * Update today's goals when difficulty changes
+   */
+  async updateTodayGoalsDifficulty(userId: string, newDifficulty: string): Promise<void> {
+    try {
+      // Try RPC first
+      const { error: rpcError } = await this.supabase.rpc('update_daily_goals_difficulty', {
+        p_user_id: userId,
+        p_new_difficulty: newDifficulty,
+      });
+
+      if (rpcError) {
+        // Fallback to direct update if RPC doesn't exist
+        const { data: preset } = await this.supabase
+          .from('goal_presets')
+          .select('*')
+          .eq('difficulty', newDifficulty)
+          .single();
+
+        if (preset) {
+          const today = new Date().toISOString().split('T')[0];
+          
+          // Update XP goal
+          await this.supabase
+            .from('daily_goals')
+            .update({ 
+              goal_difficulty: newDifficulty, 
+              target_value: preset.xp_target,
+              updated_at: new Date().toISOString()
+            })
+            .eq('user_id', userId)
+            .eq('goal_type', 'xp')
+            .eq('goal_date', today);
+
+          // Update questions goal
+          await this.supabase
+            .from('daily_goals')
+            .update({ 
+              goal_difficulty: newDifficulty, 
+              target_value: preset.questions_target,
+              updated_at: new Date().toISOString()
+            })
+            .eq('user_id', userId)
+            .eq('goal_type', 'questions')
+            .eq('goal_date', today);
+
+          // Update time goal
+          await this.supabase
+            .from('daily_goals')
+            .update({ 
+              goal_difficulty: newDifficulty, 
+              target_value: preset.time_target_minutes,
+              updated_at: new Date().toISOString()
+            })
+            .eq('user_id', userId)
+            .eq('goal_type', 'time')
+            .eq('goal_date', today);
+        }
+      }
+    } catch (e) {
+      console.error('Error updating daily goals difficulty:', e);
+    }
   }
 
   /**
@@ -301,7 +388,7 @@ export class DailyGoalsService {
       .eq('user_id', userId)
       .gte('goal_date', weekAgo.toISOString().split('T')[0]);
 
-    const weekCompleted = weekGoals?.filter(g => g.is_completed).length || 0;
+    const weekCompleted = weekGoals?.filter((g: { is_completed: boolean }) => g.is_completed).length || 0;
 
     return {
       todayCompleted,

@@ -117,7 +117,7 @@ export function GoalSelectionModal({
             </div>
 
             {/* Presets */}
-            <div className="p-6 space-y-3">
+            <div className="p-6 space-y-3 max-h-[60vh] overflow-y-auto">
               {presets.map((preset, index) => {
                 const styles = DIFFICULTY_STYLES[preset.difficulty as keyof typeof DIFFICULTY_STYLES];
                 const isSelected = selectedDifficulty === preset.difficulty;
@@ -171,28 +171,15 @@ export function GoalSelectionModal({
                         <div className="flex flex-wrap gap-3 mt-2">
                           <div className="flex items-center gap-1 text-xs">
                             <Zap className={cn('h-3.5 w-3.5', isSelected ? styles.text : 'text-yellow-500')} />
-                            <span>{preset.xp_target} XP</span>
+                            <span className="font-medium">{preset.xp_target} XP</span>
                           </div>
-                          <div className="flex items-center gap-1 text-xs">
-                            <Target className={cn('h-3.5 w-3.5', isSelected ? styles.text : 'text-blue-500')} />
-                            <span>{preset.questions_target} questions</span>
-                          </div>
-                          <div className="flex items-center gap-1 text-xs">
-                            <Clock className={cn('h-3.5 w-3.5', isSelected ? styles.text : 'text-green-500')} />
-                            <span>{preset.time_target_minutes} min</span>
-                          </div>
+                          {preset.xp_bonus > 0 && (
+                            <div className="flex items-center gap-1 text-xs">
+                              <Flame className={cn('h-3.5 w-3.5', isSelected ? styles.text : 'text-orange-500')} />
+                              <span className="font-medium">+{preset.xp_bonus} XP bonus</span>
+                            </div>
+                          )}
                         </div>
-
-                        {/* Bonus */}
-                        {preset.xp_bonus > 0 && (
-                          <div className={cn(
-                            'inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded-full text-xs font-medium',
-                            isSelected ? styles.bg : 'bg-muted'
-                          )}>
-                            <Flame className="h-3 w-3 text-orange-500" />
-                            +{preset.xp_bonus} XP bonus on completion
-                          </div>
-                        )}
                       </div>
                     </div>
                   </motion.button>

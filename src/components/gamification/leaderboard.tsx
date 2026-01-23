@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Trophy, Medal, Award, Crown, TrendingUp, Zap } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
@@ -21,61 +20,130 @@ interface LeaderboardEntry {
   updated_at: string;
 }
 
-export function Leaderboard() {
+interface LeaderboardProps {
+  limit?: number;
+  showUserRank?: boolean;
+}
+
+export function Leaderboard({ limit = 100, showUserRank = true }: LeaderboardProps) {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [userRank, setUserRank] = useState<number | null>(null);
-  const [timeframe, setTimeframe] = useState<'all' | 'week' | 'month'>('all');
   const { user } = useUser();
   const supabase = createClient();
 
-  useEffect(() => {
-    loadLeaderboard();
-    
-    // Subscribe to real-time updates
-    const channel = supabase
-      .channel('leaderboard_updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'leaderboard_cache'
-        },
-        () => {
-          loadLeaderboard();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [timeframe]);
-
-  const loadLeaderboard = async () => {
+  const loadLeaderboard = useCallback(async () => {
     try {
+      // Query user_gamification directly joined with users table
       const { data, error } = await supabase
-        .from('leaderboard_cache')
-        .select('*')
-        .order('rank', { ascending: true })
-        .limit(100);
+        .from('user_gamification')
+        .select(`
+          user_id,
+          total_xp,
+          xp_level,
+          updated_at,
+          users!inner(display_name, avatar_url)
+        `)
+        .order('total_xp', { ascending: false })
+        .limit(limit);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading leaderboard:', error);
+        // Try fallback to leaderboard_cache if it exists
+        const { data: cacheData, error: cacheError } = await supabase
+          .from('leaderboard_cache')
+          .select('*')
+          .order('rank', { ascending: true })
+          .limit(limit);
+        
+        if (!cacheError && cacheData) {
+          setEntries(cacheData);
+          if (user) {
+            const userEntry = cacheData.find(entry => entry.user_id === user.id);
+            setUserRank(userEntry?.rank || null);
+          }
+        }
+        return;
+      }
 
-      setEntries(data || []);
+      // Transform data to leaderboard format
+      const leaderboardData: LeaderboardEntry[] = (data || []).map((entry: any, index: number) => ({
+        rank: index + 1,
+        user_id: entry.user_id,
+        display_name: entry.users?.display_name || 'Anonymous',
+        avatar_url: entry.users?.avatar_url,
+        total_xp: entry.total_xp || 0,
+        level: entry.xp_level || 1,
+        updated_at: entry.updated_at,
+      }));
+
+      setEntries(leaderboardData);
 
       // Find current user's rank
       if (user) {
-        const userEntry = data?.find(entry => entry.user_id === user.id);
-        setUserRank(userEntry?.rank || null);
+        const userEntry = leaderboardData.find(entry => entry.user_id === user.id);
+        if (userEntry) {
+          setUserRank(userEntry.rank);
+        } else {
+          // User not in top N, find their actual rank
+          const { count } = await supabase
+            .from('user_gamification')
+            .select('*', { count: 'exact', head: true })
+            .gt('total_xp', leaderboardData[leaderboardData.length - 1]?.total_xp || 0);
+          
+          // For now, just show null if not in top N
+          setUserRank(null);
+        }
       }
     } catch (error) {
       console.error('Error loading leaderboard:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [supabase, limit, user]);
+
+  useEffect(() => {
+    loadLeaderboard();
+    
+    // Subscribe to real-time updates on user_gamification
+    const channel = supabase
+      .channel('leaderboard_xp_updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_gamification'
+        },
+        () => {
+          // Reload leaderboard when any XP changes
+          loadLeaderboard();
+        }
+      )
+      .subscribe();
+
+    // Also listen for xp_earned events
+    const handleXPEarned = () => {
+      loadLeaderboard();
+    };
+    
+    if (typeof window !== 'undefined') {
+      window.addEventListener('xp_earned', handleXPEarned);
+    }
+
+    // Set up polling interval for real-time feel (every 10 seconds)
+    const pollInterval = setInterval(() => {
+      loadLeaderboard();
+    }, 10000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(pollInterval);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('xp_earned', handleXPEarned);
+      }
+    };
+  }, [loadLeaderboard, supabase]);
 
   const getRankIcon = (rank: number) => {
     switch (rank) {

@@ -44,10 +44,57 @@ export class NotificationService {
   private supabase = createClient();
 
   /**
-   * Create a new notification
+   * Check if user has enabled notifications for a specific type
+   */
+  private async shouldSendNotification(userId: string, type: NotificationType): Promise<boolean> {
+    try {
+      // Map notification types to preference keys
+      const typeToPreference: Record<NotificationType, string> = {
+        'badge_earned': 'newBadges',
+        'quiz_completed': 'quizReminders',
+        'streak_milestone': 'newBadges',
+        'level_up': 'newBadges',
+        'assignment_due': 'quizReminders',
+        'assignment_graded': 'quizReminders',
+        'class_announcement': 'newContent',
+        'grade_released': 'quizReminders',
+        'streak_reminder': 'quizReminders',
+        'class_invitation': 'newContent',
+      };
+
+      const preferenceKey = typeToPreference[type];
+      if (!preferenceKey) return true; // Default to sending if no mapping
+
+      // Check user preferences from users table
+      const { data: userData } = await this.supabase
+        .from('users')
+        .select('notification_preferences')
+        .eq('id', userId)
+        .single();
+
+      if (userData?.notification_preferences) {
+        const prefs = userData.notification_preferences as Record<string, boolean>;
+        return prefs[preferenceKey] !== false; // Default to true if not set
+      }
+
+      return true; // Default to sending notifications
+    } catch (error) {
+      // If error checking preferences, default to sending
+      return true;
+    }
+  }
+
+  /**
+   * Create a new notification (respects user preferences)
    */
   async createNotification(data: CreateNotificationData): Promise<Notification | null> {
     try {
+      // Check if user wants this type of notification
+      const shouldSend = await this.shouldSendNotification(data.userId, data.type);
+      if (!shouldSend) {
+        return null; // User has disabled this notification type
+      }
+
       const { data: notification, error } = await this.supabase
         .from('notifications')
         .insert({

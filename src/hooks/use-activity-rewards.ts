@@ -9,9 +9,18 @@
 import { useCallback, useState } from 'react';
 import { useUser } from './use-user';
 import { rewardEngine, RewardBreakdown, ActivityData } from '@/lib/gamification/reward-engine';
-import { useGamificationStore } from '@/lib/gamification/stores/gamification-store';
+import { useGamificationStore, type XPGainEvent, type LevelUpEvent, type BadgeUnlockEvent, type StreakMilestoneEvent } from '@/lib/gamification/stores/gamification-store';
 import { soundManager } from '@/lib/gamification/sound-manager';
 import { triggerConfetti } from '@/components/gamification/animations/confetti-burst';
+import { xpPopup, type XPBonus } from '@/components/gamification/animations/xp-popup';
+
+// Type for the gamification store
+interface GamificationStoreActions {
+  addXPGain: (amount: number, source: string, position?: { x: number; y: number }) => void;
+  triggerLevelUp: (oldLevel: number, newLevel: number, newTitle: string) => void;
+  triggerBadgeUnlock: (badge: Omit<BadgeUnlockEvent, 'timestamp'>) => void;
+  triggerStreakMilestone: (days: number, title: string, xpReward: number) => void;
+}
 
 interface TopicalQuestionInput {
   questionId: string;
@@ -209,35 +218,52 @@ export function useActivityRewards() {
   };
 }
 
-type GamificationStore = ReturnType<typeof useGamificationStore>;
-
 /**
  * Trigger appropriate animations based on rewards
+ * Shows only ONE XP popup to avoid multiple overlapping animations
  */
-function triggerRewardAnimations(breakdown: RewardBreakdown, store: GamificationStore): void {
-  // XP animation
+function triggerRewardAnimations(breakdown: RewardBreakdown, store: GamificationStoreActions): void {
+  // Safely access arrays with fallbacks
+  const bonuses = breakdown.bonuses || [];
+  const badgesUnlocked = breakdown.badgesUnlocked || [];
+  const dailyGoalProgress = breakdown.dailyGoalProgress || [];
+
+  // Show ONLY the XP popup (not both popup and floating animation)
   if (breakdown.totalXP > 0) {
-    store.addXPGain(breakdown.totalXP, 'Activity completed');
-    soundManager.playXPGain(breakdown.totalXP);
+    // Convert bonuses to XPBonus format
+    const popupBonuses: XPBonus[] = bonuses.map(b => ({
+      type: b.type,
+      label: b.label,
+      amount: b.amount,
+      icon: b.icon,
+    }));
+    
+    // Show the XP popup ONLY - removed duplicate floating animation
+    xpPopup.withBreakdown(
+      breakdown.baseXP,
+      popupBonuses,
+      'Activity Completed',
+      breakdown.totalXP >= 20 ? 'Great job!' : undefined
+    );
   }
 
-  // Level up
+  // Level up (delayed to show after XP popup)
   if (breakdown.leveledUp && breakdown.newLevel && breakdown.newTitle) {
     setTimeout(() => {
       store.triggerLevelUp(breakdown.newLevel! - 1, breakdown.newLevel!, breakdown.newTitle!);
-    }, 1500);
+    }, 5500);
   }
 
-  // Badge unlocks
-  if (breakdown.badgesUnlocked.length > 0) {
-    breakdown.badgesUnlocked.forEach((badge, index) => {
+  // Badge unlocks (delayed to show after XP popup)
+  if (badgesUnlocked.length > 0) {
+    badgesUnlocked.forEach((badge, index) => {
       setTimeout(() => {
         store.triggerBadgeUnlock(badge);
-      }, 2000 + index * 1500);
+      }, 6000 + index * 1500);
     });
   }
 
-  // Streak milestone
+  // Streak milestone (delayed to show after XP popup)
   if (breakdown.streakMilestone) {
     setTimeout(() => {
       store.triggerStreakMilestone(
@@ -245,20 +271,20 @@ function triggerRewardAnimations(breakdown: RewardBreakdown, store: Gamification
         breakdown.streakMilestone!.title,
         breakdown.streakMilestone!.xpReward
       );
-    }, 2500);
+    }, 6000);
   }
 
   // Perfect score celebration
-  const hasPerfectBonus = breakdown.bonuses.some(b => b.type === 'perfectScore');
+  const hasPerfectBonus = bonuses.some(b => b.type === 'perfectScore');
   if (hasPerfectBonus) {
     soundManager.play('perfect_score');
     triggerConfetti.perfectScore();
-  } else if (breakdown.totalXP >= 30) {
+  } else if (breakdown.totalXP >= 15) {
     triggerConfetti.celebration();
   }
 
   // Daily goal completion celebration
-  const completedGoals = breakdown.dailyGoalProgress.filter(g => g.justCompleted);
+  const completedGoals = dailyGoalProgress.filter(g => g.justCompleted);
   if (completedGoals.length > 0) {
     setTimeout(() => {
       soundManager.play('goal_complete');

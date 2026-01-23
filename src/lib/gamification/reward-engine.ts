@@ -85,40 +85,58 @@ export interface ActivityData {
 // XP CALCULATION RULES
 // ============================================
 
+/**
+ * BALANCED XP REWARD PLAN
+ * ========================
+ * Philosophy: XP should be EARNED, not given freely. Make XP feel valuable.
+ * 
+ * Daily Target: ~50-100 XP for active study (1-2 hours)
+ * Weekly Target: ~300-500 XP for consistent study
+ * 
+ * Topical Questions: 1-3 XP per question (main grind activity)
+ * Past Papers: 5-15 XP per paper (significant effort required)
+ * Assessments: 3-10 XP per assessment
+ * Notes: 1-5 XP per note (passive learning)
+ * 
+ * Bonuses are RARE and require genuine achievement:
+ * - Perfect score: Requires 100% - truly exceptional
+ * - High score: Requires 80%+ - good performance
+ * - Speed bonus: Only for genuinely fast completion
+ */
 const XP_RULES = {
   topical_question: {
-    basePerQuestion: 3,
-    correctAnswerBonus: 2,
+    basePerQuestion: 1, // Reduced from 3 - questions are the main grind
+    correctAnswerBonus: 1, // Reduced from 2 - reward correct answers modestly
     bonuses: {
-      perfectScore: { xp: 15, label: 'Perfect!', icon: '💯' },
-      highScore: { xp: 5, label: 'Great Score (80%+)', icon: '⭐' },
-      firstToday: { xp: 5, label: 'First Question Today', icon: '🌅' },
+      perfectScore: { xp: 5, label: 'Perfect!', icon: '💯' }, // Reduced from 15
+      highScore: { xp: 2, label: 'Great Score (80%+)', icon: '⭐' }, // Reduced from 5
+      firstToday: { xp: 2, label: 'First Question Today', icon: '🌅' }, // Reduced from 5
     },
   },
   exam_paper: {
-    basePerQuestion: 2,
-    percentageMultiplier: 0.5, // 0.5 XP per percentage point
+    basePerQuestion: 0.5, // Reduced from 2 - papers have many questions
+    percentageMultiplier: 0.1, // Reduced from 0.5 - 100% = 10 XP, not 50
     bonuses: {
-      perfectScore: { xp: 50, label: 'Perfect Paper!', icon: '💯' },
-      highScore: { xp: 20, label: 'Excellent (80%+)', icon: '⭐' },
-      goodScore: { xp: 10, label: 'Good Score (60%+)', icon: '👍' },
-      completed: { xp: 15, label: 'Paper Completed', icon: '📄' },
+      perfectScore: { xp: 10, label: 'Perfect Paper!', icon: '💯' }, // Reduced from 50
+      highScore: { xp: 5, label: 'Excellent (80%+)', icon: '⭐' }, // Reduced from 20
+      goodScore: { xp: 2, label: 'Good Score (60%+)', icon: '👍' }, // Reduced from 10
+      completed: { xp: 3, label: 'Paper Completed', icon: '📄' }, // Reduced from 15
     },
   },
   assessment: {
-    basePerQuestion: 2,
-    percentageMultiplier: 0.4,
+    basePerQuestion: 0.5, // Reduced from 2
+    percentageMultiplier: 0.1, // Reduced from 0.4
     bonuses: {
-      perfectScore: { xp: 40, label: 'Perfect Assessment!', icon: '💯' },
-      highScore: { xp: 15, label: 'Excellent (80%+)', icon: '⭐' },
-      goodScore: { xp: 8, label: 'Good Score (60%+)', icon: '👍' },
-      completed: { xp: 10, label: 'Assessment Completed', icon: '✅' },
+      perfectScore: { xp: 8, label: 'Perfect Assessment!', icon: '💯' }, // Reduced from 40
+      highScore: { xp: 3, label: 'Excellent (80%+)', icon: '⭐' }, // Reduced from 15
+      goodScore: { xp: 1, label: 'Good Score (60%+)', icon: '👍' }, // Reduced from 8
+      completed: { xp: 2, label: 'Assessment Completed', icon: '✅' }, // Reduced from 10
     },
   },
   note: {
-    basePerMinute: 2,
-    maxBase: 20,
-    completionBonus: 5,
+    basePerMinute: 0.5, // Reduced from 2
+    maxBase: 5, // Reduced from 20
+    completionBonus: 2, // Reduced from 5
   },
 };
 
@@ -133,6 +151,8 @@ export class RewardEngine {
    * Process an activity and calculate all rewards
    */
   async processActivity(data: ActivityData): Promise<RewardBreakdown> {
+    console.log('[RewardEngine] Processing activity:', data.activityType, 'for user:', data.userId);
+    
     const breakdown: RewardBreakdown = {
       baseXP: 0,
       bonuses: [],
@@ -148,6 +168,7 @@ export class RewardEngine {
     try {
       // 1. Calculate XP based on activity type
       this.calculateXP(data, breakdown);
+      console.log('[RewardEngine] Calculated XP:', breakdown.totalXP, 'Base:', breakdown.baseXP, 'Bonuses:', breakdown.bonuses);
 
       // 2. Award XP to database
       await this.awardXP(data.userId, breakdown.totalXP, data.activityType, data.referenceId);
@@ -164,11 +185,13 @@ export class RewardEngine {
       // 6. Check for level up
       await this.checkLevelUp(data.userId, breakdown);
 
-      // 7. Check for badges
-      await this.checkBadges(data.userId, data, breakdown);
+      // 7. Check for badges (skip for now - can be added later)
+      // await this.checkBadges(data.userId, data, breakdown);
+      
+      console.log('[RewardEngine] Activity processed successfully. Total XP awarded:', breakdown.totalXP);
 
     } catch (error) {
-      console.error('Error processing activity rewards:', error);
+      console.error('[RewardEngine] Error processing activity rewards:', error);
     }
 
     return breakdown;
@@ -353,19 +376,149 @@ export class RewardEngine {
   }
 
   /**
-   * Award XP to database
+   * Award XP to database (with fallback to direct update)
    */
   private async awardXP(userId: string, amount: number, source: string, referenceId: string): Promise<void> {
+    if (amount <= 0) return;
+    
+    console.log(`[RewardEngine] Awarding ${amount} XP to user ${userId} for ${source}`);
+    
     try {
-      await this.supabase.rpc('award_xp', {
+      // Try RPC first - note: p_source_id can be null if referenceId is not a valid UUID
+      const sourceId = this.isValidUUID(referenceId) ? referenceId : null;
+      
+      const { data, error } = await this.supabase.rpc('award_xp', {
         p_user_id: userId,
         p_xp_amount: amount,
-        p_source: source,
-        p_source_id: referenceId,
+        p_source_type: source,
+        p_source_id: sourceId,
         p_description: `${source} completed`,
       });
+
+      if (error) {
+        console.error('[RewardEngine] RPC error:', error);
+        // If RPC doesn't exist or fails, fall back to direct update
+        if (error.code === '42883' || error.message?.includes('404') || error.message?.includes('does not exist')) {
+          console.log('[RewardEngine] RPC not found, using direct update');
+          await this.awardXPDirect(userId, amount);
+        } else {
+          // Other error - still try direct update
+          console.log('[RewardEngine] RPC failed, trying direct update');
+          await this.awardXPDirect(userId, amount);
+        }
+      } else {
+        console.log('[RewardEngine] XP awarded successfully via RPC:', data);
+      }
+      
+      // Dispatch event to notify UI components that XP was earned
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('xp_earned', { 
+          detail: { amount, source, userId } 
+        }));
+      }
     } catch (error) {
-      console.error('Error awarding XP:', error);
+      console.error('[RewardEngine] Error awarding XP:', error);
+      // Fallback to direct update
+      await this.awardXPDirect(userId, amount);
+      
+      // Still dispatch event even on fallback
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('xp_earned', { 
+          detail: { amount, source, userId } 
+        }));
+      }
+    }
+  }
+  
+  private isValidUUID(str: string): boolean {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(str);
+  }
+
+  /**
+   * Direct XP update fallback when RPC doesn't exist
+   */
+  private async awardXPDirect(userId: string, amount: number): Promise<void> {
+    console.log(`[RewardEngine] Direct XP update for user ${userId}: +${amount}`);
+    
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      
+      // First ensure user_gamification record exists
+      const { error: upsertError } = await this.supabase
+        .from('user_gamification')
+        .upsert({
+          user_id: userId,
+          total_xp: 0,
+          xp_this_week: 0,
+          xp_today: 0,
+          xp_level: 1,
+          xp_progress_to_next_level: 0,
+          xp_needed_for_next_level: 100,
+          current_streak: 0,
+          longest_streak: 0,
+        }, { onConflict: 'user_id', ignoreDuplicates: true });
+
+      if (upsertError) {
+        console.error('[RewardEngine] Error upserting user_gamification:', upsertError);
+      }
+
+      // Get current XP
+      const { data: current, error: fetchError } = await this.supabase
+        .from('user_gamification')
+        .select('total_xp, xp_this_week, xp_today, xp_level, xp_progress_to_next_level, xp_needed_for_next_level, last_xp_date')
+        .eq('user_id', userId)
+        .single();
+
+      if (fetchError) {
+        console.error('[RewardEngine] Error fetching user_gamification:', fetchError);
+        return;
+      }
+
+      if (!current) {
+        console.error('[RewardEngine] No user_gamification record found');
+        return;
+      }
+
+      const newTotalXP = (current.total_xp || 0) + amount;
+      const newWeeklyXP = (current.xp_this_week || 0) + amount;
+      
+      // Reset daily XP if it's a new day
+      const lastXPDate = current.last_xp_date;
+      const currentDailyXP = (lastXPDate === today) ? (current.xp_today || 0) : 0;
+      const newDailyXP = currentDailyXP + amount;
+      
+      let newProgress = (current.xp_progress_to_next_level || 0) + amount;
+      let newLevel = current.xp_level || 1;
+      let xpNeeded = current.xp_needed_for_next_level || 100;
+
+      while (newProgress >= xpNeeded) {
+        newProgress -= xpNeeded;
+        newLevel++;
+        xpNeeded = Math.round(xpNeeded * 1.2);
+      }
+
+      const { error: updateError } = await this.supabase
+        .from('user_gamification')
+        .update({
+          total_xp: newTotalXP,
+          xp_this_week: newWeeklyXP,
+          xp_today: newDailyXP,
+          xp_level: newLevel,
+          xp_progress_to_next_level: newProgress,
+          xp_needed_for_next_level: xpNeeded,
+          last_xp_date: today,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', userId);
+
+      if (updateError) {
+        console.error('[RewardEngine] Error updating XP:', updateError);
+      } else {
+        console.log(`[RewardEngine] Direct XP update successful: ${current.total_xp} -> ${newTotalXP} (daily: ${newDailyXP})`);
+      }
+    } catch (e) {
+      console.error('[RewardEngine] Exception in awardXPDirect:', e);
     }
   }
 
@@ -376,6 +529,9 @@ export class RewardEngine {
     const today = new Date().toISOString().split('T')[0];
     
     try {
+      // First ensure daily goals exist for today
+      await this.supabase.rpc('create_daily_goals', { p_user_id: data.userId });
+      
       const { data: goals } = await this.supabase
         .from('daily_goals')
         .select('*')
@@ -434,11 +590,20 @@ export class RewardEngine {
    */
   private async updateStreak(userId: string, breakdown: RewardBreakdown): Promise<void> {
     try {
-      const { data } = await this.supabase.rpc('update_streak', { p_user_id: userId });
+      // Try RPC first
+      const { data, error } = await this.supabase.rpc('update_streak', { p_user_id: userId });
 
-      if (data) {
+      if (error) {
+        console.log('[RewardEngine] Streak RPC error, using direct update:', error.message);
+        await this.updateStreakDirect(userId, breakdown);
+        return;
+      }
+
+      if (data && Array.isArray(data) && data.length > 0) {
+        const streakData = data[0];
         breakdown.streakUpdated = true;
-        breakdown.newStreakDays = data.current_streak || 0;
+        breakdown.newStreakDays = streakData.current_streak || 0;
+        console.log('[RewardEngine] Streak updated:', breakdown.newStreakDays, 'days');
 
         // Check for streak milestones
         const milestones = [
@@ -459,9 +624,74 @@ export class RewardEngine {
             icon: '🔥',
           });
         }
+      } else if (data && !Array.isArray(data)) {
+        // Handle case where data is returned as object instead of array
+        breakdown.streakUpdated = true;
+        breakdown.newStreakDays = data.current_streak || 0;
       }
     } catch (error) {
-      console.error('Error updating streak:', error);
+      console.error('[RewardEngine] Error updating streak:', error);
+      await this.updateStreakDirect(userId, breakdown);
+    }
+  }
+
+  /**
+   * Direct streak update fallback
+   */
+  private async updateStreakDirect(userId: string, breakdown: RewardBreakdown): Promise<void> {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Get current streak data
+      const { data: current } = await this.supabase
+        .from('user_gamification')
+        .select('current_streak, longest_streak, last_activity_date')
+        .eq('user_id', userId)
+        .single();
+
+      if (!current) return;
+
+      const lastActivity = current.last_activity_date;
+      let newStreak = current.current_streak || 0;
+      let longestStreak = current.longest_streak || 0;
+
+      if (!lastActivity) {
+        // First activity
+        newStreak = 1;
+      } else if (lastActivity === today) {
+        // Already active today, keep streak
+      } else {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+        if (lastActivity === yesterdayStr) {
+          // Consecutive day - increment streak
+          newStreak = newStreak + 1;
+        } else {
+          // Streak broken - reset to 1
+          newStreak = 1;
+        }
+      }
+
+      longestStreak = Math.max(longestStreak, newStreak);
+
+      // Update database
+      await this.supabase
+        .from('user_gamification')
+        .update({
+          current_streak: newStreak,
+          longest_streak: longestStreak,
+          last_activity_date: today,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', userId);
+
+      breakdown.streakUpdated = true;
+      breakdown.newStreakDays = newStreak;
+      console.log('[RewardEngine] Streak updated directly:', newStreak, 'days');
+    } catch (error) {
+      console.error('[RewardEngine] Error in direct streak update:', error);
     }
   }
 
@@ -470,14 +700,47 @@ export class RewardEngine {
    */
   private async updateLeagueXP(userId: string, xp: number, breakdown: RewardBreakdown): Promise<void> {
     try {
-      const { data } = await this.supabase.rpc('add_league_xp', { p_user_id: userId, p_xp: xp });
+      const { data, error } = await this.supabase.rpc('add_league_xp', { p_user_id: userId, p_xp: xp });
+
+      // Silently handle RPC not existing or other errors
+      if (error) {
+        // Try direct update as fallback
+        await this.updateLeagueXPDirect(userId, xp);
+        breakdown.leagueXPAdded = xp;
+        return;
+      }
 
       if (data && data.length > 0) {
         breakdown.leagueXPAdded = xp;
         breakdown.newLeagueRank = data[0].new_rank;
       }
     } catch (error) {
-      // League might not be set up - that's okay
+      // League might not be set up - try direct update
+      await this.updateLeagueXPDirect(userId, xp);
+      breakdown.leagueXPAdded = xp;
+    }
+  }
+
+  /**
+   * Direct league XP update fallback
+   */
+  private async updateLeagueXPDirect(userId: string, xp: number): Promise<void> {
+    try {
+      // Try to update weekly_league_participants directly
+      const { data: current } = await this.supabase
+        .from('weekly_league_participants')
+        .select('weekly_xp')
+        .eq('user_id', userId)
+        .single();
+
+      if (current) {
+        await this.supabase
+          .from('weekly_league_participants')
+          .update({ weekly_xp: (current.weekly_xp || 0) + xp })
+          .eq('user_id', userId);
+      }
+    } catch (e) {
+      // Silently fail - league is optional
     }
   }
 

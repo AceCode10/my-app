@@ -93,6 +93,7 @@ export function PeopleTab({ classId, className, joinCode, teacherId }: PeopleTab
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [isLoading, setIsLoading] = useState(true);
   
   // Invite modal state

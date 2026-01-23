@@ -289,9 +289,20 @@ export default function UsersPage() {
       }
 
       if (deleteAction === 'delete') {
-        // Hard delete - remove from auth and database
-        const { error: authError } = await supabase.auth.admin.deleteUser(selectedUser.id);
-        if (authError) throw authError;
+        // Hard delete - remove from auth and database using API endpoint
+        const response = await fetch('/api/admin/delete-user', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ userId: selectedUser.id }),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || result.message || 'Failed to delete user');
+        }
 
         // Log the deletion
         await logDelete(

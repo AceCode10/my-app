@@ -1,29 +1,21 @@
 
 'use client';
 import { useState, useEffect, Suspense } from 'react';
-import { Mail, KeyRound, User, ArrowRight, ArrowLeft, Check, Globe } from 'lucide-react';
+import { Mail, KeyRound, User, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { createClient } from '@/lib/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { cn } from '@/lib/utils';
-import { COUNTRIES } from '@/lib/countries';
 import { KodiLoadingGif } from '@/components/ui/kodi-loading-gif';
-
-type SignupStep = 'credentials' | 'country';
 
 function SignupContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { toast } = useToast();
     const supabase = createClient();
-    const [step, setStep] = useState<SignupStep>('credentials');
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [selectedCountry, setSelectedCountry] = useState<string>('');
     const [isLoading, setIsLoading] = useState(false);
     const [isTeacher, setIsTeacher] = useState(false);
 
@@ -34,7 +26,7 @@ function SignupContent() {
     const handleCredentialsSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         
-        // Optimized: Early validation with better UX feedback
+        // Early validation with better UX feedback
         const validationErrors = [];
         
         if (!name?.trim()) {
@@ -60,7 +52,7 @@ function SignupContent() {
             return;
         }
         
-        // Optimized: Skip country step for faster signup - make it optional
+        // Handle signup directly
         handleFinalSubmit();
     };
 
@@ -76,7 +68,7 @@ function SignupContent() {
                 role = 'super_admin';
             }
 
-            // Optimized: Parallel signup and profile creation
+            // Handle signup and profile creation
             const signupPromise = supabase.auth.signUp({
                 email,
                 password,
@@ -84,7 +76,6 @@ function SignupContent() {
                     data: {
                         display_name: name,
                         role: role,
-                        country: selectedCountry || null,
                         onboarding_completed: false
                     },
                 },
@@ -102,20 +93,7 @@ function SignupContent() {
             const needsEmailConfirmation = authData.user && !authData.session;
             
             if (authData.user) {
-                // Optimized: Only update if additional data needed
-                if (selectedCountry) {
-                    const updatePromise = supabase
-                        .from('users')
-                        .update({ country: selectedCountry })
-                        .eq('id', authData.user.id);
-                    
-                    // Don't wait for this - fire and forget for better UX
-                    updatePromise.then(({ error }) => {
-                        if (error) {
-                            console.error('Error updating user country:', error);
-                        }
-                    });
-                }
+                // No country update needed - country removed from signup
 
                 setIsLoading(false);
 
@@ -188,19 +166,7 @@ function SignupContent() {
         <div className="bg-background text-foreground flex items-center justify-center min-h-screen px-4 py-8">
             <div className="w-full max-w-md mx-auto">
                 <div className="p-6 sm:p-8 bg-card rounded-2xl shadow-lg">
-                    {/* Step Indicator */}
-                    <div className="flex items-center justify-center gap-2 mb-6">
-                        <div className={cn(
-                            "h-2 w-8 rounded-full transition-colors",
-                            step === 'credentials' ? "bg-primary" : "bg-primary/30"
-                        )} />
-                        <div className={cn(
-                            "h-2 w-8 rounded-full transition-colors",
-                            step === 'country' ? "bg-primary" : "bg-muted"
-                        )} />
-                    </div>
-
-                    {step === 'credentials' ? (
+                    {true ? (
                         <>
                             <h2 className="text-2xl font-bold text-card-foreground text-center mb-2">
                                 {isTeacher ? 'Create Your Teacher Account' : 'Create Your Account'}
@@ -248,16 +214,6 @@ function SignupContent() {
                                     {isLoading ? 'Creating Account...' : 'Create Account'}
                                     {!isLoading && <ArrowRight className="h-4 w-4" />}
                                 </button>
-                                
-                                <div className="text-center mt-4">
-                                    <button 
-                                        type="button" 
-                                        onClick={() => setStep('country')}
-                                        className="text-sm text-muted-foreground hover:text-primary transition-colors underline"
-                                    >
-                                        Set country preferences (optional)
-                                    </button>
-                                </div>
                             </form>
                             <div className="flex items-center my-6">
                                 <div className="flex-grow border-t"></div>
@@ -272,66 +228,7 @@ function SignupContent() {
                                 Already have an account? <Link href={isTeacher ? "/login?plan=teacher" : "/login"} className="font-medium text-primary hover:underline">Log In</Link>
                             </p>
                         </>
-                    ) : (
-                        <>
-                            <h2 className="text-2xl font-bold text-card-foreground text-center mb-2">
-                                <Globe className="inline h-6 w-6 mr-2" />
-                                Select Your Country
-                            </h2>
-                            <p className="text-center text-muted-foreground mb-6">
-                                This helps us customize content for your region. You can change this later.
-                            </p>
-                            
-                            <div className="mb-6">
-                                <Select value={selectedCountry} onValueChange={setSelectedCountry}>
-                                    <SelectTrigger className="w-full h-12">
-                                        <SelectValue placeholder="Select your country" />
-                                    </SelectTrigger>
-                                    <SelectContent className="max-h-[300px]">
-                                        {COUNTRIES.map(country => (
-                                            <SelectItem key={country.code} value={country.code}>
-                                                {country.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            {selectedCountry && (
-                                <p className="text-sm text-center text-muted-foreground mb-4">
-                                    <Check className="inline h-4 w-4 text-green-500 mr-1" />
-                                    Country selected
-                                </p>
-                            )}
-
-                            <div className="flex gap-3">
-                                <Button
-                                    variant="outline"
-                                    onClick={() => setStep('credentials')}
-                                    className="flex-1"
-                                    disabled={isLoading}
-                                >
-                                    <ArrowLeft className="h-4 w-4 mr-2" />
-                                    Back
-                                </Button>
-                                <Button
-                                    variant="ghost"
-                                    onClick={handleFinalSubmit}
-                                    className="flex-1"
-                                    disabled={isLoading}
-                                >
-                                    Skip
-                                </Button>
-                                <Button
-                                    onClick={handleFinalSubmit}
-                                    className="flex-1"
-                                    disabled={isLoading}
-                                >
-                                    {isLoading ? 'Creating...' : 'Create Account'}
-                                </Button>
-                            </div>
-                        </>
-                    )}
+                    ) : null}
                 </div>
             </div>
         </div>

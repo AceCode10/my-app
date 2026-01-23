@@ -45,7 +45,6 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useUser } from '@/hooks/use-user';
 import { useActivityRewards } from '@/hooks/use-activity-rewards';
-import { RewardBreakdownModal } from '@/components/gamification';
 import { PastPaper, PaperQuestion, PaperAttemptAnswer } from '@/types/paper-practice';
 import { QuestionTextRenderer } from '@/components/questions/question-text-renderer';
 
@@ -68,9 +67,8 @@ export default function PaperResultsPage() {
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [rewardsProcessed, setRewardsProcessed] = useState(false);
-  const [showRewardBreakdown, setShowRewardBreakdown] = useState(false);
   const { user } = useUser();
-  const { processExamPaper, lastBreakdown, clearLastBreakdown } = useActivityRewards();
+  const { processExamPaper } = useActivityRewards();
 
   useEffect(() => {
     if (!attemptId) {
@@ -138,13 +136,15 @@ export default function PaperResultsPage() {
     }
   }
 
-  // Process rewards when paper results are loaded
+  // Process rewards when paper results are loaded - ONLY ONCE
   useEffect(() => {
     async function awardPaperRewards() {
       if (!user || !paper || !attempt || rewardsProcessed || loading) return;
       if (attempt.status !== 'submitted') return; // Only for completed attempts
       
-      const totalMarks = questions.reduce((sum, q) => sum + q.marks, 0);
+      // Mark as processed immediately to prevent duplicate calls
+      setRewardsProcessed(true);
+      
       const mcqQuestions = questions.filter(q => q.question_type === 'mcq' && q.correct_answer);
       const mcqCorrect = mcqQuestions.filter(q => {
         const ans = answers.get(q.id);
@@ -160,7 +160,8 @@ export default function PaperResultsPage() {
         ? Math.round(attempt.time_spent_seconds / 60) 
         : 30;
 
-      const breakdown = await processExamPaper({
+      // Process rewards - XP popup is shown automatically by the hook
+      await processExamPaper({
         paperId: paper.id,
         paperName: paper.title,
         score: mcqCorrect,
@@ -169,11 +170,8 @@ export default function PaperResultsPage() {
         correctAnswers: mcqCorrect,
         timeSpentMinutes: Math.max(1, timeSpentMinutes),
       });
-
-      setRewardsProcessed(true);
-      if (breakdown.totalXP > 0) {
-        setShowRewardBreakdown(true);
-      }
+      // Note: XP popup is shown by triggerRewardAnimations in useActivityRewards
+      // No need to show RewardBreakdownModal separately
     }
 
     awardPaperRewards();
@@ -581,16 +579,7 @@ export default function PaperResultsPage() {
         </Button>
       </div>
 
-      {/* Reward Breakdown Modal */}
-      <RewardBreakdownModal
-        isOpen={showRewardBreakdown}
-        onClose={() => {
-          setShowRewardBreakdown(false);
-          clearLastBreakdown();
-        }}
-        breakdown={lastBreakdown}
-        activityName={paper?.title || 'Exam Paper'}
-      />
+      {/* XP popup is shown automatically by useActivityRewards hook */}
     </div>
   );
 }

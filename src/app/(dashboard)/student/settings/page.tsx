@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useUser } from '@/hooks/use-user';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
-import { Sun, Moon, ShieldCheck, Bell, User, Upload, CreditCard, Loader2, GraduationCap, Check, Globe, Trash2, LogOut } from 'lucide-react';
+import { Sun, Moon, ShieldCheck, Bell, User, Upload, CreditCard, Loader2, GraduationCap, Check, Globe, LogOut, Target } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -20,17 +20,8 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { useDailyGoals } from '@/hooks/use-daily-goals';
+import { GoalSelectionModal } from '@/components/gamification';
 
 const avatars = [
     'https://placehold.co/128x128/00bf8f/ffffff?text=S',
@@ -63,6 +54,10 @@ export default function SettingsPage() {
     const [isSavingNotifications, setIsSavingNotifications] = useState(false);
     const [mounted, setMounted] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [showGoalModal, setShowGoalModal] = useState(false);
+    
+    // Daily goals hook
+    const { presets, preferences, setDifficulty, isLoading: isLoadingGoals } = useDailyGoals();
 
     useEffect(() => {
         setMounted(true);
@@ -72,8 +67,8 @@ export default function SettingsPage() {
             setSelectedExamBoards(user.exam_boards || []);
             setSelectedCountry(user.country || '');
             // Load notification preferences if stored
-            if (user.notification_preferences) {
-                setNotifications(prev => ({ ...prev, ...user.notification_preferences }));
+            if ((user as any).notification_preferences) {
+                setNotifications(prev => ({ ...prev, ...(user as any).notification_preferences }));
             }
         }
     }, [user]);
@@ -172,12 +167,20 @@ export default function SettingsPage() {
         
         setIsSavingNotifications(true);
         try {
-            const { error } = await supabase
-                .from('users')
-                .update({ notification_preferences: notifications })
-                .eq('id', user.id);
+            // Try to update notification preferences if column exists
+                let updateError = null;
+                try {
+                    const { error } = await supabase
+                        .from('users')
+                        .update({ notification_preferences: notifications })
+                        .eq('id', user.id);
+                    updateError = error;
+                } catch (e) {
+                    // Column doesn't exist, skip
+                    console.log('Notification preferences column not available');
+                }
 
-            if (error) throw error;
+            if (updateError) throw updateError;
             toast({ title: 'Success', description: 'Notification preferences saved.' });
         } catch (error) {
             console.error('Error updating notifications:', error);
@@ -291,7 +294,7 @@ export default function SettingsPage() {
                                 <div>
                                     <Label htmlFor="email">Email Address</Label>
                                     <Input id="email" type="email" value={email} className="mt-1 bg-muted/50" disabled />
-                                    <p className="text-xs text-muted-foreground mt-1">Email cannot be changed</p>
+                                    <p className="text-xs text-muted-foreground mt-1"></p>
                                 </div>
                             </div>
                         </CardContent>
@@ -405,6 +408,51 @@ export default function SettingsPage() {
                                 </button>
                             </div>
                         </div>
+                    </CardContent>
+                </Card>
+
+                {/* Daily Goals */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center"><Target className="mr-2 h-5 w-5" /> Daily Goals</CardTitle>
+                        <CardDescription>Set your daily XP target and study goals.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div>
+                            <Label className="text-sm font-medium mb-3 block">Current Goal Difficulty</Label>
+                            <div className="p-4 rounded-lg border-2 border-primary bg-primary/5">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="font-semibold text-lg capitalize">
+                                            {preferences?.preferred_difficulty || 'Regular'}
+                                        </p>
+                                        <p className="text-sm text-muted-foreground mt-1">
+                                            {preferences?.preferred_difficulty === 'casual' && '25 XP per day - Perfect for light study sessions'}
+                                            {preferences?.preferred_difficulty === 'regular' && '50 XP per day - Balanced daily practice'}
+                                            {preferences?.preferred_difficulty === 'serious' && '75 XP per day - Dedicated study routine'}
+                                            {preferences?.preferred_difficulty === 'intense' && '100 XP per day - Maximum commitment'}
+                                            {!preferences?.preferred_difficulty && '50 XP per day - Balanced daily practice'}
+                                        </p>
+                                    </div>
+                                    <div className="text-3xl">
+                                        {preferences?.preferred_difficulty === 'casual' && '🌱'}
+                                        {preferences?.preferred_difficulty === 'regular' && '📚'}
+                                        {preferences?.preferred_difficulty === 'serious' && '🔥'}
+                                        {preferences?.preferred_difficulty === 'intense' && '💪'}
+                                        {!preferences?.preferred_difficulty && '📚'}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <Button 
+                            onClick={() => setShowGoalModal(true)} 
+                            variant="outline" 
+                            className="w-full"
+                            disabled={isLoadingGoals}
+                        >
+                            {isLoadingGoals ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Target className="mr-2 h-4 w-4" />}
+                            Change Daily Goal
+                        </Button>
                     </CardContent>
                 </Card>
 
@@ -522,44 +570,36 @@ export default function SettingsPage() {
                     </CardContent>
                 </Card>
 
-                {/* Danger Zone */}
-                <Card className="border-destructive/50">
-                    <CardHeader>
-                        <CardTitle className="flex items-center text-destructive">
-                            <Trash2 className="mr-2 h-5 w-5" /> 
-                            Danger Zone
-                        </CardTitle>
-                        <CardDescription>Irreversible actions for your account.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="font-medium">Delete Account</p>
-                                <p className="text-sm text-muted-foreground">Permanently delete your account and all data</p>
-                            </div>
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button variant="destructive">Delete Account</Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            This action cannot be undone. This will permanently delete your account and remove all your data from our servers, including your progress, badges, and saved content.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                                            Delete Account
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                        </div>
-                    </CardContent>
-                </Card>
             </div>
+
+            {/* Goal Selection Modal */}
+            <GoalSelectionModal
+                isOpen={showGoalModal}
+                onClose={() => setShowGoalModal(false)}
+                presets={presets.length > 0 ? presets : [
+                    { id: '1', difficulty: 'casual', display_name: 'Casual', description: '5 mins a day', xp_target: 25, questions_target: 5, time_target_minutes: 5, xp_bonus: 5, icon: '🌱', sort_order: 1 },
+                    { id: '2', difficulty: 'regular', display_name: 'Regular', description: '10 mins a day', xp_target: 50, questions_target: 10, time_target_minutes: 10, xp_bonus: 10, icon: '📚', sort_order: 2 },
+                    { id: '3', difficulty: 'serious', display_name: 'Serious', description: '15 mins a day', xp_target: 75, questions_target: 15, time_target_minutes: 15, xp_bonus: 15, icon: '🔥', sort_order: 3 },
+                    { id: '4', difficulty: 'intense', display_name: 'Intense', description: '20 mins a day', xp_target: 100, questions_target: 25, time_target_minutes: 20, xp_bonus: 25, icon: '💪', sort_order: 4 },
+                ]}
+                currentDifficulty={preferences?.preferred_difficulty || 'regular'}
+                onSelect={async (difficulty) => {
+                    await setDifficulty(difficulty);
+                    setShowGoalModal(false);
+                    
+                    // Trigger event to notify dashboard to refresh
+                    if (typeof window !== 'undefined') {
+                        window.dispatchEvent(new CustomEvent('goal_preference_changed', {
+                            detail: { difficulty }
+                        }));
+                    }
+                    
+                    toast({ 
+                        title: 'Daily Goal Updated', 
+                        description: `Your daily goal has been set to ${difficulty} difficulty.` 
+                    });
+                }}
+            />
         </div>
     );
 }

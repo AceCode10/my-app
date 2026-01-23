@@ -58,6 +58,7 @@ export function QuizClient({ topic, classId }: QuizClientProps) {
   // AI feedback disabled - manual feedback only
   const [feedbackMessage, setFeedbackMessage] = useState<string>('');
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+  const [totalXPEarned, setTotalXPEarned] = useState(0);
 
   const supabase = createClient();
   const { user } = useUser();
@@ -162,16 +163,40 @@ export function QuizClient({ topic, classId }: QuizClientProps) {
     }
     setAnswerLog(prev => [...prev, { question: currentQuestion, selectedAnswer, isCorrect }]);
 
-    // Award XP for answering question (if logged in)
-    if (user && !isPublicFlow) {
+    // Award XP for answering question (if logged in - regardless of public/private route)
+    if (user?.id) {
       const timeSpent = Math.round((Date.now() - startTime) / 60000); // minutes
-      await processTopicalQuestion({
-        questionId: currentQuestion.id,
-        subjectName: quiz?.subject,
-        topicName: quiz?.topic,
-        isCorrect,
-        timeSpentMinutes: Math.max(1, timeSpent),
-      });
+      try {
+        console.log('[QuizClient] Processing XP for question:', currentQuestion.id, 'isCorrect:', isCorrect);
+        const breakdown = await processTopicalQuestion({
+          questionId: currentQuestion.id,
+          subjectName: quiz?.subject,
+          topicName: quiz?.topic,
+          isCorrect,
+          timeSpentMinutes: Math.max(1, timeSpent),
+        });
+        
+        // Track total XP earned during the quiz
+        if (breakdown?.totalXP > 0) {
+          console.log('[QuizClient] XP earned for this question:', breakdown.totalXP);
+          setTotalXPEarned(prev => {
+            const newTotal = prev + breakdown.totalXP;
+            console.log('[QuizClient] Total XP so far:', newTotal);
+            return newTotal;
+          });
+          
+          // Show toast notification for XP earned
+          toast({
+            title: `+${breakdown.totalXP} XP`,
+            description: isCorrect ? "Correct answer!" : "Good try!",
+            duration: 2000,
+          });
+        } else {
+          console.log('[QuizClient] No XP earned for this question');
+        }
+      } catch (error) {
+        console.error('[QuizClient] Error awarding XP:', error);
+      }
     }
   };
 
@@ -323,12 +348,25 @@ export function QuizClient({ topic, classId }: QuizClientProps) {
           </div>
           <CardTitle className="text-3xl mt-4">Quiz Complete!</CardTitle>
            <CardDescription>
-            {isPublicFlow ? "Great job! Sign up to save your progress." : `You've earned ${score * 10} XP!`}
+            {isPublicFlow ? "Great job! Sign up to save your progress." : (
+              totalXPEarned > 0 ? `You've earned ${totalXPEarned} XP!` : "Keep practicing to earn XP!"
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <p className="text-center text-5xl font-bold">{score}/{questions.length}</p>
           <p className="text-center text-muted-foreground mt-2">Correct Answers</p>
+          
+          {/* XP Earned Display */}
+          {user?.id && totalXPEarned > 0 && (
+            <div className="mt-4 p-4 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 rounded-lg border border-yellow-500/20 text-center">
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-2xl">⚡</span>
+                <span className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">+{totalXPEarned} XP</span>
+              </div>
+              <p className="text-sm text-muted-foreground mt-1">Added to your total</p>
+            </div>
+          )}
 
           <div className="mt-8 space-y-4">
             <h3 className="font-bold text-lg text-center">Your Answers</h3>

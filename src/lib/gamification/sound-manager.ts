@@ -96,21 +96,26 @@ class SoundManager {
       if (stored) {
         try {
           const settings = JSON.parse(stored);
-          this.enabled = settings.state?.soundEnabled ?? true;
+          this.enabled = settings.state?.soundEnabled ?? false; // Disabled by default until sound files are added
         } catch {
           // Ignore parse errors
         }
+      } else {
+        // Default to disabled if no settings stored
+        this.enabled = false;
       }
     }
     
-    // Preload frequently used sounds
-    this.preload([
-      'xp_gain_small',
-      'xp_gain_medium',
-      'answer_correct',
-      'answer_incorrect',
-      'notification',
-    ]);
+    // Only preload sounds if enabled (to avoid 404 errors when sound files don't exist)
+    if (this.enabled) {
+      this.preload([
+        'xp_gain_small',
+        'xp_gain_medium',
+        'answer_correct',
+        'answer_incorrect',
+        'notification',
+      ]);
+    }
     
     this.initialized = true;
   }
@@ -139,15 +144,19 @@ class SoundManager {
         volume: (VOLUME_PRESETS[key] ?? 0.5) * this.masterVolume,
         preload: true,
         onloaderror: () => {
-          console.warn(`Failed to load sound: ${key}`);
+          // Silently handle missing sound files
           this.failedSounds.add(key);
         },
+        onplayerror: () => {
+          // Silently handle play errors
+          this.failedSounds.add(key);
+        }
       });
 
       this.sounds.set(key, sound);
       return sound;
     } catch (error) {
-      console.warn(`Error creating sound ${key}:`, error);
+      // Silently handle creation errors
       this.failedSounds.add(key);
       return null;
     }

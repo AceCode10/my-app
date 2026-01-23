@@ -186,10 +186,7 @@ const DashboardView = ({
                             </div>
                         </div>
                     )}
-                    <Button variant="ghost" size="sm" asChild className="ml-auto">
-                        <Link href="/teacher/settings"><Settings className="h-4 w-4" /></Link>
-                    </Button>
-                </div>
+                                    </div>
             </div>
         </div>
 
@@ -246,8 +243,14 @@ const DashboardView = ({
                 <CardDescription className="text-sm">Get things done quickly</CardDescription>
             </CardHeader>
             <CardContent className="pt-0">
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
                     <Button variant="default" className="h-16 sm:h-20 flex-col gap-1 sm:gap-2 relative text-xs sm:text-sm" asChild>
+                        <Link href="/teacher/test-builder">
+                            <Hammer className="h-5 w-5 sm:h-6 sm:w-6" />
+                            <span className="leading-tight text-center">Test Builder</span>
+                        </Link>
+                    </Button>
+                    <Button variant="outline" className="h-16 sm:h-20 flex-col gap-1 sm:gap-2 relative text-xs sm:text-sm" asChild>
                         <Link href="/teacher/submissions">
                             <ClipboardCheck className="h-5 w-5 sm:h-6 sm:w-6" />
                             <span className="leading-tight text-center">Review Submissions</span>
@@ -256,28 +259,10 @@ const DashboardView = ({
                             )}
                         </Link>
                     </Button>
-                    <Button variant="outline" className="h-16 sm:h-20 flex-col gap-1 sm:gap-2 bg-primary/5 border-primary/30 hover:bg-primary/10 text-xs sm:text-sm" asChild>
-                        <Link href="/teacher/test-builder">
-                            <Hammer className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-                            <span className="leading-tight text-center">Test Builder</span>
-                        </Link>
-                    </Button>
-                    <Button variant="outline" className="h-16 sm:h-20 flex-col gap-1 sm:gap-2 text-xs sm:text-sm" asChild>
-                        <Link href="/teacher/assessments">
-                            <FileText className="h-5 w-5 sm:h-6 sm:w-6" />
-                            <span className="leading-tight text-center">Create Assessment</span>
-                        </Link>
-                    </Button>
                     <Button variant="outline" className="h-16 sm:h-20 flex-col gap-1 sm:gap-2 text-xs sm:text-sm" asChild>
                         <Link href="/teacher/classes">
                             <Users className="h-5 w-5 sm:h-6 sm:w-6" />
                             <span className="leading-tight text-center">Manage Classes</span>
-                        </Link>
-                    </Button>
-                    <Button variant="outline" className="h-16 sm:h-20 flex-col gap-1 sm:gap-2 text-xs sm:text-sm" asChild>
-                        <Link href="/teacher/analytics">
-                            <BarChart3 className="h-5 w-5 sm:h-6 sm:w-6" />
-                            <span className="leading-tight text-center">View Analytics</span>
                         </Link>
                     </Button>
                 </div>

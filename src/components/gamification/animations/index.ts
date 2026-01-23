@@ -17,3 +17,12 @@ export {
   type ToastType 
 } from './achievement-toast';
 export { useConfetti, triggerConfetti, type ConfettiPreset } from './confetti-burst';
+export {
+  XPPopup,
+  XPPopupContainer,
+  showXPPopup,
+  dismissXPPopup,
+  xpPopup,
+  type XPPopupData,
+  type XPBonus,
+} from './xp-popup';

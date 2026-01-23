@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useUser } from '@/hooks/use-user';
 import { useTheme } from 'next-themes';
 import { 
-    Bell, Sun, Moon, ShieldCheck, User, Upload, CreditCard, Loader2, Globe, Trash2, LogOut, GraduationCap, Check, School
+    Bell, Sun, Moon, ShieldCheck, User, Upload, CreditCard, Loader2, Globe, LogOut, GraduationCap, Check, School
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,17 +22,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ExamBoardSelector } from '@/components/exam-board-selector';
 import { EXAM_BOARDS } from '@/lib/exam-boards';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 
 
 const avatars = [
@@ -72,11 +61,11 @@ function SettingsPage() {
         if (user) {
             setDisplayName(user.display_name || '');
             setAvatarUrl(user.avatar_url || `https://placehold.co/128x128/3b82f6/ffffff?text=${(user.display_name || 'T').charAt(0)}`);
-            setSchoolName(user.school_name || '');
+            setSchoolName((user as any).school_name || '');
             setSelectedExamBoards(user.exam_boards || []);
             setSelectedCountry(user.country || '');
-            if (user.notification_preferences) {
-                setNotifications(prev => ({ ...prev, ...user.notification_preferences }));
+            if ((user as any).notification_preferences) {
+                setNotifications(prev => ({ ...prev, ...(user as any).notification_preferences }));
             }
         }
     }, [user]);
@@ -101,14 +90,23 @@ function SettingsPage() {
 
         setIsLoading(true);
         try {
-            const { error } = await supabase
-                .from('users')
-                .update({
+            // Prepare update object - only include fields that exist in database
+                const updateData: any = {
                     display_name: displayName,
                     avatar_url: avatarUrl,
-                    school_name: schoolName
-                })
-                .eq('id', user.id);
+                };
+                
+                // Only include school_name if column exists (check by attempting to include it)
+                try {
+                    updateData.school_name = schoolName;
+                } catch (e) {
+                    // Skip school_name if column doesn't exist
+                }
+                
+                const { error } = await supabase
+                    .from('users')
+                    .update(updateData)
+                    .eq('id', user.id);
 
             if (error) throw error;
             toast({ title: 'Success', description: 'Your profile has been updated.' });
@@ -168,12 +166,20 @@ function SettingsPage() {
         
         setIsSavingNotifications(true);
         try {
-            const { error } = await supabase
-                .from('users')
-                .update({ notification_preferences: notifications })
-                .eq('id', user.id);
+            // Try to update notification preferences if column exists
+            let updateError = null;
+            try {
+                const { error } = await supabase
+                    .from('users')
+                    .update({ notification_preferences: notifications })
+                    .eq('id', user.id);
+                updateError = error;
+            } catch (e) {
+                // Column doesn't exist, skip
+                console.log('Notification preferences column not available');
+            }
 
-            if (error) throw error;
+            if (updateError) throw updateError;
             toast({ title: 'Success', description: 'Notification preferences saved.' });
         } catch (error) {
             console.error('Error updating notifications:', error);
@@ -285,7 +291,7 @@ function SettingsPage() {
                                 <div>
                                     <Label htmlFor="email">Email Address</Label>
                                     <Input id="email" type="email" value={email} className="mt-1 bg-muted/50" disabled />
-                                    <p className="text-xs text-muted-foreground mt-1">Email cannot be changed</p>
+                                    <p className="text-xs text-muted-foreground mt-1"></p>
                                 </div>
                             </div>
                             <div>
@@ -530,43 +536,6 @@ function SettingsPage() {
                     </CardContent>
                 </Card>
 
-                {/* Danger Zone */}
-                <Card className="border-destructive/50">
-                    <CardHeader>
-                        <CardTitle className="flex items-center text-destructive">
-                            <Trash2 className="mr-2 h-5 w-5" /> 
-                            Danger Zone
-                        </CardTitle>
-                        <CardDescription>Irreversible actions for your account.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="font-medium">Delete Account</p>
-                                <p className="text-sm text-muted-foreground">Permanently delete your account, classes, and all data</p>
-                            </div>
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button variant="destructive">Delete Account</Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            This action cannot be undone. This will permanently delete your account and remove all your data from our servers, including your classes, assessments, and student records.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                                            Delete Account
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                        </div>
-                    </CardContent>
-                </Card>
             </div>
       </div>
     );

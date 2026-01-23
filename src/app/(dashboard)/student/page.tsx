@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { 
   Star, Flame, ChevronRight, Award,
   FileText, Target, Clock, Play,
-  GraduationCap, ClipboardList, Settings, AlertCircle, Globe,
+  GraduationCap, ClipboardList, AlertCircle, Globe,
   ChevronDown
 } from 'lucide-react';
 import { CollapsibleCard } from '@/components/ui/collapsible-section';
@@ -41,14 +41,36 @@ interface DashboardData {
 
 const StudentDashboard = () => {
   const { user, loading } = useUser();
-  const { gamification, streakData, getLevelProgress, getXPToNextLevel, getLevelTitle, loading: isLoadingGamification } = useGamification();
-  const { goals, primaryGoal, isLoading: isLoadingGoals } = useDailyGoals();
+  const { gamification, streakData, getLevelProgress, getXPToNextLevel, getLevelTitle, loading: isLoadingGamification, refresh: refreshGamification } = useGamification();
+  const { goals, primaryGoal, isLoading: isLoadingGoals, refreshGoals } = useDailyGoals();
 
   const userExamBoards = user?.exam_boards || [];
   const userLevel = user?.level;
   const userCountry = user?.country;
   const onboardingCompleted = user?.onboarding_completed;
   const selectedBoardsInfo = EXAM_BOARDS.filter(b => userExamBoards.includes(b.id));
+
+  // Listen for goal preference changes and XP earned events to refresh data
+  React.useEffect(() => {
+    const handleGoalChange = () => {
+      refreshGoals();
+    };
+
+    const handleXPEarned = () => {
+      // Refresh both gamification data and daily goals when XP is earned
+      refreshGamification();
+      refreshGoals();
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('goal_preference_changed', handleGoalChange);
+      window.addEventListener('xp_earned', handleXPEarned);
+      return () => {
+        window.removeEventListener('goal_preference_changed', handleGoalChange);
+        window.removeEventListener('xp_earned', handleXPEarned);
+      };
+    }
+  }, [refreshGoals, refreshGamification]);
 
   // Single optimized query for all dashboard data
   const { data: dashboardData, isLoading: isLoadingData } = useQuery({
@@ -175,9 +197,7 @@ const StudentDashboard = () => {
                 <Badge variant="outline" className="text-xs">{userLevel.toUpperCase().replace('_', ' ')}</Badge>
               </div>
             )}
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/student/settings"><Settings className="h-4 w-4" /></Link>
-            </Button>
+            {/* Settings removed from here - only available in sidebar */}
           </div>
         </div>
       </div>

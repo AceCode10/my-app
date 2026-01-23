@@ -45,60 +45,50 @@ export class GamificationIntegration {
 
   /**
    * Handle quiz completion and award appropriate XP, badges, and notifications
+   * Consolidates all XP into a single award to prevent farming via multiple calls
    */
   async handleQuizCompletion(data: QuizCompletionData): Promise<void> {
     try {
-      // Calculate XP based on performance
-      let xpEarned = this.xpService.calculateQuizXP(
+      // Calculate total XP (consolidated to prevent multiple award calls)
+      let totalXP = this.xpService.calculateQuizXP(
         data.score,
         data.maxScore,
         data.timeSpentMinutes
       );
 
-      // Award base XP
-      await this.xpService.awardXP(
-        data.userId,
-        xpEarned,
-        'quiz_completion',
-        data.quizId,
-        `Completed quiz with ${data.percentage}% score`
-      );
+      // Build description with all bonuses
+      const bonuses: string[] = [];
 
       // Perfect score bonus
       if (data.isPerfectScore) {
-        await this.xpService.awardXP(
-          data.userId,
-          20,
-          'perfect_quiz',
-          data.quizId,
-          'Perfect score bonus'
-        );
-        xpEarned += 20;
+        totalXP += 20;
+        bonuses.push('Perfect score +20');
       }
 
       // Quick completion bonus
       if (data.timeSpentMinutes < 5) {
-        await this.xpService.awardXP(
-          data.userId,
-          10,
-          'quick_quiz',
-          data.quizId,
-          'Quick completion bonus'
-        );
-        xpEarned += 10;
+        totalXP += 10;
+        bonuses.push('Speed bonus +10');
       }
 
       // First quiz bonus
       if (data.isFirstQuiz) {
-        await this.xpService.awardXP(
-          data.userId,
-          25,
-          'first_quiz',
-          data.quizId,
-          'First quiz completed'
-        );
-        xpEarned += 25;
+        totalXP += 25;
+        bonuses.push('First quiz +25');
       }
+
+      // Award all XP in a single call (prevents farming via multiple calls)
+      const description = bonuses.length > 0 
+        ? `Quiz ${data.percentage}% (${bonuses.join(', ')})`
+        : `Completed quiz with ${data.percentage}% score`;
+      
+      await this.xpService.awardXP(
+        data.userId,
+        totalXP,
+        'quiz_completion',
+        data.quizId,
+        description
+      );
 
       // Update streak
       await this.streakService.updateDailyActivity(data.userId);
@@ -120,7 +110,7 @@ export class GamificationIntegration {
         userId: data.userId,
         type: 'quiz_completed',
         title: '📝 Quiz Completed!',
-        message: `You scored ${data.percentage}% and earned ${xpEarned} XP!`,
+        message: `You scored ${data.percentage}% and earned ${totalXP} XP!`,
         actionUrl: `/practice/results/${data.quizId}`,
         actionText: 'View Results',
         priority: data.percentage >= 80 ? 'high' : 'normal',
@@ -129,11 +119,11 @@ export class GamificationIntegration {
           score: data.score,
           maxScore: data.maxScore,
           percentage: data.percentage,
-          xpEarned
+          xpEarned: totalXP
         }
       });
 
-      // Special achievements
+      // Special achievements (badges are already deduplicated in badge service)
       if (data.isPerfectScore) {
         await this.badgeService.awardBadge(data.userId, 'perfect_score_badge_id');
       }
@@ -148,34 +138,43 @@ export class GamificationIntegration {
 
   /**
    * Handle note viewing and award XP
+   * Consolidates all XP into a single award to prevent farming
    */
   async handleNoteView(data: NoteViewData): Promise<void> {
     try {
-      // Calculate XP for note viewing
-      const xpEarned = this.xpService.calculateNoteXP(
+      // Calculate total XP (consolidated)
+      let totalXP = this.xpService.calculateNoteXP(
         data.timeSpentMinutes,
         data.completionPercentage
       );
 
-      // Award XP
-      await this.xpService.awardXP(
-        data.userId,
-        xpEarned,
-        'note_view',
-        data.noteId,
-        'Read study notes'
-      );
+      // Build description with bonuses
+      const bonuses: string[] = [];
 
       // First note bonus
       if (data.isFirstNote) {
-        await this.xpService.awardXP(
-          data.userId,
-          15,
-          'first_note',
-          data.noteId,
-          'First note read'
-        );
+        totalXP += 15;
+        bonuses.push('First note +15');
       }
+
+      // Completion bonus
+      if (data.completionPercentage >= 80) {
+        totalXP += 5;
+        bonuses.push('Completed +5');
+      }
+
+      // Award all XP in a single call
+      const description = bonuses.length > 0 
+        ? `Notes (${bonuses.join(', ')})`
+        : 'Read study notes';
+
+      await this.xpService.awardXP(
+        data.userId,
+        totalXP,
+        'note_view',
+        data.noteId,
+        description
+      );
 
       // Update streak
       await this.streakService.updateDailyActivity(data.userId);
@@ -191,17 +190,6 @@ export class GamificationIntegration {
 
       // Check for badge eligibility
       await this.badgeService.checkAndAwardEligibleBadges(data.userId);
-
-      // Completion bonus
-      if (data.completionPercentage >= 80) {
-        await this.xpService.awardXP(
-          data.userId,
-          5,
-          'note_completed',
-          data.noteId,
-          'Completed reading notes'
-        );
-      }
     } catch (error) {
       console.error('Error handling note view:', error);
     }

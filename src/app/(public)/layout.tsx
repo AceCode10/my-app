@@ -1,9 +1,9 @@
 
 'use client'
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Menu, Search, ChevronDown, BookOpen, Layers, FileText, Target, User, LogOut, LayoutDashboard, Sparkles } from "lucide-react";
+import { Menu, Search, ChevronDown, BookOpen, Layers, FileText, Target, User, LogOut, LayoutDashboard, Sparkles, Loader2 } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/hooks/use-user';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -17,6 +17,9 @@ import { allSubjects } from '@/lib/subjects';
 import { cn } from '@/lib/utils';
 import { OrganizationJsonLd, WebsiteJsonLd, SoftwareApplicationJsonLd } from '@/components/seo/json-ld';
 import { useDebounce } from '@/hooks/use-debounce';
+
+// Maximum time to show loading state before showing fallback UI
+const MAX_LOADING_TIME = 5000;
 
 
 const NavLink = ({ href, children }: { href: string, children: React.ReactNode }) => (
@@ -34,6 +37,8 @@ export default function PublicLayout({
     const [searchQuery, setSearchQuery] = useState('');
     const [isClient, setIsClient] = useState(false);
     const [showDropdown, setShowDropdown] = useState(false);
+    const [isNavigating, setIsNavigating] = useState(false);
+    const [loadingTimedOut, setLoadingTimedOut] = useState(false);
     const router = useRouter();
     const { user, loading: userLoading } = useUser();
     const searchRef = useRef<HTMLDivElement>(null);
@@ -43,6 +48,40 @@ export default function PublicLayout({
     useEffect(() => {
         setIsClient(true);
     }, []);
+
+    // Prevent infinite loading state on mobile
+    useEffect(() => {
+        if (userLoading) {
+            const timeoutId = setTimeout(() => {
+                setLoadingTimedOut(true);
+            }, MAX_LOADING_TIME);
+            return () => clearTimeout(timeoutId);
+        } else {
+            setLoadingTimedOut(false);
+        }
+    }, [userLoading]);
+
+    // Handle navigation with loading state
+    const handleDashboardNavigation = useCallback((e: React.MouseEvent) => {
+        e.preventDefault();
+        setIsNavigating(true);
+        setIsMobileMenuOpen(false);
+        
+        const dashboardPath = user?.role === 'teacher' 
+            ? '/teacher' 
+            : user?.role === 'super_admin' || user?.role === 'content_moderator' 
+                ? '/admin' 
+                : '/student';
+        
+        // Use router.push with a timeout fallback
+        router.push(dashboardPath);
+        
+        // Reset navigation state after a delay (in case navigation completes)
+        setTimeout(() => setIsNavigating(false), 3000);
+    }, [user, router]);
+
+    // Determine if we should show loading or the actual user state
+    const showLoading = userLoading && !loadingTimedOut;
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -181,7 +220,7 @@ export default function PublicLayout({
                         </div>
                     </nav>
                     <div className="hidden md:flex items-center space-x-2">
-                        {userLoading ? (
+                        {showLoading ? (
                             <div className="w-10 h-10 rounded-full bg-muted animate-pulse" />
                         ) : user ? (
                             <>
@@ -256,19 +295,32 @@ export default function PublicLayout({
                     </div>
                     <div className="pt-4 pb-3 border-t">
                         <div className="px-5">
-                            {user ? (
-                                <Button asChild className="w-full">
-                                    <Link href={user.role === 'teacher' ? '/teacher' : user.role === 'super_admin' || user.role === 'content_moderator' ? '/admin' : '/student'}>
-                                        Go to Dashboard
-                                    </Link>
+                            {showLoading ? (
+                                <div className="flex items-center justify-center py-4">
+                                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                                </div>
+                            ) : user ? (
+                                <Button 
+                                    className="w-full" 
+                                    onClick={handleDashboardNavigation}
+                                    disabled={isNavigating}
+                                >
+                                    {isNavigating ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Loading...
+                                        </>
+                                    ) : (
+                                        'Go to Dashboard'
+                                    )}
                                 </Button>
                             ) : (
                                 <>
                                     <Button asChild className="w-full">
-                                        <Link href="/signup">Get Started</Link>
+                                        <Link href="/signup" onClick={() => setIsMobileMenuOpen(false)}>Get Started</Link>
                                     </Button>
                                     <p className="mt-3 text-center text-sm">
-                                        Already have an account? <Link href="/login" className="font-medium text-primary">Log In</Link>
+                                        Already have an account? <Link href="/login" onClick={() => setIsMobileMenuOpen(false)} className="font-medium text-primary">Log In</Link>
                                     </p>
                                 </>
                             )}

@@ -24,12 +24,23 @@ function validateEnv() {
 }
 
 // Singleton pattern - reuse the same client instance
-let supabaseClient: SupabaseClient | null = null;
+let supabaseClient: ReturnType<typeof createBrowserClient> | null = null;
 
 export function createClient() {
   if (!supabaseClient) {
     const { supabaseUrl, supabaseKey } = validateEnv();
-    supabaseClient = createBrowserClient(supabaseUrl, supabaseKey);
+    supabaseClient = createBrowserClient(supabaseUrl, supabaseKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      },
+      global: {
+        headers: {
+          'x-client-info': 'my-app',
+        },
+      },
+    });
   }
   return supabaseClient;
 }

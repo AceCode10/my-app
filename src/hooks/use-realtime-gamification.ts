@@ -5,12 +5,15 @@
  * Subscribes to database changes for instant reward updates
  */
 
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useGamificationStore } from '@/lib/gamification/stores/gamification-store';
 import { soundManager } from '@/lib/gamification/sound-manager';
 import { toast } from '@/components/gamification/animations/achievement-toast';
 import { triggerConfetti } from '@/components/gamification/animations/confetti-burst';
+
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000;
 
 interface RealtimeGamificationOptions {
   userId: string | null;
@@ -25,6 +28,8 @@ export function useRealtimeGamification(options: RealtimeGamificationOptions) {
   const { userId, onXPChange, onLevelUp, onBadgeUnlock, onStreakUpdate, onLeagueRankChange } = options;
   const store = useGamificationStore();
   const supabase = createClient();
+  const [isInitialized, setIsInitialized] = useState(false);
+  const mountedRef = useRef(true);
   
   // Track previous values for change detection
   const prevValues = useRef({
@@ -37,54 +42,105 @@ export function useRealtimeGamification(options: RealtimeGamificationOptions) {
   // Subscribe to user_gamification changes
   useEffect(() => {
     if (!userId) return;
+    mountedRef.current = true;
 
-    // Initial fetch (creates record if doesn't exist)
-    const fetchInitialData = async () => {
-      let { data, error } = await supabase
-        .from('user_gamification')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
-
-      // If record doesn't exist, create it
-      if (error && (error.code === 'PGRST116' || error.code === '406')) {
-        const { data: newData, error: insertError } = await supabase
+    // Initial fetch with retry logic (creates record if doesn't exist)
+    const fetchInitialData = async (retryCount = 0): Promise<void> => {
+      if (!mountedRef.current) return;
+      
+      try {
+        let { data, error } = await supabase
           .from('user_gamification')
-          .insert({
-            user_id: userId,
-            total_xp: 0,
-            xp_this_week: 0,
-            xp_level: 1,
-            xp_progress_to_next_level: 0,
-            xp_needed_for_next_level: 100,
-            current_streak: 0,
-            longest_streak: 0,
-            total_quizzes_completed: 0,
-            total_notes_viewed: 0,
-            total_time_spent_minutes: 0
-          })
-          .select()
+          .select('*')
+          .eq('user_id', userId)
           .single();
-        
-        if (!insertError) {
-          data = newData;
-        }
-      }
 
-      if (data) {
-        prevValues.current = {
-          xp: data.total_xp,
-          level: data.xp_level,
-          streak: data.current_streak,
-          leagueRank: 0,
-        };
-        
-        store.setStats({
-          totalXP: data.total_xp,
-          level: data.xp_level,
-          currentStreak: data.current_streak,
-          longestStreak: data.longest_streak,
-        });
+        // If record doesn't exist, create it
+        if (error && (error.code === 'PGRST116' || error.code === '406')) {
+          console.log('Creating gamification record for user:', userId);
+          const { data: newData, error: insertError } = await supabase
+            .from('user_gamification')
+            .insert({
+              user_id: userId,
+              total_xp: 0,
+              xp_this_week: 0,
+              xp_level: 1,
+              xp_progress_to_next_level: 0,
+              xp_needed_for_next_level: 100,
+              current_streak: 0,
+              longest_streak: 0,
+              total_quizzes_completed: 0,
+              total_notes_viewed: 0,
+              total_time_spent_minutes: 0
+            })
+            .select()
+            .single();
+          
+          if (insertError) {
+            // If insert fails due to unique constraint, try fetching again
+            if (insertError.code === '23505') {
+              const { data: existingData } = await supabase
+                .from('user_gamification')
+                .select('*')
+                .eq('user_id', userId)
+                .single();
+              data = existingData;
+            } else {
+              // Silently handle gamification errors during logout
+              // Don't log errors to avoid console spam during normal logout flow
+              if (insertError && !insertError.message?.includes('JWT') && !insertError.message?.includes('auth')) {
+                console.error('Error creating gamification record:', insertError);
+              }
+              // Retry on failure only if not auth-related
+              if (retryCount < MAX_RETRIES && mountedRef.current && 
+                  !insertError.message?.includes('JWT') && !insertError.message?.includes('auth')) {
+                setTimeout(() => fetchInitialData(retryCount + 1), RETRY_DELAY * (retryCount + 1));
+                return;
+              }
+            }
+          } else {
+            data = newData;
+          }
+        } else if (error) {
+          // Silently handle auth-related errors during logout
+          if (!error.message?.includes('JWT') && !error.message?.includes('auth')) {
+            console.error('Error fetching gamification data:', error);
+          }
+          // Retry on failure only if not auth-related
+          if (retryCount < MAX_RETRIES && mountedRef.current && 
+              !error.message?.includes('JWT') && !error.message?.includes('auth')) {
+            setTimeout(() => fetchInitialData(retryCount + 1), RETRY_DELAY * (retryCount + 1));
+            return;
+          }
+        }
+
+        if (data && mountedRef.current) {
+          prevValues.current = {
+            xp: data.total_xp || 0,
+            level: data.xp_level || 1,
+            streak: data.current_streak || 0,
+            leagueRank: 0,
+          };
+          
+          store.setStats({
+            totalXP: data.total_xp || 0,
+            level: data.xp_level || 1,
+            currentStreak: data.current_streak || 0,
+            longestStreak: data.longest_streak || 0,
+          });
+          
+          setIsInitialized(true);
+        }
+      } catch (err) {
+        // Silently handle auth-related errors during logout
+        if (err && !(err as any).message?.includes('JWT') && !(err as any).message?.includes('auth')) {
+          console.error('Error in fetchInitialData:', err);
+        }
+        // Retry on failure only if not auth-related
+        if (retryCount < MAX_RETRIES && mountedRef.current && 
+            err && !(err as any).message?.includes('JWT') && !(err as any).message?.includes('auth')) {
+          setTimeout(() => fetchInitialData(retryCount + 1), RETRY_DELAY * (retryCount + 1));
+        }
       }
     };
 
@@ -253,33 +309,60 @@ export function useRealtimeGamification(options: RealtimeGamificationOptions) {
 
     // Cleanup
     return () => {
+      mountedRef.current = false;
       supabase.removeChannel(channel);
       supabase.removeChannel(badgeChannel);
       supabase.removeChannel(leagueChannel);
     };
   }, [userId, store, supabase, onXPChange, onLevelUp, onBadgeUnlock, onStreakUpdate, onLeagueRankChange]);
 
-  // Manual refresh function
+  // Manual refresh function with retry logic
   const refresh = useCallback(async () => {
     if (!userId) return;
 
-    const { data } = await supabase
-      .from('user_gamification')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
+    try {
+      let { data, error } = await supabase
+        .from('user_gamification')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
 
-    if (data) {
-      store.setStats({
-        totalXP: data.total_xp,
-        level: data.xp_level,
-        currentStreak: data.current_streak,
-        longestStreak: data.longest_streak,
-      });
+      // If record doesn't exist, create it
+      if (error && (error.code === 'PGRST116' || error.code === '406')) {
+        const { data: newData } = await supabase
+          .from('user_gamification')
+          .insert({
+            user_id: userId,
+            total_xp: 0,
+            xp_this_week: 0,
+            xp_level: 1,
+            xp_progress_to_next_level: 0,
+            xp_needed_for_next_level: 100,
+            current_streak: 0,
+            longest_streak: 0,
+            total_quizzes_completed: 0,
+            total_notes_viewed: 0,
+            total_time_spent_minutes: 0
+          })
+          .select()
+          .single();
+        data = newData;
+      }
+
+      if (data) {
+        store.setStats({
+          totalXP: data.total_xp || 0,
+          level: data.xp_level || 1,
+          currentStreak: data.current_streak || 0,
+          longestStreak: data.longest_streak || 0,
+        });
+      }
+    } catch (err) {
+      console.error('Error refreshing gamification data:', err);
     }
   }, [userId, supabase, store]);
 
-  return { refresh };
+  return { refresh, isInitialized };
 }
 
 // Helper functions

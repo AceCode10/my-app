@@ -67,33 +67,40 @@ export default function SubjectPage({ params }: SubjectPageProps) {
     enabled: !!subjectData?.id,
   });
 
-  // Fetch resource counts and user progress
+  // Fetch resource counts - use subject_id directly for more reliable counts
   const { data: resourceData } = useQuery({
     queryKey: ['subject-resources', subjectData?.id],
     queryFn: async () => {
       if (!subjectData?.id) return { notes: 0, questions: 0, papers: 0 };
-      const topicIds = topics.map(t => t.id);
       
-      // Count notes
-      const { count: notesCount } = await supabase
+      // Count notes by subject_id directly (more reliable)
+      const { count: notesCount, error: notesError } = await supabase
         .from('notes')
         .select('*', { count: 'exact', head: true })
-        .in('topic_id', topicIds.length > 0 ? topicIds : ['none'])
-        .eq('visibility', 'public')
+        .eq('subject_id', subjectData.id)
+        .in('visibility', ['public', 'registered'])
         .not('published_at', 'is', null);
 
-      // Count questions
-      const { count: questionsCount } = await supabase
+      if (notesError) console.error('Notes count error:', notesError);
+
+      // Count questions by subject_id directly
+      const { count: questionsCount, error: questionsError } = await supabase
         .from('questions')
         .select('*', { count: 'exact', head: true })
-        .in('topic_id', topicIds.length > 0 ? topicIds : ['none']);
+        .eq('subject_id', subjectData.id);
+
+      if (questionsError) console.error('Questions count error:', questionsError);
 
       // Count past papers
-      const { count: papersCount } = await supabase
+      const { count: papersCount, error: papersError } = await supabase
         .from('past_papers')
         .select('*', { count: 'exact', head: true })
         .eq('subject_id', subjectData.id)
         .eq('status', 'published');
+
+      if (papersError) console.error('Papers count error:', papersError);
+
+      console.log('[SubjectPage] Resource counts:', { notes: notesCount, questions: questionsCount, papers: papersCount });
 
       return {
         notes: notesCount || 0,
@@ -101,7 +108,7 @@ export default function SubjectPage({ params }: SubjectPageProps) {
         papers: papersCount || 0
       };
     },
-    enabled: !!subjectData?.id && topics.length >= 0,
+    enabled: !!subjectData?.id,
   });
 
   // Fetch user progress for this subject (real-time with refetch)
@@ -112,38 +119,39 @@ export default function SubjectPage({ params }: SubjectPageProps) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
 
-      const topicIds = topics.map(t => t.id);
-      if (topicIds.length === 0) return { notesRead: 0, questionsAnswered: 0, papersCompleted: 0 };
-
-      // Get notes viewed by user
-      const { count: notesViewed } = await supabase
-        .from('user_note_views')
-        .select('*', { count: 'exact', head: true })
+      // Get user progress from user_topic_progress table
+      const { data: topicProgress } = await supabase
+        .from('user_topic_progress')
+        .select('notes_read, questions_attempted')
         .eq('user_id', user.id)
-        .in('note_id', topicIds);
+        .eq('subject_id', subjectData.id);
 
-      // Get questions answered by user for this subject's topics
-      const { count: questionsAnswered } = await supabase
-        .from('user_question_attempts')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .in('topic_id', topicIds);
+      // Sum up progress across all topics
+      const notesRead = topicProgress?.reduce((sum: number, tp: { notes_read?: number }) => sum + (tp.notes_read || 0), 0) || 0;
+      const questionsAnswered = topicProgress?.reduce((sum: number, tp: { questions_attempted?: number }) => sum + (tp.questions_attempted || 0), 0) || 0;
 
-      // Get papers completed by user
+      // Get papers completed - use assessment_attempts table
       const { count: papersCompleted } = await supabase
-        .from('user_paper_attempts')
+        .from('assessment_attempts')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id)
-        .eq('subject_id', subjectData.id)
         .eq('status', 'completed');
 
+      // Also check quiz_attempts for topical question progress
+      const { count: quizAttempts } = await supabase
+        .from('quiz_attempts')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      console.log('[SubjectPage] User progress:', { notesRead, questionsAnswered, quizAttempts, papersCompleted });
+
       return {
-        notesRead: notesViewed || 0,
-        questionsAnswered: questionsAnswered || 0,
+        notesRead: notesRead,
+        questionsAnswered: questionsAnswered + (quizAttempts || 0),
         papersCompleted: papersCompleted || 0
       };
     },
-    enabled: !!subjectData?.id && topics.length >= 0,
+    enabled: !!subjectData?.id,
     refetchInterval: 5000, // Refetch every 5 seconds for real-time feel
   });
 

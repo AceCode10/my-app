@@ -26,7 +26,7 @@ import { useActivityRewards } from '@/hooks/use-activity-rewards';
 import { RewardBreakdown } from '@/lib/gamification/reward-engine';
 
 export default function GamificationDemoPage() {
-  const { awardXP, unlockBadge, celebrateStreak, toggleSound, isSoundEnabled } = useGamificationContext();
+  const { awardXP, showXPPopup, showSimpleXPPopup, unlockBadge, celebrateStreak, toggleSound, isSoundEnabled } = useGamificationContext();
   const store = useGamificationStore();
   const { goals, presets, preferences, primaryGoal, updateGoalProgress, setDifficulty, isLoading } = useDailyGoals();
   const { leagues, currentLeague, leaderboard, userRank, weekInfo } = useLeague();
@@ -190,10 +190,10 @@ export default function GamificationDemoPage() {
         isOpen={showGoalModal}
         onClose={() => setShowGoalModal(false)}
         presets={presets.length > 0 ? presets : [
-          { id: '1', difficulty: 'casual', display_name: 'Casual', description: '5 mins a day', xp_target: 20, questions_target: 5, time_target_minutes: 5, xp_bonus: 5, icon: '🌱', sort_order: 1 },
-          { id: '2', difficulty: 'regular', display_name: 'Regular', description: '10 mins a day', xp_target: 50, questions_target: 10, time_target_minutes: 10, xp_bonus: 15, icon: '📚', sort_order: 2 },
-          { id: '3', difficulty: 'serious', display_name: 'Serious', description: '15 mins a day', xp_target: 100, questions_target: 20, time_target_minutes: 15, xp_bonus: 30, icon: '🔥', sort_order: 3 },
-          { id: '4', difficulty: 'intense', display_name: 'Intense', description: '20 mins a day', xp_target: 200, questions_target: 40, time_target_minutes: 20, xp_bonus: 50, icon: '💪', sort_order: 4 },
+          { id: '1', difficulty: 'casual', display_name: 'Casual', description: '5 mins a day', xp_target: 25, questions_target: 5, time_target_minutes: 5, xp_bonus: 5, icon: '🌱', sort_order: 1 },
+          { id: '2', difficulty: 'regular', display_name: 'Regular', description: '10 mins a day', xp_target: 50, questions_target: 10, time_target_minutes: 10, xp_bonus: 10, icon: '📚', sort_order: 2 },
+          { id: '3', difficulty: 'serious', display_name: 'Serious', description: '15 mins a day', xp_target: 75, questions_target: 15, time_target_minutes: 15, xp_bonus: 15, icon: '🔥', sort_order: 3 },
+          { id: '4', difficulty: 'intense', display_name: 'Intense', description: '20 mins a day', xp_target: 100, questions_target: 25, time_target_minutes: 20, xp_bonus: 25, icon: '💪', sort_order: 4 },
         ]}
         currentDifficulty={preferences?.preferred_difficulty || 'regular'}
         onSelect={async (d) => { await setDifficulty(d); }}
@@ -391,7 +391,30 @@ export default function GamificationDemoPage() {
               onClick={() => awardXP(xpAmount, 'Demo XP award')}
             >
               <Zap className="h-4 w-4 mr-2" />
-              Award {xpAmount} XP
+              Award {xpAmount} XP (Floating)
+            </Button>
+            <Button 
+              className="w-full bg-gradient-to-r from-green-500 to-emerald-600"
+              onClick={() => showSimpleXPPopup(xpAmount, 'Demo XP Popup')}
+            >
+              <Zap className="h-4 w-4 mr-2" />
+              Show XP Popup (Duolingo-style)
+            </Button>
+            <Button 
+              variant="outline"
+              className="w-full border-green-500/50"
+              onClick={() => showXPPopup(
+                Math.round(xpAmount * 0.6),
+                [
+                  { type: 'speed', label: 'Speed Bonus', amount: Math.round(xpAmount * 0.2), icon: '⚡' },
+                  { type: 'streak', label: 'Streak Bonus', amount: Math.round(xpAmount * 0.2), icon: '🔥' },
+                ],
+                'Quiz Completed',
+                'Great job on the demo!'
+              )}
+            >
+              <Trophy className="h-4 w-4 mr-2" />
+              XP Popup with Breakdown
             </Button>
           </CardContent>
         </Card>

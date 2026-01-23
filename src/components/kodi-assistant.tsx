@@ -59,7 +59,7 @@ export function KodiAssistant() {
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
     if (open && messages.length === 0) {
-       setMessages([{sender: 'kodi', text: "Hello! I'm Kodi, your AI Coach. Ask me anything about your IGCSE subjects!"}]);
+       setMessages([{sender: 'kodi', text: "Hello! I'm Kodi, your AI Coach. Ask me anything about your subjects!"}]);
     }
   }
 

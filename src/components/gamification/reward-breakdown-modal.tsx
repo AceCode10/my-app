@@ -66,8 +66,13 @@ export function RewardBreakdownModal({
 
   if (!breakdown) return null;
 
-  const hasGoalProgress = breakdown.dailyGoalProgress.some(g => g.justCompleted || g.newValue > g.previousValue);
-  const hasQuestProgress = breakdown.questProgress.some(q => q.justCompleted || q.newProgress > q.previousProgress);
+  // Safely check for goal and quest progress with fallback to empty arrays
+  const dailyGoalProgress = breakdown.dailyGoalProgress || [];
+  const questProgress = breakdown.questProgress || [];
+  const bonuses = breakdown.bonuses || [];
+  
+  const hasGoalProgress = dailyGoalProgress.some(g => g.justCompleted || g.newValue > g.previousValue);
+  const hasQuestProgress = questProgress.some(q => q.justCompleted || q.newProgress > q.previousProgress);
 
   return (
     <AnimatePresence>
@@ -141,7 +146,7 @@ export function RewardBreakdownModal({
                 </div>
 
                 {/* Bonuses */}
-                {breakdown.bonuses.map((bonus, i) => (
+                {bonuses.map((bonus, i) => (
                   <BonusRow key={i} bonus={bonus} delay={i * 100} />
                 ))}
               </motion.div>
@@ -172,7 +177,7 @@ export function RewardBreakdownModal({
                     <Target className="h-4 w-4 text-primary" />
                     Daily Goals
                   </h3>
-                  {breakdown.dailyGoalProgress.map((goal, i) => (
+                  {dailyGoalProgress.map((goal, i) => (
                     <GoalProgressRow key={i} goal={goal} />
                   ))}
                 </motion.div>
@@ -189,7 +194,7 @@ export function RewardBreakdownModal({
                     <Star className="h-4 w-4 text-amber-500" />
                     Quest Progress
                   </h3>
-                  {breakdown.questProgress.map((quest, i) => (
+                  {questProgress.map((quest, i) => (
                     <QuestProgressRow key={i} quest={quest} />
                   ))}
                 </motion.div>

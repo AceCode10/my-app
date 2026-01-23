@@ -28,31 +28,45 @@ const activityConfig: Record<ActivityType, {
     icon: BookOpen,
     label: 'Reading Notes',
     color: 'bg-blue-500/10 text-blue-500',
-    getUrl: (p) => p.topic_id ? `/notes/${p.subject_id}/${p.topic_id}` : `/notes/${p.subject_id}`
+    getUrl: (p) => p.topic_slug && p.subject_slug 
+      ? `/resources/revision-notes/${p.subject_slug}/${p.topic_slug}` 
+      : p.subject_slug 
+        ? `/resources/revision-notes/${p.subject_slug}` 
+        : '/resources/revision-notes'
   },
   practicing_questions: {
     icon: HelpCircle,
     label: 'Practice Questions',
     color: 'bg-green-500/10 text-green-500',
-    getUrl: (p) => p.topic_id ? `/practice/${p.subject_id}/${p.topic_id}` : `/practice/${p.subject_id}`
+    getUrl: (p) => p.topic_slug && p.subject_slug 
+      ? `/resources/topical-questions/${p.subject_slug}/${p.topic_slug}` 
+      : p.subject_slug 
+        ? `/resources/topical-questions/${p.subject_slug}` 
+        : '/resources/topical-questions'
   },
   taking_quiz: {
     icon: ClipboardList,
     label: 'Quiz',
     color: 'bg-purple-500/10 text-purple-500',
-    getUrl: (p) => `/quiz/${p.subject_id}/${p.topic_id}`
+    getUrl: (p) => p.topic_slug && p.subject_slug 
+      ? `/subjects/${p.subject_slug}/${p.topic_slug}/quiz` 
+      : '/practice'
   },
   reviewing_flashcards: {
     icon: Layers,
     label: 'Flashcards',
     color: 'bg-orange-500/10 text-orange-500',
-    getUrl: (p) => `/flashcards/${p.subject_id}/${p.topic_id}`
+    getUrl: (p) => p.topic_slug && p.subject_slug 
+      ? `/subjects/${p.subject_slug}/${p.topic_slug}/flashcards` 
+      : '/practice'
   },
   watching_video: {
     icon: PlayCircle,
     label: 'Video',
     color: 'bg-red-500/10 text-red-500',
-    getUrl: (p) => `/videos/${p.subject_id}/${p.topic_id}`
+    getUrl: (p) => p.topic_slug && p.subject_slug 
+      ? `/subjects/${p.subject_slug}/${p.topic_slug}` 
+      : '/practice'
   }
 };
 

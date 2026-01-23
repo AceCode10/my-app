@@ -14,6 +14,7 @@ import { LevelUpModal } from '@/components/gamification/animations/level-up-moda
 import { BadgeUnlockModal } from '@/components/gamification/animations/badge-unlock-modal';
 import { StreakCelebration } from '@/components/gamification/animations/streak-celebration';
 import { AchievementToastContainer, addToast } from '@/components/gamification/animations/achievement-toast';
+import { XPPopupContainer, showXPPopup, xpPopup, type XPBonus } from '@/components/gamification/animations/xp-popup';
 import { RewardBreakdownModal } from '@/components/gamification/reward-breakdown-modal';
 import { useUser } from '@/hooks/use-user';
 import { XPService } from '@/lib/gamification/xp-service';
@@ -25,6 +26,10 @@ import { RewardBreakdown } from '@/lib/gamification/reward-engine';
 interface GamificationContextValue {
   // XP actions
   awardXP: (amount: number, source: string, position?: { x: number; y: number }) => void;
+  
+  // XP popup actions (Duolingo-style)
+  showXPPopup: (baseXP: number, bonuses: XPBonus[], source: string, message?: string) => void;
+  showSimpleXPPopup: (amount: number, source: string) => void;
   
   // Level actions
   checkLevelUp: (newXP: number) => void;
@@ -92,30 +97,34 @@ export function GamificationProvider({ children }: GamificationProviderProps) {
   const badgeService = new BadgeService();
 
   // Real-time subscriptions for instant updates
-  const { refresh } = useRealtimeGamification({
+  const { refresh, isInitialized } = useRealtimeGamification({
     userId: user?.id || null,
   });
 
-  // Sync user data with store on mount
+  // Sync user data with store on mount - with fallback if realtime doesn't initialize
   useEffect(() => {
     if (!user?.id) return;
 
-    const syncData = async () => {
-      const gamData = await xpService.getUserGamification(user.id);
-      if (gamData) {
-        const { level, title } = calculateLevel(gamData.total_xp);
-        store.setStats({
-          totalXP: gamData.total_xp,
-          level,
-          levelTitle: title,
-          currentStreak: gamData.current_streak,
-          longestStreak: gamData.longest_streak,
-        });
+    // Give realtime hook time to initialize, then fallback to direct fetch
+    const timeoutId = setTimeout(async () => {
+      if (!isInitialized) {
+        console.log('Realtime not initialized, fetching gamification data directly');
+        const gamData = await xpService.getUserGamification(user.id);
+        if (gamData) {
+          const { level, title } = calculateLevel(gamData.total_xp);
+          store.setStats({
+            totalXP: gamData.total_xp,
+            level,
+            levelTitle: title,
+            currentStreak: gamData.current_streak,
+            longestStreak: gamData.longest_streak,
+          });
+        }
       }
-    };
+    }, 3000); // Wait 3 seconds for realtime to initialize
 
-    syncData();
-  }, [user?.id]);
+    return () => clearTimeout(timeoutId);
+  }, [user?.id, isInitialized]);
 
   // Initialize sound manager
   useEffect(() => {
@@ -202,6 +211,16 @@ export function GamificationProvider({ children }: GamificationProviderProps) {
     setShowBreakdown(true);
   }, []);
 
+  // Show Duolingo-style XP popup with breakdown
+  const showXPPopupWithBreakdown = useCallback((baseXP: number, bonuses: XPBonus[], source: string, message?: string) => {
+    xpPopup.withBreakdown(baseXP, bonuses, source, message);
+  }, []);
+
+  // Show simple XP popup without breakdown
+  const showSimpleXPPopup = useCallback((amount: number, source: string) => {
+    xpPopup.simple(amount, source);
+  }, []);
+
   // Refresh gamification data
   const refreshGamificationData = useCallback(async () => {
     await refresh();
@@ -209,6 +228,8 @@ export function GamificationProvider({ children }: GamificationProviderProps) {
 
   const value: GamificationContextValue = {
     awardXP,
+    showXPPopup: showXPPopupWithBreakdown,
+    showSimpleXPPopup,
     checkLevelUp,
     unlockBadge,
     celebrateStreak,
@@ -226,6 +247,7 @@ export function GamificationProvider({ children }: GamificationProviderProps) {
       
       {/* Global celebration components */}
       <XPGainOverlay />
+      <XPPopupContainer />
       <LevelUpModal />
       <BadgeUnlockModal />
       <StreakCelebration />

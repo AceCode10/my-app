@@ -69,6 +69,66 @@ export default function SubjectsPage() {
         staleTime: 5 * 60 * 1000, // Cache for 5 minutes
     });
 
+    // Fetch progress for all user subjects
+    const { data: subjectProgress = {} } = useQuery({
+        queryKey: ['subject-progress', user?.id, userSubjects.map(s => s.subject_id)],
+        queryFn: async () => {
+            if (!user?.id || userSubjects.length === 0) return {};
+            
+            const progressMap: Record<string, number> = {};
+            
+            // Get subject IDs
+            const subjectIds = userSubjects.map(us => us.subject_id).filter(Boolean);
+            
+            // For each subject, calculate progress based on available resources and user activity
+            for (const subjectId of subjectIds) {
+                // Get total resources for this subject
+                const [notesResult, questionsResult, papersResult] = await Promise.all([
+                    supabase.from('notes').select('*', { count: 'exact', head: true })
+                        .eq('subject_id', subjectId).in('visibility', ['public', 'registered']).not('published_at', 'is', null),
+                    supabase.from('questions').select('*', { count: 'exact', head: true })
+                        .eq('subject_id', subjectId),
+                    supabase.from('past_papers').select('*', { count: 'exact', head: true })
+                        .eq('subject_id', subjectId).eq('status', 'published')
+                ]);
+                
+                const totalNotes = notesResult.count || 0;
+                const totalQuestions = questionsResult.count || 0;
+                const totalPapers = papersResult.count || 0;
+                const totalResources = totalNotes + totalQuestions + totalPapers;
+                
+                if (totalResources === 0) {
+                    progressMap[subjectId] = 0;
+                    continue;
+                }
+                
+                // Get user's completed resources
+                const [topicProgressResult, quizAttemptsResult, paperAttemptsResult] = await Promise.all([
+                    supabase.from('user_topic_progress').select('notes_read, questions_attempted')
+                        .eq('user_id', user.id).eq('subject_id', subjectId),
+                    supabase.from('quiz_attempts').select('*', { count: 'exact', head: true })
+                        .eq('user_id', user.id),
+                    supabase.from('assessment_attempts').select('*', { count: 'exact', head: true })
+                        .eq('user_id', user.id).eq('status', 'completed')
+                ]);
+                
+                const notesRead = topicProgressResult.data?.reduce((sum: number, tp: { notes_read?: number }) => sum + (tp.notes_read || 0), 0) || 0;
+                const questionsAnswered = (topicProgressResult.data?.reduce((sum: number, tp: { questions_attempted?: number }) => sum + (tp.questions_attempted || 0), 0) || 0) 
+                    + (quizAttemptsResult.count || 0);
+                const papersCompleted = paperAttemptsResult.count || 0;
+                
+                const completedResources = Math.min(notesRead, totalNotes) + Math.min(questionsAnswered, totalQuestions) + Math.min(papersCompleted, totalPapers);
+                const progress = Math.round((completedResources / totalResources) * 100);
+                
+                progressMap[subjectId] = Math.min(progress, 100); // Cap at 100%
+            }
+            
+            return progressMap;
+        },
+        enabled: !!user?.id && userSubjects.length > 0,
+        refetchInterval: 10000, // Refetch every 10 seconds for real-time feel
+    });
+
     // Map user's added subjects - use database data directly
     const mySubjects = userSubjects
         .map(us => {
@@ -234,7 +294,7 @@ export default function SubjectsPage() {
                                     path={editMode ? '' : `/student/subjects/${subject.slug}`}
                                     color={subject.color}
                                     showProgress={!editMode}
-                                    progress={0}
+                                    progress={subjectProgress[subject.id] || 0}
                                 />
                             </div>
                         ))}
