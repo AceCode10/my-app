@@ -10,9 +10,11 @@ import { createClient } from '@/lib/supabase/client';
 import { Assessment } from '@/types/assessment';
 import { BookOpen, TrendingUp, Clock, Award } from 'lucide-react';
 
+// Create supabase client outside component to prevent re-creation on every render
+const supabase = createClient();
+
 export default function StudentAssessmentsPage() {
   const router = useRouter();
-  const supabase = createClient();
   
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [userAttempts, setUserAttempts] = useState<Map<string, number>>(new Map());
@@ -44,66 +46,73 @@ export default function StudentAssessmentsPage() {
       }
       setUserId(user.id);
 
-      // Load assessments
-      const { data: assessmentsData, error: assessmentsError } = await supabase
-        .from('assessments')
-        .select(`
-          *,
-          assessment_type:assessment_types(*),
-          subject:subjects(*),
-          exam_board:exam_boards(*),
-          topic:topics(*)
-        `)
-        .eq('is_published', true)
-        .is('archived_at', null)
-        .order('created_at', { ascending: false });
+      // Load all data in PARALLEL for better performance
+      const [assessmentsRes, attemptsRes, masteryRes, statsRes] = await Promise.all([
+        // Load assessments
+        supabase
+          .from('assessments')
+          .select(`
+            *,
+            assessment_type:assessment_types(*),
+            subject:subjects(*),
+            exam_board:exam_boards(*),
+            topic:topics(*)
+          `)
+          .eq('is_published', true)
+          .is('archived_at', null)
+          .order('created_at', { ascending: false }),
+        
+        // Load user attempts count
+        supabase
+          .from('assessment_attempts')
+          .select('assessment_id')
+          .eq('user_id', user.id),
+        
+        // Load topic mastery
+        supabase
+          .from('topic_mastery')
+          .select(`
+            *,
+            topic:topics(
+              *,
+              subject:subjects(*)
+            )
+          `)
+          .eq('user_id', user.id)
+          .order('mastery_percentage', { ascending: false }),
+        
+        // Load assessment statistics
+        supabase
+          .from('assessment_attempts')
+          .select(`
+            *,
+            assessment:assessments(title)
+          `)
+          .eq('user_id', user.id)
+          .in('status', ['submitted', 'graded'])
+          .order('submitted_at', { ascending: false })
+      ]);
 
-      if (assessmentsError) throw assessmentsError;
-      setAssessments(assessmentsData || []);
+      // Process assessments
+      if (assessmentsRes.error) throw assessmentsRes.error;
+      setAssessments(assessmentsRes.data || []);
 
-      // Load user attempts count
-      const { data: attemptsData, error: attemptsError } = await supabase
-        .from('assessment_attempts')
-        .select('assessment_id')
-        .eq('user_id', user.id);
-
-      if (attemptsError) throw attemptsError;
-
+      // Process attempts
+      if (attemptsRes.error) throw attemptsRes.error;
       const attemptsMap = new Map<string, number>();
-      attemptsData?.forEach(attempt => {
+      attemptsRes.data?.forEach(attempt => {
         const count = attemptsMap.get(attempt.assessment_id) || 0;
         attemptsMap.set(attempt.assessment_id, count + 1);
       });
       setUserAttempts(attemptsMap);
 
-      // Load topic mastery
-      const { data: masteryData, error: masteryError } = await supabase
-        .from('topic_mastery')
-        .select(`
-          *,
-          topic:topics(
-            *,
-            subject:subjects(*)
-          )
-        `)
-        .eq('user_id', user.id)
-        .order('mastery_percentage', { ascending: false });
+      // Process mastery
+      if (masteryRes.error) throw masteryRes.error;
+      setTopicMastery(masteryRes.data || []);
 
-      if (masteryError) throw masteryError;
-      setTopicMastery(masteryData || []);
-
-      // Load assessment statistics
-      const { data: statsData, error: statsError } = await supabase
-        .from('assessment_attempts')
-        .select(`
-          *,
-          assessment:assessments(title)
-        `)
-        .eq('user_id', user.id)
-        .in('status', ['submitted', 'graded'])
-        .order('submitted_at', { ascending: false });
-
-      if (statsError) throw statsError;
+      // Process stats
+      if (statsRes.error) throw statsRes.error;
+      const statsData = statsRes.data;
 
       if (statsData && statsData.length > 0) {
         const completed = statsData.filter(a => a.status === 'graded' || a.status === 'submitted');

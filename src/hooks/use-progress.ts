@@ -3,6 +3,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
+// Create supabase client outside hook to prevent re-creation on every render
+const supabase = createClient();
+
 export type ActivityType = 
   | 'viewing_notes'
   | 'practicing_questions'
@@ -27,7 +30,6 @@ export interface UserProgress {
 }
 
 export function useProgress() {
-  const supabase = createClient();
   const [recentProgress, setRecentProgress] = useState<UserProgress[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -54,7 +56,7 @@ export function useProgress() {
     } finally {
       setLoading(false);
     }
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     fetchRecentProgress();
@@ -97,7 +99,7 @@ export function useProgress() {
       console.error('Error in trackProgress:', error);
       return null;
     }
-  }, [supabase, fetchRecentProgress]);
+  }, [fetchRecentProgress]);
 
   const markCompleted = useCallback(async (progressId: string) => {
     try {
@@ -117,7 +119,7 @@ export function useProgress() {
       console.error('Error in markCompleted:', error);
       return false;
     }
-  }, [supabase, fetchRecentProgress]);
+  }, [fetchRecentProgress]);
 
   return {
     recentProgress,

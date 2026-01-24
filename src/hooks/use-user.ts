@@ -28,6 +28,7 @@ interface UserProfile {
 // Global cache for user profile to avoid refetching on every component mount
 let cachedUser: UserProfile | null = null;
 let cacheTimestamp = 0;
+let globalFetchPromise: Promise<void> | null = null; // Prevent parallel fetches
 const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes - extended for better performance
 const FETCH_TIMEOUT = 8000; // 8 second timeout - reduced for better UX
 
@@ -42,8 +43,18 @@ export function useUser() {
 
   const fetchUserProfile = useCallback(async (userId: string, forceRefresh = false) => {
     // Check cache first
-    if (!forceRefresh && cachedUser && Date.now() - cacheTimestamp < CACHE_DURATION) {
+    if (!forceRefresh && cachedUser && cachedUser.id === userId && Date.now() - cacheTimestamp < CACHE_DURATION) {
       if (mountedRef.current) {
+        setUser(cachedUser);
+        setLoading(false);
+      }
+      return;
+    }
+
+    // If another fetch is in progress globally, wait for it
+    if (globalFetchPromise) {
+      await globalFetchPromise;
+      if (cachedUser && mountedRef.current) {
         setUser(cachedUser);
         setLoading(false);
       }
@@ -63,18 +74,16 @@ export function useUser() {
       }
     }, FETCH_TIMEOUT);
 
+    // Set global promise to prevent parallel fetches across components
+    let resolveGlobalFetch: () => void;
+    globalFetchPromise = new Promise((resolve) => { resolveGlobalFetch = resolve; });
+
     try {
-      console.log('[useUser] Fetching user profile for:', userId);
-      const startTime = Date.now();
-      
       const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('id', userId)
         .single();
-      
-      const fetchTime = Date.now() - startTime;
-      console.log(`[useUser] Query completed in ${fetchTime}ms`);
 
       // Clear timeout on successful response
       if (timeoutRef.current) {
@@ -85,10 +94,8 @@ export function useUser() {
       if (!mountedRef.current) return;
 
       if (error) {
-        console.error('[useUser] Error fetching user:', error.code, error.message, error);
         if (error.code === 'PGRST116') {
           // Profile doesn't exist, create it
-          console.log('[useUser] User profile not found, creating...');
           const { data: { user: authUser } } = await supabase.auth.getUser();
           if (authUser && mountedRef.current) {
             const { error: insertError } = await supabase
@@ -101,10 +108,6 @@ export function useUser() {
                 subscription_tier: authUser.user_metadata?.role === 'teacher' ? 'pro' : 'basic',
               });
             
-            if (insertError) {
-              console.error('[useUser] Error creating user profile:', insertError);
-            }
-            
             if (!insertError && mountedRef.current) {
               const { data: newData } = await supabase
                 .from('users')
@@ -112,7 +115,6 @@ export function useUser() {
                 .eq('id', userId)
                 .single();
               if (newData && mountedRef.current) {
-                console.log('[useUser] User profile created successfully');
                 cachedUser = newData;
                 cacheTimestamp = Date.now();
                 setUser(newData);
@@ -139,7 +141,10 @@ export function useUser() {
         setUser(null);
       }
     } catch (err) {
-      console.error('Error fetching user profile:', err);
+      // Only log non-auth errors
+      if (err && !(err as any).message?.includes('JWT')) {
+        console.error('Error fetching user profile:', err);
+      }
       if (mountedRef.current) {
         setUser(null);
       }
@@ -152,6 +157,8 @@ export function useUser() {
         setLoading(false);
       }
       fetchingRef.current = false;
+      globalFetchPromise = null;
+      resolveGlobalFetch!();
     }
   }, []);
 

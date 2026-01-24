@@ -393,7 +393,6 @@ const DashboardView = ({
 export default function TeacherDashboardPage() {
     const { user } = useUser();
     const { classes, isLoading: isLoadingClasses, createClass, isCreating } = useClasses();
-    const supabase = createClient();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [stats, setStats] = useState({
         totalStudents: 0,

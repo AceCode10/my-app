@@ -79,10 +79,11 @@ const VOLUME_PRESETS: Partial<Record<SoundEffect, number>> = {
 
 class SoundManager {
   private sounds: Map<SoundEffect, Howl> = new Map();
-  private enabled: boolean = true;
+  private enabled: boolean = false; // Disabled by default - no sound files exist
   private masterVolume: number = 0.5;
   private initialized: boolean = false;
   private failedSounds: Set<SoundEffect> = new Set();
+  private soundFilesExist: boolean = false; // Flag to track if sound files are available
 
   /**
    * Initialize the sound manager and preload critical sounds
@@ -124,6 +125,8 @@ class SoundManager {
    * Preload specific sounds for instant playback
    */
   preload(soundKeys: SoundEffect[]): void {
+    // Don't preload - sound files don't exist yet
+    if (!this.soundFilesExist) return;
     soundKeys.forEach((key) => {
       if (!this.sounds.has(key) && !this.failedSounds.has(key)) {
         this.loadSound(key);
@@ -169,7 +172,8 @@ class SoundManager {
     soundKey: SoundEffect,
     options?: { volume?: number; rate?: number }
   ): void {
-    if (!this.enabled) return;
+    // Don't attempt to play sounds - files don't exist yet
+    if (!this.enabled || !this.soundFilesExist) return;
     if (this.failedSounds.has(soundKey)) return;
 
     let sound = this.sounds.get(soundKey);
@@ -195,6 +199,8 @@ class SoundManager {
    * Play XP gain sound based on amount
    */
   playXPGain(amount: number): void {
+    // Sound files don't exist yet - skip silently
+    if (!this.soundFilesExist) return;
     if (amount >= 50) {
       this.play('xp_gain_large');
     } else if (amount >= 20) {
@@ -208,6 +214,8 @@ class SoundManager {
    * Play badge unlock sound based on rarity
    */
   playBadgeUnlock(rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary'): void {
+    // Sound files don't exist yet - skip silently
+    if (!this.soundFilesExist) return;
     if (rarity === 'legendary' || rarity === 'epic') {
       this.play('badge_legendary');
     } else if (rarity === 'rare' || rarity === 'uncommon') {

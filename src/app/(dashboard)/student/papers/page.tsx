@@ -30,6 +30,9 @@ import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { PastPaper } from '@/types/paper-practice';
 
+// Create supabase client outside component to prevent re-creation on every render
+const supabase = createClient();
+
 interface Subject {
   id: string;
   name: string;
@@ -55,7 +58,6 @@ const LEVELS = [
 ];
 
 export default function StudentPapersPage() {
-  const supabase = createClient();
   const router = useRouter();
 
   const [papers, setPapers] = useState<(PastPaper & { question_count: number })[]>([]);
@@ -70,30 +72,31 @@ export default function StudentPapersPage() {
   const [userAttempts, setUserAttempts] = useState<Map<string, any>>(new Map());
 
   useEffect(() => {
-    fetchSubjects();
-    fetchExamBoards();
-    fetchPapers();
-    fetchUserAttempts();
+    // Fetch all data in parallel for better performance
+    async function loadAllData() {
+      try {
+        const [subjectsRes, examBoardsRes, userRes] = await Promise.all([
+          supabase.from('subjects').select('id, name, slug, level').eq('status', 'published').order('name'),
+          supabase.from('exam_boards').select('id, name, code').order('name'),
+          supabase.auth.getUser()
+        ]);
+        
+        setSubjects(subjectsRes.data || []);
+        setExamBoards(examBoardsRes.data || []);
+        
+        // Fetch papers and user attempts in parallel (both depend on user for attempts)
+        const papersPromise = fetchPapers();
+        const attemptsPromise = userRes.data?.user ? fetchUserAttempts(userRes.data.user.id) : Promise.resolve();
+        
+        await Promise.all([papersPromise, attemptsPromise]);
+      } catch (error) {
+        console.error('Error loading data:', error);
+        setLoading(false);
+      }
+    }
+    
+    loadAllData();
   }, []);
-
-  async function fetchExamBoards() {
-    const { data } = await supabase
-      .from('exam_boards')
-      .select('id, name, code')
-      .order('name');
-    
-    setExamBoards(data || []);
-  }
-
-  async function fetchSubjects() {
-    const { data } = await supabase
-      .from('subjects')
-      .select('id, name, slug, level')
-      .eq('status', 'published')
-      .order('name');
-    
-    setSubjects(data || []);
-  }
 
   async function fetchPapers() {
     try {
@@ -144,15 +147,12 @@ export default function StudentPapersPage() {
     }
   }
 
-  async function fetchUserAttempts() {
+  async function fetchUserAttempts(userId: string) {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
       const { data } = await supabase
         .from('assessment_attempts')
         .select('paper_id, status, score, percentage, submitted_at')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .not('paper_id', 'is', null)
         .order('submitted_at', { ascending: false });
 

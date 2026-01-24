@@ -48,6 +48,13 @@ export function useRealtimeGamification(options: RealtimeGamificationOptions) {
     const fetchInitialData = async (retryCount = 0): Promise<void> => {
       if (!mountedRef.current) return;
       
+      // Check if user is still authenticated before fetching
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData?.session?.user) {
+        // User is logged out, don't attempt to fetch/create records
+        return;
+      }
+      
       try {
         let { data, error } = await supabase
           .from('user_gamification')
@@ -86,17 +93,10 @@ export function useRealtimeGamification(options: RealtimeGamificationOptions) {
                 .single();
               data = existingData;
             } else {
-              // Silently handle gamification errors during logout
-              // Don't log errors to avoid console spam during normal logout flow
-              if (insertError && !insertError.message?.includes('JWT') && !insertError.message?.includes('auth')) {
-                console.error('Error creating gamification record:', insertError);
-              }
-              // Retry on failure only if not auth-related
-              if (retryCount < MAX_RETRIES && mountedRef.current && 
-                  !insertError.message?.includes('JWT') && !insertError.message?.includes('auth')) {
-                setTimeout(() => fetchInitialData(retryCount + 1), RETRY_DELAY * (retryCount + 1));
-                return;
-              }
+              // Silently handle all gamification insert errors
+              // Empty object {} errors are typically RLS or auth issues during logout
+              // Don't retry - just fail silently
+              return;
             }
           } else {
             data = newData;

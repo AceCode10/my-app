@@ -12,6 +12,9 @@ import { ArrowRight, Users, BookOpen, GraduationCap, Clock, Mail, Check, X, Load
 import { createClient } from '@/lib/supabase/client';
 import { Badge } from "@/components/ui/badge";
 
+// Create supabase client outside component to prevent re-creation on every render
+const supabase = createClient();
+
 interface ClassWithDetails {
     id: string;
     name: string;
@@ -38,7 +41,6 @@ interface Invitation {
 
 export default function ClassesPage() {
     const { user } = useUser();
-    const supabase = createClient();
     const { toast } = useToast();
     
     const [classes, setClasses] = useState<ClassWithDetails[]>([]);
@@ -84,7 +86,7 @@ export default function ClassesPage() {
                 return;
             }
 
-            const classIds = enrollments.map(e => e.class_id);
+            const classIds = enrollments.map((e: { class_id: string }) => e.class_id);
 
             // Get counts in parallel with batch queries
             const [enrollmentCounts, assignmentCounts] = await Promise.all([
@@ -105,16 +107,16 @@ export default function ClassesPage() {
             const enrollmentCountMap = new Map<string, number>();
             const assignmentCountMap = new Map<string, number>();
 
-            enrollmentCounts.data?.forEach(e => {
+            enrollmentCounts.data?.forEach((e: { class_id: string }) => {
                 enrollmentCountMap.set(e.class_id, (enrollmentCountMap.get(e.class_id) || 0) + 1);
             });
 
-            assignmentCounts.data?.forEach(a => {
+            assignmentCounts.data?.forEach((a: { target_class_id: string }) => {
                 assignmentCountMap.set(a.target_class_id, (assignmentCountMap.get(a.target_class_id) || 0) + 1);
             });
 
             // Map the data with counts
-            const classesWithCounts = enrollments.map(enrollment => {
+            const classesWithCounts = enrollments.map((enrollment: { class_id: string; classes: unknown }) => {
                 const cls = enrollment.classes as { id: string; name: string; subject_id: string; subjects?: { name: string }; users?: { display_name: string } };
                 return {
                     id: cls.id,
@@ -164,7 +166,7 @@ export default function ClassesPage() {
 
             // Fetch teacher information for each invitation
             const invitationsWithTeachers = await Promise.all(
-                (data || []).map(async (invitation) => {
+                (data || []).map(async (invitation: { classes?: { teacher_id?: string }; [key: string]: unknown }) => {
                     if (invitation.classes?.teacher_id) {
                         const { data: teacherData } = await supabase
                             .from('users')

@@ -10,6 +10,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
 
+// Create supabase client outside component to prevent re-creation on every render
+const supabase = createClient();
+
 interface LeaderboardEntry {
   rank: number;
   user_id: string;
@@ -30,7 +33,6 @@ export function Leaderboard({ limit = 100, showUserRank = true }: LeaderboardPro
   const [loading, setLoading] = useState(true);
   const [userRank, setUserRank] = useState<number | null>(null);
   const { user } = useUser();
-  const supabase = createClient();
 
   const loadLeaderboard = useCallback(async () => {
     try {
@@ -100,7 +102,7 @@ export function Leaderboard({ limit = 100, showUserRank = true }: LeaderboardPro
     } finally {
       setLoading(false);
     }
-  }, [supabase, limit, user]);
+  }, [limit, user]);
 
   useEffect(() => {
     loadLeaderboard();
@@ -143,7 +145,7 @@ export function Leaderboard({ limit = 100, showUserRank = true }: LeaderboardPro
         window.removeEventListener('xp_earned', handleXPEarned);
       }
     };
-  }, [loadLeaderboard, supabase]);
+  }, [loadLeaderboard]);
 
   const getRankIcon = (rank: number) => {
     switch (rank) {

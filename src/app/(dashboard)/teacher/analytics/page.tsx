@@ -12,6 +12,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { format, subDays } from 'date-fns';
 
+// Create supabase client outside component to prevent re-creation on every render
+const supabase = createClient();
+
 const StatCard = ({ title, value, icon: Icon, change, isLoading }: { title: string, value: string | number, icon: React.ElementType, change?: string, isLoading?: boolean }) => (
     <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -125,7 +128,6 @@ interface AssignmentStats {
 }
 
 export default function AnalyticsPage() {
-    const supabase = createClient();
     const { user } = useUser();
     const { classes, isLoading: isLoadingClasses } = useClasses();
     const [students, setStudents] = useState<StudentData[]>([]);
@@ -229,7 +231,7 @@ export default function AnalyticsPage() {
         if (!isLoadingClasses) {
             fetchData();
         }
-    }, [user, classes, isLoadingClasses, supabase]);
+    }, [user, classes, isLoadingClasses]);
 
     // Fetch class performance
     useEffect(() => {
@@ -275,7 +277,7 @@ export default function AnalyticsPage() {
         if (!isLoadingClasses && user) {
             fetchClassPerformance();
         }
-    }, [classes, user, isLoadingClasses, supabase]);
+    }, [classes, user, isLoadingClasses]);
 
     // Fetch weekly activity
     useEffect(() => {
@@ -321,7 +323,7 @@ export default function AnalyticsPage() {
         }
 
         fetchWeeklyActivity();
-    }, [user, supabase]);
+    }, [user]);
 
     const isLoading = isLoadingClasses || isLoadingStudents;
 

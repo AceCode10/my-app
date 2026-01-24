@@ -23,6 +23,8 @@ import Link from 'next/link';
 import { ExamBoardSelector } from '@/components/exam-board-selector';
 import { EXAM_BOARDS } from '@/lib/exam-boards';
 
+// Create supabase client outside component to prevent re-creation on every render
+const supabase = createClient();
 
 const avatars = [
     'https://placehold.co/128x128/3b82f6/ffffff?text=D',
@@ -33,7 +35,6 @@ const avatars = [
 
 function SettingsPage() {
     const { user, loading: isUserLoading } = useUser();
-    const supabase = createClient();
     const { toast } = useToast();
     const { theme, setTheme } = useTheme();
     const router = useRouter();
@@ -231,7 +232,7 @@ function SettingsPage() {
 
     const email = user.email || 'teacher@example.com';
     const usernameInitial = (displayName || 'T').charAt(0);
-    const isSubscribed = user.subscription_tier === 'pro' || user.subscription_tier === 'teacher';
+    const isSubscribed = user.subscription_tier === 'pro';
 
     return (
         <div>

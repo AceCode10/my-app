@@ -27,7 +27,7 @@ RETURNS TABLE (
 BEGIN
     RETURN QUERY
     SELECT 
-        up.id,
+        up.id,  
         up.activity_type,
         up.subject_id,
         s.name AS subject_name,

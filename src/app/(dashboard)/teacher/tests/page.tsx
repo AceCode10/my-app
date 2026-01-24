@@ -52,6 +52,9 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { TestPDFExport } from '@/components/teacher/test-pdf-export';
 
+// Create supabase client outside component to prevent re-creation on every render
+const supabase = createClient();
+
 interface Test {
   id: string;
   title: string;
@@ -69,7 +72,6 @@ interface Test {
 }
 
 export default function TeacherTestsPage() {
-  const supabase = createClient();
   const { user } = useUser();
   const { toast } = useToast();
   const router = useRouter();
