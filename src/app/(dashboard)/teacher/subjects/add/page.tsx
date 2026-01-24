@@ -204,7 +204,8 @@ export default function AddSubjectsPage() {
       return subjectIds;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user-subjects'] });
+      queryClient.invalidateQueries({ queryKey: ['teacher-subjects'] });
+      queryClient.invalidateQueries({ queryKey: ['user-subjects'] }); // Also invalidate for safety
       toast({ title: 'Success!', description: 'Your subjects have been saved.' });
       router.push('/teacher/subjects');
     },

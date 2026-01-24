@@ -84,6 +84,34 @@ export default function TeacherSubjectsPage() {
     })
     .filter(Boolean);
 
+  // Function to add a subject
+  const handleAddSubject = async (subjectId: string) => {
+    if (!user?.id) return;
+
+    const { error } = await supabase
+      .from('user_subjects')
+      .insert({
+        user_id: user.id,
+        subject_id: subjectId,
+      });
+
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to add subject. Please try again.",
+      });
+    } else {
+      toast({
+        title: "Subject Added",
+        description: "Subject has been added to your list.",
+      });
+      // Invalidate the cache to refresh the subjects list
+      queryClient.invalidateQueries({ queryKey: ['teacher-subjects'] });
+      queryClient.invalidateQueries({ queryKey: ['user-subjects'] });
+    }
+  };
+
   // Mutation for removing a subject
   const removeSubjectMutation = useMutation({
     mutationFn: async (userSubjectId: string) => {
@@ -94,6 +122,7 @@ export default function TeacherSubjectsPage() {
       if (error) throw error;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['teacher-subjects'] });
       queryClient.invalidateQueries({ queryKey: ['user-subjects'] });
       toast({ title: 'Subject removed', description: 'The subject has been removed from your dashboard.' });
     },
