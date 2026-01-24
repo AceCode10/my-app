@@ -134,9 +134,9 @@ class SoundManager {
   /**
    * Load a single sound
    */
-  private loadSound(key: SoundEffect): Howl | null {
+  private loadSound(key: SoundEffect): Howl | undefined {
     const path = SOUND_PATHS[key];
-    if (!path) return null;
+    if (!path) return undefined;
 
     try {
       const sound = new Howl({
@@ -155,10 +155,10 @@ class SoundManager {
 
       this.sounds.set(key, sound);
       return sound;
-    } catch (error) {
+    } catch {
       // Silently handle creation errors
       this.failedSounds.add(key);
-      return null;
+      return undefined;
     }
   }
 
@@ -272,10 +272,5 @@ class SoundManager {
 // Singleton instance
 export const soundManager = new SoundManager();
 
-// Initialize on client side
-if (typeof window !== 'undefined') {
-  // Delay initialization to not block initial render
-  setTimeout(() => {
-    soundManager.init();
-  }, 1000);
-}
+// Don't auto-initialize - let components initialize when needed
+// This prevents 404 errors for sound files that don't exist

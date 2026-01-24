@@ -421,67 +421,58 @@ export default function TeacherDashboardPage() {
                 return;
             }
 
-            // Fetch total students enrolled in teacher's classes
-            const { count: studentCount } = await supabase
-                .from('enrollments')
-                .select('*', { count: 'exact', head: true })
-                .in('class_id', classIds)
-                .eq('status', 'active');
+            // Fetch all stats in PARALLEL for better performance
+            const [studentCountResult, pendingResult, completedAttemptsResult] = await Promise.all([
+                // Total students enrolled
+                supabase
+                    .from('enrollments')
+                    .select('*', { count: 'exact', head: true })
+                    .in('class_id', classIds)
+                    .eq('status', 'active'),
+                
+                // Pending submissions with user and paper info in single query
+                supabase
+                    .from('assessment_attempts')
+                    .select(`
+                        id,
+                        user_id,
+                        paper_id,
+                        submitted_at,
+                        users(display_name),
+                        past_papers(title)
+                    `, { count: 'exact' })
+                    .in('class_id', classIds)
+                    .eq('status', 'submitted')
+                    .eq('review_status', 'pending')
+                    .order('submitted_at', { ascending: false })
+                    .limit(10),
+                
+                // Average score
+                supabase
+                    .from('assessment_attempts')
+                    .select('percentage')
+                    .in('class_id', classIds)
+                    .eq('status', 'submitted')
+                    .not('percentage', 'is', null)
+            ]);
 
-            // Fetch pending submissions for review
-            const { data: pendingData, count: pendingCount } = await supabase
-                .from('assessment_attempts')
-                .select(`
-                    id,
-                    user_id,
-                    paper_id,
-                    submitted_at
-                `, { count: 'exact' })
-                .in('class_id', classIds)
-                .eq('status', 'submitted')
-                .eq('review_status', 'pending')
-                .order('submitted_at', { ascending: false })
-                .limit(10);
+            // Process pending submissions - no N+1 queries needed
+            const enrichedSubmissions = (pendingResult.data || []).map((sub: any) => ({
+                ...sub,
+                student_name: sub.users?.display_name || 'Student',
+                paper_title: sub.past_papers?.title || 'Assessment'
+            }));
 
-            // Enrich pending submissions with student and paper info
-            const enrichedSubmissions = await Promise.all(
-                (pendingData || []).map(async (sub) => {
-                    const { data: userData } = await supabase
-                        .from('users')
-                        .select('display_name')
-                        .eq('id', sub.user_id)
-                        .single();
-                    
-                    const { data: paperData } = await supabase
-                        .from('past_papers')
-                        .select('title')
-                        .eq('id', sub.paper_id)
-                        .single();
-
-                    return {
-                        ...sub,
-                        student_name: userData?.display_name || 'Student',
-                        paper_title: paperData?.title || 'Assessment'
-                    };
-                })
-            );
-
-            // Fetch average score from completed attempts
-            const { data: completedAttempts } = await supabase
-                .from('assessment_attempts')
-                .select('percentage')
-                .in('class_id', classIds)
-                .eq('status', 'submitted')
-                .not('percentage', 'is', null);
-
+            // Calculate average score
             let avgScore = 0;
-            if (completedAttempts && completedAttempts.length > 0) {
-                avgScore = completedAttempts.reduce((sum, a) => sum + (a.percentage || 0), 0) / completedAttempts.length;
+            const completedAttempts = completedAttemptsResult.data || [];
+            if (completedAttempts.length > 0) {
+                avgScore = completedAttempts.reduce((sum: number, a: any) => sum + (a.percentage || 0), 0) / completedAttempts.length;
             }
 
             setStats({
-                totalStudents: studentCount || 0,
-                pendingReviews: pendingCount || 0,
+                totalStudents: studentCountResult.count || 0,
+                pendingReviews: pendingResult.count || 0,
                 totalAssignments: 0,
                 avgClassScore: Math.round(avgScore)
             });
