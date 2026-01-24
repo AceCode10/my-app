@@ -90,7 +90,7 @@ export function useClasses() {
   const isTeacher = user?.role === 'teacher' || user?.role === 'super_admin';
   const isStudent = user?.role === 'student';
 
-  // Cached classes query
+  // Cached classes query with optimized settings
   const { data: classes = [], isLoading, error } = useQuery({
     queryKey: ['classes', user?.id, user?.role],
     queryFn: async () => {
@@ -100,8 +100,9 @@ export function useClasses() {
       return [];
     },
     enabled: !!user,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    gcTime: 10 * 60 * 1000,   // 10 minutes
+    staleTime: 5 * 60 * 1000, // 5 minutes - extended for better performance
+    gcTime: 15 * 60 * 1000,   // 15 minutes
+    refetchOnWindowFocus: false, // Don't refetch on window focus to reduce load
   });
 
   // Create class mutation

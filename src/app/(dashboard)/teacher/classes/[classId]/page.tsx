@@ -799,42 +799,48 @@ export default function ClassDetailsPage() {
   const [messageDialogOpen, setMessageDialogOpen] = useState(false);
   const [messageRecipient, setMessageRecipient] = useState<{ id: string; name: string } | null>(null);
 
+  // Fetch all class data in parallel for better performance
   useEffect(() => {
     if (!classId) return;
-    fetchClassData();
-    fetchEnrollments();
-    fetchInvitations();
+    
+    async function fetchAllData() {
+      setIsLoading(true);
+      
+      // Parallel fetch all data at once
+      const [classResult, enrollmentsResult, invitationsResult] = await Promise.all([
+        supabase.from('classes').select('*, subjects(name)').eq('id', classId).single(),
+        supabase.from('enrollments').select('*, users(id, email, display_name, avatar_url, xp)').eq('class_id', classId),
+        supabase.from('class_invitations').select('*').eq('class_id', classId).order('created_at', { ascending: false })
+      ]);
+      
+      if (classResult.error) {
+        console.error('Error fetching class:', classResult.error);
+      } else {
+        setClassData(classResult.data);
+      }
+      
+      if (!enrollmentsResult.error) {
+        setEnrollments(enrollmentsResult.data || []);
+      }
+      
+      if (!invitationsResult.error) {
+        setInvitations(invitationsResult.data || []);
+      }
+      
+      setIsLoading(false);
+    }
+    
+    fetchAllData();
   }, [classId]);
 
-  async function fetchClassData() {
-    const { data, error } = await supabase
-      .from('classes')
-      .select('*, subjects(name)')
-      .eq('id', classId)
-      .single();
-
-    if (error) {
-      console.error('Error fetching class:', error);
-      setIsLoading(false);
-      return;
-    }
-
-    setClassData(data);
-    setIsLoading(false);
-  }
-
+  // Individual refetch functions for mutations
   async function fetchEnrollments() {
     const { data, error } = await supabase
       .from('enrollments')
       .select('*, users(id, email, display_name, avatar_url, xp)')
       .eq('class_id', classId);
 
-    if (error) {
-      console.error('Error fetching enrollments:', error);
-      return;
-    }
-
-    setEnrollments(data || []);
+    if (!error) setEnrollments(data || []);
   }
 
   async function fetchInvitations() {
@@ -844,12 +850,17 @@ export default function ClassDetailsPage() {
       .eq('class_id', classId)
       .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Error fetching invitations:', error);
-      return;
-    }
+    if (!error) setInvitations(data || []);
+  }
+  
+  async function fetchClassData() {
+    const { data, error } = await supabase
+      .from('classes')
+      .select('*, subjects(name)')
+      .eq('id', classId)
+      .single();
 
-    setInvitations(data || []);
+    if (!error) setClassData(data);
   }
 
   const activeEnrollments = enrollments.filter(e => e.status === 'active');

@@ -152,7 +152,7 @@ export default function SubjectPage({ params }: SubjectPageProps) {
       };
     },
     enabled: !!subjectData?.id,
-    refetchInterval: 5000, // Refetch every 5 seconds for real-time feel
+    staleTime: 60 * 1000, // Cache for 1 minute
   });
 
   // Calculate progress percentages

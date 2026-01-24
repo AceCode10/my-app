@@ -28,8 +28,8 @@ interface UserProfile {
 // Global cache for user profile to avoid refetching on every component mount
 let cachedUser: UserProfile | null = null;
 let cacheTimestamp = 0;
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-const FETCH_TIMEOUT = 15000; // 15 second timeout for slower connections
+const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes - extended for better performance
+const FETCH_TIMEOUT = 8000; // 8 second timeout - reduced for better UX
 
 const supabase = createClient();
 
@@ -179,7 +179,7 @@ export function useUser() {
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: string, session: { user?: { id: string } } | null) => {
       if (!mountedRef.current) return;
       
       if (event === 'SIGNED_OUT') {

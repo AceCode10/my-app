@@ -34,13 +34,38 @@ export function createClient() {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
+        storageKey: 'igaprep-auth',
+        flowType: 'pkce',
+        // Session will be refreshed automatically before expiring
+        // Supabase default is 1 hour, refresh happens at 80% of expiry
       },
       global: {
         headers: {
-          'x-client-info': 'my-app',
+          'x-client-info': 'igaprep-web',
+        },
+      },
+      // Improve connection resilience
+      db: {
+        schema: 'public',
+      },
+      realtime: {
+        params: {
+          eventsPerSecond: 2,
         },
       },
     });
   }
   return supabaseClient;
+
+}
+
+// Helper to check if session is valid without throwing
+export async function isSessionValid(): Promise<boolean> {
+  try {
+    const client = createClient();
+    const { data: { session }, error } = await client.auth.getSession();
+    return !error && !!session;
+  } catch {
+    return false;
+  }
 }

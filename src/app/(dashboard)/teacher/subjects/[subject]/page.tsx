@@ -7,11 +7,13 @@ import Link from 'next/link';
 import { 
   ChevronRight, 
   BookOpen, 
-  ArrowRight
+  ArrowRight,
+  FileText,
+  List
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Progress } from '@/components/ui/progress';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 const supabase = createClient();
 
@@ -23,9 +25,9 @@ export default function TeacherSubjectPage({ params }: SubjectPageProps) {
   const resolvedParams = use(params);
   const subjectSlug = resolvedParams.subject;
 
-  // Fetch subject from database
+  // Fetch subject from database with optimized caching
   const { data: subjectData, isLoading, error } = useQuery({
-    queryKey: ['subject', subjectSlug],
+    queryKey: ['teacher-subject', subjectSlug],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('subjects')
@@ -47,11 +49,12 @@ export default function TeacherSubjectPage({ params }: SubjectPageProps) {
       if (error) throw error;
       return data;
     },
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   // Fetch topics for this subject
   const { data: topics = [] } = useQuery({
-    queryKey: ['subject-topics', subjectData?.id],
+    queryKey: ['teacher-subject-topics', subjectData?.id],
     queryFn: async () => {
       if (!subjectData?.id) return [];
       const { data, error } = await supabase
@@ -65,43 +68,42 @@ export default function TeacherSubjectPage({ params }: SubjectPageProps) {
       return data || [];
     },
     enabled: !!subjectData?.id,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Fetch resource counts
+  // Fetch resource counts - optimized with subject_id directly
   const { data: resourceData } = useQuery({
-    queryKey: ['subject-resources', subjectData?.id],
+    queryKey: ['teacher-subject-resources', subjectData?.id],
     queryFn: async () => {
       if (!subjectData?.id) return { notes: 0, questions: 0, papers: 0 };
-      const topicIds = topics.map(t => t.id);
       
-      // Count notes
-      const { count: notesCount } = await supabase
-        .from('notes')
-        .select('*', { count: 'exact', head: true })
-        .in('topic_id', topicIds.length > 0 ? topicIds : ['none'])
-        .eq('visibility', 'public')
-        .not('published_at', 'is', null);
-
-      // Count questions
-      const { count: questionsCount } = await supabase
-        .from('questions')
-        .select('*', { count: 'exact', head: true })
-        .in('topic_id', topicIds.length > 0 ? topicIds : ['none']);
-
-      // Count past papers
-      const { count: papersCount } = await supabase
-        .from('past_papers')
-        .select('*', { count: 'exact', head: true })
-        .eq('subject_id', subjectData.id)
-        .eq('status', 'published');
+      // Parallel fetch for better performance
+      const [notesResult, questionsResult, papersResult] = await Promise.all([
+        supabase
+          .from('notes')
+          .select('*', { count: 'exact', head: true })
+          .eq('subject_id', subjectData.id)
+          .in('visibility', ['public', 'registered'])
+          .not('published_at', 'is', null),
+        supabase
+          .from('questions')
+          .select('*', { count: 'exact', head: true })
+          .eq('subject_id', subjectData.id),
+        supabase
+          .from('past_papers')
+          .select('*', { count: 'exact', head: true })
+          .eq('subject_id', subjectData.id)
+          .eq('status', 'published')
+      ]);
 
       return {
-        notes: notesCount || 0,
-        questions: questionsCount || 0,
-        papers: papersCount || 0
+        notes: notesResult.count || 0,
+        questions: questionsResult.count || 0,
+        papers: papersResult.count || 0
       };
     },
-    enabled: !!subjectData?.id && topics.length >= 0,
+    enabled: !!subjectData?.id,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   if (isLoading) {
@@ -151,31 +153,38 @@ export default function TeacherSubjectPage({ params }: SubjectPageProps) {
         )}
       </div>
 
-      {/* Teacher Actions */}
-      <div className="grid grid-cols-3 gap-4">
-        <Link href={`/teacher/notes?subject=${subjectSlug}`}>
-          <div className="bg-card p-4 rounded-xl border hover:border-primary hover:shadow-lg transition-all duration-200 text-center group">
-            <div className="text-2xl mb-1 group-hover:scale-110 transition-transform">✏️</div>
-            <div className="font-medium text-xs">Manage Notes</div>
+      {/* Teacher Quick Actions */}
+      <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Teacher Actions</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-3 gap-4">
+            <Link href={`/teacher/notes?subject=${subjectSlug}`}>
+              <div className="bg-card p-4 rounded-xl border hover:border-primary hover:shadow-lg transition-all duration-200 text-center group">
+                <div className="text-2xl mb-1 group-hover:scale-110 transition-transform">✏️</div>
+                <div className="font-medium text-xs">Manage Notes</div>
+              </div>
+            </Link>
+            
+            <Link href={`/teacher/questions?subject=${subjectSlug}`}>
+              <div className="bg-card p-4 rounded-xl border hover:border-primary hover:shadow-lg transition-all duration-200 text-center group">
+                <div className="text-2xl mb-1 group-hover:scale-110 transition-transform">📝</div>
+                <div className="font-medium text-xs">Manage Questions</div>
+              </div>
+            </Link>
+            
+            <Link href={`/teacher/test-builder/new?subject=${subjectSlug}`}>
+              <div className="bg-card p-4 rounded-xl border hover:border-primary hover:shadow-lg transition-all duration-200 text-center group">
+                <div className="text-2xl mb-1 group-hover:scale-110 transition-transform">📋</div>
+                <div className="font-medium text-xs">Create Test</div>
+              </div>
+            </Link>
           </div>
-        </Link>
-        
-        <Link href={`/teacher/questions?subject=${subjectSlug}`}>
-          <div className="bg-card p-4 rounded-xl border hover:border-primary hover:shadow-lg transition-all duration-200 text-center group">
-            <div className="text-2xl mb-1 group-hover:scale-110 transition-transform">📝</div>
-            <div className="font-medium text-xs">Manage Questions</div>
-          </div>
-        </Link>
-        
-        <Link href={`/teacher/test-builder/new?subject=${subjectSlug}`}>
-          <div className="bg-card p-4 rounded-xl border hover:border-primary hover:shadow-lg transition-all duration-200 text-center group">
-            <div className="text-2xl mb-1 group-hover:scale-110 transition-transform">📋</div>
-            <div className="font-medium text-xs">Create Test</div>
-          </div>
-        </Link>
-      </div>
+        </CardContent>
+      </Card>
 
-      {/* Resource Cards */}
+      {/* Resource Cards - Same as student view but without progress tracking */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Notes Card */}
         <Link href={`/resources/revision-notes/${subjectSlug}`}>
@@ -188,7 +197,8 @@ export default function TeacherSubjectPage({ params }: SubjectPageProps) {
               </div>
             </div>
             <h3 className="font-semibold text-lg mb-2 group-hover:text-blue-500 transition-colors">Revision Notes</h3>
-            <div className="mt-4 flex items-center text-sm text-blue-500 font-medium">
+            <p className="text-sm text-muted-foreground mb-4">Access revision notes for teaching and reference</p>
+            <div className="flex items-center text-sm text-blue-500 font-medium">
               View Notes
               <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
             </div>
@@ -206,7 +216,8 @@ export default function TeacherSubjectPage({ params }: SubjectPageProps) {
               </div>
             </div>
             <h3 className="font-semibold text-lg mb-2 group-hover:text-emerald-500 transition-colors">Topical Questions</h3>
-            <div className="mt-4 flex items-center text-sm text-emerald-500 font-medium">
+            <p className="text-sm text-muted-foreground mb-4">Browse questions by topic for class practice</p>
+            <div className="flex items-center text-sm text-emerald-500 font-medium">
               View Questions
               <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
             </div>
@@ -224,13 +235,47 @@ export default function TeacherSubjectPage({ params }: SubjectPageProps) {
               </div>
             </div>
             <h3 className="font-semibold text-lg mb-2 group-hover:text-purple-500 transition-colors">Past Papers</h3>
-            <div className="mt-4 flex items-center text-sm text-purple-500 font-medium">
+            <p className="text-sm text-muted-foreground mb-4">Access past exam papers with mark schemes</p>
+            <div className="flex items-center text-sm text-purple-500 font-medium">
               View Papers
               <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
             </div>
           </div>
         </Link>
       </div>
+
+      {/* Topics List */}
+      {topics.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <List className="h-5 w-5" />
+              Topics ({topics.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {topics.map((topic: { id: string; name: string; slug: string }, index: number) => (
+                <Link 
+                  key={topic.id} 
+                  href={`/resources/topical-questions/${subjectSlug}/${topic.slug}`}
+                  className="flex items-center gap-3 p-3 rounded-lg border hover:border-primary hover:bg-muted/50 transition-all group"
+                >
+                  <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary text-sm font-semibold">
+                    {index + 1}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">
+                      {topic.name}
+                    </p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                </Link>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

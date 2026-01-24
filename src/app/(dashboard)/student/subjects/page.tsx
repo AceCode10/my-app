@@ -67,6 +67,8 @@ export default function SubjectsPage() {
         },
         enabled: !!user?.id,
         staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+        gcTime: 15 * 60 * 1000, // 15 minutes
+        refetchOnWindowFocus: false, // Don't refetch on window focus
     });
 
     // Fetch progress for all user subjects
@@ -126,7 +128,7 @@ export default function SubjectsPage() {
             return progressMap;
         },
         enabled: !!user?.id && userSubjects.length > 0,
-        refetchInterval: 10000, // Refetch every 10 seconds for real-time feel
+        staleTime: 2 * 60 * 1000, // Cache for 2 minutes
     });
 
     // Map user's added subjects - use database data directly

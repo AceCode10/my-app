@@ -43,9 +43,9 @@ export default function TeacherSubjectsPage() {
   const userCountry = user?.country;
   const selectedBoardsInfo = EXAM_BOARDS.filter(b => userExamBoards.includes(b.id));
 
-  // Fetch teacher's selected subjects
+  // Fetch teacher's selected subjects with optimized caching
   const { data: userSubjects = [], isLoading } = useQuery({
-    queryKey: ['user-subjects', user?.id],
+    queryKey: ['teacher-subjects', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
       
@@ -63,7 +63,9 @@ export default function TeacherSubjectsPage() {
       })) as UserSubject[];
     },
     enabled: !!user?.id,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 15 * 60 * 1000, // 15 minutes
+    refetchOnWindowFocus: false, // Don't refetch on window focus
   });
 
   // Map user's subjects
