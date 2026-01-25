@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Check, Sparkles, Zap, Crown, BookOpen, Brain, Target, Trophy, Clock, Users } from "lucide-react";
+import { Check, Sparkles, Zap, Crown, BookOpen, Brain, Target, Trophy, Clock, Users, Shield, Star, TrendingUp } from "lucide-react";
 import { PricingSwitch } from '@/components/pricing-switch';
 import { Badge } from "@/components/ui/badge";
 
@@ -16,7 +16,7 @@ const PricingPage = () => {
         <div className="text-center max-w-3xl mx-auto mb-12">
           <Badge className="mb-4 bg-primary/10 text-primary border-primary/20">
             <Sparkles className="w-3 h-3 mr-1" />
-            Trusted by 10,000+ IGCSE Students
+            Trusted by 10,000+ Students from 500+ Schools
           </Badge>
           <h1 className="text-4xl md:text-5xl font-extrabold text-foreground">
             Ace Your Exams with <span className="text-primary">IGA Prep</span>
@@ -24,6 +24,16 @@ const PricingPage = () => {
           <p className="mt-4 text-lg text-muted-foreground">
             Unlimited access to past papers, topical questions, and revision notes.
           </p>
+          <div className="mt-6 flex flex-wrap justify-center gap-6 text-sm">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-green-500" />
+              <span className="text-muted-foreground">Average <strong className="text-foreground">1.2 grade</strong> improvement</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Star className="w-4 h-4 text-amber-500" />
+              <span className="text-muted-foreground"><strong className="text-foreground">4.8/5</strong> student rating</span>
+            </div>
+          </div>
         </div>
         
         {/* Billing Toggle */}
@@ -44,7 +54,8 @@ const PricingPage = () => {
               <BookOpen className="w-6 h-6 text-muted-foreground" />
               <h3 className="text-2xl font-bold text-card-foreground">Free</h3>
             </div>
-            <p className="text-muted-foreground mb-6">Start learning for free</p>
+            <p className="text-muted-foreground mb-2">Start learning for free</p>
+            <p className="text-xs text-primary/80 mb-4">Perfect for: Exploring the platform</p>
             <p className="text-5xl font-extrabold text-card-foreground mb-6">$0<span className="text-lg font-medium text-muted-foreground">/forever</span></p>
             <Button asChild variant="outline" className="w-full mb-8">
               <Link href="/signup">Start Free</Link>
@@ -60,7 +71,7 @@ const PricingPage = () => {
               </li>
               <li className="flex items-start gap-3">
                 <Check className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
-                <span><strong>3</strong> topical question sets per week</span>
+                <span><strong>5</strong> topical question sets per week</span>
               </li>
               <li className="flex items-start gap-3">
                 <Check className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
@@ -81,7 +92,8 @@ const PricingPage = () => {
               <Brain className="w-6 h-6 text-primary" />
               <h3 className="text-2xl font-bold text-card-foreground">Essential</h3>
             </div>
-            <p className="text-muted-foreground mb-6">Most popular choice</p>
+            <p className="text-muted-foreground mb-2">Most popular choice</p>
+            <p className="text-xs text-primary/80 mb-4">Perfect for: Regular exam preparation</p>
             <p className="text-5xl font-extrabold text-card-foreground mb-2">
               {isYearly ? '$7.99' : '$9.99'}
               <span className="text-lg font-medium text-muted-foreground">/mo</span>
@@ -101,10 +113,6 @@ const PricingPage = () => {
               <li className="flex items-start gap-3">
                 <Target className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                 <span><strong>Unlimited</strong> topical questions with instant feedback</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <Brain className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                <span><strong>20 AI explanations</strong> per day for difficult questions</span>
               </li>
               <li className="flex items-start gap-3">
                 <Trophy className="w-5 h-5 text-primary shrink-0 mt-0.5" />
@@ -127,12 +135,13 @@ const PricingPage = () => {
               <Crown className="w-6 h-6 text-amber-500" />
               <h3 className="text-2xl font-bold text-card-foreground">Pro</h3>
             </div>
-            <p className="text-muted-foreground mb-6">Maximum features</p>
+            <p className="text-muted-foreground mb-2">Maximum exam prep power</p>
+            <p className="text-xs text-amber-500/80 mb-4">Perfect for: Serious students aiming for A*/A</p>
             <p className="text-5xl font-extrabold text-card-foreground mb-2">
-              {isYearly ? '$14.99' : '$19.99'}
+              {isYearly ? '$9.99' : '$12.99'}
               <span className="text-lg font-medium text-muted-foreground">/mo</span>
             </p>
-            {isYearly && <p className="text-sm text-green-600 mb-4">Billed as $179.88/year</p>}
+            {isYearly && <p className="text-sm text-green-600 mb-4">Billed as $119.88/year</p>}
             <Button asChild className="w-full mb-8 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-lg">
               <Link href="/signup?plan=pro">
                 <Crown className="w-4 h-4 mr-2" />
@@ -144,10 +153,7 @@ const PricingPage = () => {
                 <Check className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
                 <span><strong>Everything in Essential</strong>, plus:</span>
               </li>
-              <li className="flex items-start gap-3">
-                <Brain className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                <span><strong>Unlimited</strong> AI explanations</span>
-              </li>
+            
               <li className="flex items-start gap-3">
                 <Clock className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                 <span>Timed full paper practice mode</span>
@@ -176,11 +182,20 @@ const PricingPage = () => {
             <Badge variant="outline" className="text-sm py-1.5 px-4">Edexcel IGCSE</Badge>
             <Badge variant="outline" className="text-sm py-1.5 px-4">Cambridge A-Level</Badge>
             <Badge variant="outline" className="text-sm py-1.5 px-4">IB Diploma</Badge>
+            <Badge variant="outline" className="text-sm py-1.5 px-4">And More...</Badge>
+          </div>
+        </div>
+
+        {/* Money-back Guarantee */}
+        <div className="mt-12 flex justify-center">
+          <div className="flex items-center gap-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-full px-6 py-3">
+            <Shield className="w-5 h-5 text-green-600" />
+            <span className="text-sm font-medium text-green-700 dark:text-green-400">30-day money-back guarantee • Cancel anytime</span>
           </div>
         </div>
 
         {/* FAQ Teaser */}
-        <div className="mt-16 text-center">
+        <div className="mt-10 text-center">
           <p className="text-muted-foreground">
             Have questions? <Link href="/faq" className="text-primary hover:underline font-medium">Check our FAQ</Link> or <Link href="/contact" className="text-primary hover:underline font-medium">contact us</Link>
           </p>

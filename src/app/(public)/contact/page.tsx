@@ -59,9 +59,8 @@ export default function ContactPage() {
                 <div>
                   <h3 className="font-semibold text-foreground mb-1">Visit Us</h3>
                   <p className="text-muted-foreground">
-                    123 Education Lane<br />
-                    London, United Kingdom<br />
-                    EC1A 1BB
+                    32 Cairo Road,<br />
+                    Lusaka, Zambia.<br />
                   </p>
                 </div>
               </div>
