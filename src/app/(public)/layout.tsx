@@ -343,7 +343,7 @@ export default function PublicLayout({
                         <h3 className="text-sm font-semibold text-foreground tracking-wider uppercase">Product</h3>
                         <ul className="mt-4 space-y-2">
                             <li><Link href="/pricing" className="hover:text-primary">Pricing</Link></li>
-                            <li><Link href="/teacher" className="hover:text-primary">For Teachers</Link></li>
+                            <li><Link href="/for-teachers" className="hover:text-primary">For Teachers</Link></li>
                              <li><Link href="/subjects" className="hover:text-primary">Subjects</Link></li>
                         </ul>
                     </div>

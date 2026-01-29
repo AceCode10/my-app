@@ -1427,7 +1427,7 @@ function SortableSubjectCard({
                 )}
                 {subject.level && (
                   <Badge variant="secondary">
-                    {LEVELS.find(l => l.id === subject.level)?.name || subject.level}
+                    {QUALIFICATION_LEVELS.find(l => l.id === subject.level)?.name || subject.level}
                   </Badge>
                 )}
                 <Badge className={getStatusColor(subject.status)}>

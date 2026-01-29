@@ -11,8 +11,8 @@ import { cn } from "@/lib/utils";
 const rotatingWords = [
   { text: "Learning", color: "bg-emerald-500" },
   { text: "Teaching", color: "bg-blue-500" },
-  { text: "Studying", color: "bg-purple-500" },
-  { text: "Everything!", color: "bg-orange-500" },
+  { text: " Studying", color: "bg-purple-500" },
+
 ];
 
 // Exam boards for the sliding carousel with logo paths
