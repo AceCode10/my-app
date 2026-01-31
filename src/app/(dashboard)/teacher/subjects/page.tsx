@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { SubjectCard } from '@/components/subject-card';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, BookOpen, GraduationCap, Globe, Settings, Trash2, X } from 'lucide-react';
+import { PlusCircle, BookOpen, GraduationCap, Settings, Trash2, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useUser } from '@/hooks/use-user';
@@ -13,7 +13,6 @@ import { createClient } from '@/lib/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { EXAM_BOARDS } from '@/lib/exam-boards';
-import { getCountryName } from '@/lib/countries';
 
 const supabase = createClient();
 
@@ -40,7 +39,6 @@ export default function TeacherSubjectsPage() {
 
   const userExamBoards = user?.exam_boards || [];
   const userLevels = user?.levels || [];
-  const userCountry = user?.country;
   const selectedBoardsInfo = EXAM_BOARDS.filter(b => userExamBoards.includes(b.id));
 
   // Fetch teacher's selected subjects with optimized caching
@@ -180,16 +178,10 @@ export default function TeacherSubjectsPage() {
       </div>
 
       {/* User preferences summary card */}
-      {(selectedBoardsInfo.length > 0 || userLevels.length > 0 || userCountry) && (
+      {(selectedBoardsInfo.length > 0 || userLevels.length > 0) && (
         <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
           <CardContent className="pt-4 pb-4">
             <div className="flex flex-wrap items-center gap-4">
-              {userCountry && (
-                <div className="flex items-center gap-2">
-                  <Globe className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">{getCountryName(userCountry)}</span>
-                </div>
-              )}
               {selectedBoardsInfo.length > 0 && (
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">Exam Boards:</span>

@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Download, Loader2, Upload } from 'lucide-react';
+import { Download, Loader2, Upload, Eye } from 'lucide-react';
 
 interface Question {
   id: string;
@@ -767,6 +767,8 @@ export function TestPDFExport({ test, open, onOpenChange }: TestPDFExportProps) 
   const [showCandidateNumber, setShowCandidateNumber] = useState(true);
   const [includeAnswers, setIncludeAnswers] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -802,94 +804,97 @@ export function TestPDFExport({ test, open, onOpenChange }: TestPDFExportProps) 
     setSchoolLogoUrl('');
   };
 
+  // Clean up preview URL when dialog closes
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen && previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
+    onOpenChange(newOpen);
+  };
+
+  async function generatePDFBlob() {
+    let testWithQuestions = { ...test };
+    const assessmentId = test.id;
+    
+    // If test already has questions in sections (preview mode or from test builder), use them directly
+    if (test.sections && test.sections.length > 0 && test.sections[0].questions && test.sections[0].questions.length > 0) {
+      testWithQuestions = { ...test };
+    } else if (assessmentId && assessmentId !== 'preview') {
+      // Load questions from database for saved tests
+      const supabase = (await import('@/lib/supabase/client')).createClient();
+      
+      const { data: aqData, error: aqError } = await supabase
+        .from('assessment_questions')
+        .select('*')
+        .eq('assessment_id', assessmentId)
+        .order('question_order', { ascending: true });
+
+      if (aqData && aqData.length > 0) {
+        const questionIds = aqData.map((aq: any) => aq.question_id).filter(Boolean);
+        
+        const { data: questionsData } = await supabase
+          .from('questions')
+          .select('*')
+          .in('id', questionIds);
+
+        const questionsWithData = aqData.map((aq: any, index: number) => {
+          const questionData = questionsData?.find((q: any) => q.id === aq.question_id);
+          const marks = aq.custom_marks ?? questionData?.marks ?? 1;
+          return {
+            questionId: aq.question_id,
+            marks,
+            order: index + 1,
+            question: questionData || null
+          };
+        });
+
+        testWithQuestions.sections = [{
+          name: 'Section A',
+          questions: questionsWithData
+        }];
+      } else {
+        testWithQuestions.sections = [];
+      }
+    } else {
+      testWithQuestions.sections = [];
+    }
+
+    const options: PDFOptions = {
+      schoolName,
+      schoolLogoUrl,
+      showCentreNumber,
+      showCandidateNumber,
+      includeAnswers,
+    };
+
+    return await pdf(
+      <QuestionPaperPDF test={testWithQuestions} options={options} />
+    ).toBlob();
+  }
+
+  async function handlePreview() {
+    setPreviewing(true);
+    try {
+      // Clean up previous preview URL
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+
+      const blob = await generatePDFBlob();
+      const url = URL.createObjectURL(blob);
+      setPreviewUrl(url);
+    } catch (error) {
+      console.error('Error generating PDF preview:', error);
+    } finally {
+      setPreviewing(false);
+    }
+  }
+
   async function handleExport() {
     setGenerating(true);
     try {
-      let testWithQuestions = { ...test };
-      const assessmentId = test.id;
-      console.log('PDF Export - Assessment ID:', assessmentId);
-      console.log('PDF Export - Existing sections:', test.sections?.length, 'with questions:', test.sections?.[0]?.questions?.length);
-      
-      // If test already has questions in sections (preview mode or from test builder), use them directly
-      if (test.sections && test.sections.length > 0 && test.sections[0].questions && test.sections[0].questions.length > 0) {
-        console.log('PDF Export - Using existing questions from sections');
-        // Questions are already loaded, just use them
-        testWithQuestions = { ...test };
-      } else if (assessmentId && assessmentId !== 'preview') {
-        // Load questions from database for saved tests
-        console.log('PDF Export - Loading questions from database for assessment:', assessmentId);
-        const supabase = (await import('@/lib/supabase/client')).createClient();
-        
-        // Fetch assessment_questions
-        const { data: aqData, error: aqError } = await supabase
-          .from('assessment_questions')
-          .select('*')
-          .eq('assessment_id', assessmentId)
-          .order('question_order', { ascending: true });
-
-        console.log('PDF Export - Assessment questions result:', { count: aqData?.length, error: aqError });
-
-        if (aqError) {
-          console.error('PDF Export - Error fetching assessment_questions:', aqError);
-        }
-
-        if (aqData && aqData.length > 0) {
-          // Get question IDs
-          const questionIds = aqData.map((aq: any) => aq.question_id).filter(Boolean);
-          console.log('PDF Export - Question IDs to fetch:', questionIds);
-          
-          // Fetch actual questions
-          const { data: questionsData, error: qError } = await supabase
-            .from('questions')
-            .select('*')
-            .in('id', questionIds);
-
-          console.log('PDF Export - Questions result:', { count: questionsData?.length, error: qError });
-
-          if (qError) {
-            console.error('PDF Export - Error fetching questions:', qError);
-          }
-
-          // Map questions to assessment_questions
-          const questionsWithData = aqData.map((aq: any, index: number) => {
-            const questionData = questionsData?.find((q: any) => q.id === aq.question_id);
-            // Use nullish coalescing to preserve 0 marks for context questions
-            const marks = aq.custom_marks ?? questionData?.marks ?? 1;
-            return {
-              questionId: aq.question_id,
-              marks,
-              order: index + 1,
-              question: questionData || null
-            };
-          });
-
-          // Convert to sections format for PDF
-          testWithQuestions.sections = [{
-            name: 'Section A',
-            questions: questionsWithData
-          }];
-
-          console.log('PDF Export - Final sections with', questionsWithData.length, 'questions');
-        } else {
-          console.log('PDF Export - No questions found in database for this assessment');
-          testWithQuestions.sections = [];
-        }
-      } else {
-        console.log('PDF Export - Preview mode with no questions');
-        testWithQuestions.sections = [];
-      }
-
-      const options: PDFOptions = {
-        schoolName,
-        schoolLogoUrl,
-        showCentreNumber,
-        showCandidateNumber,
-        includeAnswers,
-      };
-
-      const blob = await pdf(
-        <QuestionPaperPDF test={testWithQuestions} options={options} />
-      ).toBlob();
+      const blob = await generatePDFBlob();
 
       // Create download link
       const url = URL.createObjectURL(blob);
@@ -901,7 +906,7 @@ export function TestPDFExport({ test, open, onOpenChange }: TestPDFExportProps) 
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      onOpenChange(false);
+      handleOpenChange(false);
     } catch (error) {
       console.error('Error generating PDF:', error);
     } finally {
@@ -910,8 +915,8 @@ export function TestPDFExport({ test, open, onOpenChange }: TestPDFExportProps) 
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90vh] flex flex-col">
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className={`${previewUrl ? 'max-w-5xl' : 'max-w-md'} max-h-[90vh] flex flex-col transition-all duration-300`}>
         <DialogHeader>
           <DialogTitle>Export Test as PDF</DialogTitle>
           <DialogDescription>
@@ -919,14 +924,16 @@ export function TestPDFExport({ test, open, onOpenChange }: TestPDFExportProps) 
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4 space-y-4 overflow-y-auto flex-1">
-          <div className="p-4 bg-muted rounded-lg">
-            <p className="font-medium">{test.title}</p>
-            <p className="text-sm text-muted-foreground">
-              {test.total_questions} questions • {test.total_marks} marks
-              {test.duration_minutes && ` • ${test.duration_minutes} minutes`}
-            </p>
-          </div>
+        <div className={`py-4 overflow-y-auto flex-1 ${previewUrl ? 'flex gap-6' : ''}`}>
+          {/* Settings Panel */}
+          <div className={`space-y-4 ${previewUrl ? 'w-80 flex-shrink-0' : ''}`}>
+            <div className="p-4 bg-muted rounded-lg">
+              <p className="font-medium">{test.title}</p>
+              <p className="text-sm text-muted-foreground">
+                {test.total_questions} questions • {test.total_marks} marks
+                {test.duration_minutes && ` • ${test.duration_minutes} minutes`}
+              </p>
+            </div>
 
           {/* School Name */}
           <div className="space-y-2">
@@ -1019,13 +1026,37 @@ export function TestPDFExport({ test, open, onOpenChange }: TestPDFExportProps) 
               </Label>
             </div>
           </div>
+          </div>
+
+          {/* PDF Preview Panel */}
+          {previewUrl && (
+            <div className="flex-1 min-w-0 border rounded-lg overflow-hidden bg-gray-100">
+              <iframe
+                src={previewUrl}
+                className="w-full h-full min-h-[500px]"
+                title="PDF Preview"
+              />
+            </div>
+          )}
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        <DialogFooter className="flex-shrink-0">
+          <Button variant="outline" onClick={() => handleOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleExport} disabled={generating}>
+          <Button 
+            variant="outline" 
+            onClick={handlePreview} 
+            disabled={previewing || test.total_questions === 0}
+          >
+            {previewing ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Eye className="h-4 w-4 mr-2" />
+            )}
+            {previewing ? 'Loading...' : (previewUrl ? 'Refresh Preview' : 'Preview PDF')}
+          </Button>
+          <Button onClick={handleExport} disabled={generating || test.total_questions === 0}>
             {generating ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             ) : (

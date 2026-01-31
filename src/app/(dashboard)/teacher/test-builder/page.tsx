@@ -913,7 +913,15 @@ export default function TestBuilderPage() {
 
         // Add questions
         if (testQuestions.length > 0) {
-          const questionsToInsert = testQuestions.map((q, idx) => ({
+          // Deduplicate questions by questionId (keep first occurrence)
+          const seenIds = new Set<string>();
+          const uniqueQuestions = testQuestions.filter(q => {
+            if (seenIds.has(q.questionId)) return false;
+            seenIds.add(q.questionId);
+            return true;
+          });
+
+          const questionsToInsert = uniqueQuestions.map((q, idx) => ({
             assessment_id: editingTestId,
             question_id: q.questionId,
             question_order: idx + 1,
@@ -953,11 +961,26 @@ export default function TestBuilderPage() {
 
         console.log('New assessment created:', newAssessment, insertError);
 
-        if (insertError) throw insertError;
+        if (insertError) {
+          console.error('Assessment insert error:', insertError);
+          throw insertError;
+        }
+
+        if (!newAssessment) {
+          throw new Error('Failed to create assessment - no data returned');
+        }
 
         // Add questions to assessment_questions table
         if (testQuestions.length > 0 && newAssessment) {
-          const questionsToInsert = testQuestions.map((q, idx) => ({
+          // Deduplicate questions by questionId (keep first occurrence)
+          const seenIds = new Set<string>();
+          const uniqueQuestions = testQuestions.filter(q => {
+            if (seenIds.has(q.questionId)) return false;
+            seenIds.add(q.questionId);
+            return true;
+          });
+
+          const questionsToInsert = uniqueQuestions.map((q, idx) => ({
             assessment_id: newAssessment.id,
             question_id: q.questionId,
             question_order: idx + 1,
@@ -965,15 +988,22 @@ export default function TestBuilderPage() {
           }));
 
           console.log('Inserting questions:', questionsToInsert);
+          console.log('Assessment ID:', newAssessment.id);
+          console.log('Sample question IDs:', uniqueQuestions.slice(0, 2).map(q => q.questionId));
 
-          const { error: qError } = await supabase
+          // Insert questions for new assessment
+          const { error: qError, data: insertedData } = await supabase
             .from('assessment_questions')
-            .insert(questionsToInsert);
+            .insert(questionsToInsert)
+            .select();
 
           if (qError) {
             console.error('Error inserting questions:', qError);
+            console.error('Error details:', JSON.stringify(qError, null, 2));
             throw qError;
           }
+
+          console.log('Questions inserted successfully:', insertedData?.length);
 
           console.log('Questions inserted successfully');
         }
@@ -1507,9 +1537,6 @@ export default function TestBuilderPage() {
                         <h2 className="text-xl font-bold uppercase tracking-wide">
                           {settings.title || 'Untitled Test'}
                         </h2>
-                        {settings.description && (
-                          <p className="text-sm text-muted-foreground">{settings.description}</p>
-                        )}
                         <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground mt-2">
                           {settings.durationMinutes && (
                             <span className="flex items-center gap-1">
@@ -1588,34 +1615,6 @@ export default function TestBuilderPage() {
                 onChange={(e) => setSettings({ ...settings, title: e.target.value })}
                 placeholder="e.g., Chapter 5 Quiz"
               />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={settings.description}
-                onChange={(e) => setSettings({ ...settings, description: e.target.value })}
-                placeholder="Optional description or instructions"
-                rows={3}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="subject">Subject</Label>
-              <Select
-                value={settings.subjectId}
-                onValueChange={(v) => setSettings({ ...settings, subjectId: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select subject" />
-                </SelectTrigger>
-                <SelectContent>
-                  {subjects.map(s => (
-                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
 
             <div className="space-y-2">

@@ -195,8 +195,9 @@ export function PeopleTab({ classId, className, joinCode, teacherId }: PeopleTab
   };
 
   const handleCopyJoinCode = () => {
-    navigator.clipboard.writeText(joinCode);
-    toast({ title: 'Copied!', description: `Class code ${joinCode} copied to clipboard.` });
+    const joinLink = `${window.location.origin}/join/${joinCode}`;
+    navigator.clipboard.writeText(joinLink);
+    toast({ title: 'Copied!', description: 'Invite link copied to clipboard. Share it with students!' });
   };
 
   const handleSendInvites = async () => {
