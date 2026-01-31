@@ -15,6 +15,7 @@ import { NotificationBell } from '@/components/notification-bell';
 import withRole from '@/hooks/withRole';
 import { cn } from '@/lib/utils';
 import { KodiLoadingGif } from '@/components/ui/kodi-loading-gif';
+import { IGALogoIcon } from '@/components/ui/iga-logo';
 import {
   Tooltip,
   TooltipContent,
@@ -81,16 +82,10 @@ function TeacherDashboardLayout({ children }: { children: React.ReactNode }) {
                     <div className="flex flex-col h-full">
                         {/* Logo */}
                         <div className="flex items-center justify-between h-16 px-4 border-b">
-                            <Link href="/teacher" className="flex items-center space-x-2 min-w-0">
-                                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center flex-shrink-0">
-                                    <span className="text-primary-foreground font-bold text-sm">IGA</span>
+                            <Link href="/teacher" className="flex items-center justify-center w-full">
+                                <div className="w-12 h-12 flex-shrink-0">
+                                    <IGALogoIcon size="lg" />
                                 </div>
-                                {!sidebarCollapsed && (
-                                    <div className="min-w-0">
-                                        <h1 className="text-sm font-bold text-foreground truncate">IGA Prep</h1>
-                                        <p className="text-xs text-muted-foreground">Teacher</p>
-                                    </div>
-                                )}
                             </Link>
                             <button
                                 onClick={() => setSidebarOpen(false)}
@@ -235,7 +230,7 @@ function TeacherDashboardLayout({ children }: { children: React.ReactNode }) {
 
             {/* Main Content */}
             <div className="flex-1 flex flex-col overflow-hidden">
-                {/* Mobile Header */}
+                {/* Mobile Header - Hide notification bell on test-builder page */}
                 <header className="lg:hidden flex items-center justify-between h-16 px-4 border-b bg-card">
                     <button
                         onClick={() => setSidebarOpen(true)}
@@ -244,13 +239,16 @@ function TeacherDashboardLayout({ children }: { children: React.ReactNode }) {
                         <Menu className="h-6 w-6" />
                     </button>
                     <h1 className="text-lg font-semibold">IGA Prep</h1>
-                    <NotificationBell />
+                    {!pathname.includes('/test-builder') && <NotificationBell />}
+                    {pathname.includes('/test-builder') && <div className="w-10" />}
                 </header>
 
-                {/* Desktop Header */}
-                <header className="hidden lg:flex items-center justify-end h-14 px-6 border-b bg-card">
-                    <NotificationBell />
-                </header>
+                {/* Desktop Header - Hide on test-builder page for more space */}
+                {!pathname.includes('/test-builder') && (
+                    <header className="hidden lg:flex items-center justify-end h-14 px-6 border-b bg-card">
+                        <NotificationBell />
+                    </header>
+                )}
 
                 {/* Page Content */}
                 <main className="flex-1 overflow-y-auto p-6">

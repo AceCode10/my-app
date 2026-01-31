@@ -15,6 +15,7 @@ import { KodiAssistant } from '@/components/kodi-assistant';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { cn } from '@/lib/utils';
 import { KodiLoadingGif } from '@/components/ui/kodi-loading-gif';
+import { IGALogoIcon } from '@/components/ui/iga-logo';
 import {
   Tooltip,
   TooltipContent,
@@ -88,16 +89,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="flex flex-col h-full">
             {/* Logo */}
             <div className="flex items-center justify-between h-16 px-4 border-b">
-              <Link href="/student" className="flex items-center space-x-2 min-w-0">
-                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center flex-shrink-0">
-                  <span className="text-primary-foreground font-bold text-sm">IGA</span>
+              <Link href="/student" className="flex items-center justify-center w-full">
+                <div className="w-12 h-12 flex-shrink-0">
+                  <IGALogoIcon size="lg" />
                 </div>
-                {!sidebarCollapsed && (
-                  <div className="min-w-0">
-                    <h1 className="text-sm font-bold text-foreground truncate">IGA Prep</h1>
-                    <p className="text-xs text-muted-foreground">Student</p>
-                  </div>
-                )}
               </Link>
               <button
                 onClick={() => setSidebarOpen(false)}

@@ -1,5 +1,19 @@
 <svg width="192" height="192" viewBox="0 0 192 192" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background rounded square -->
   <rect width="192" height="192" rx="32" fill="#16a34a"/>
-  <text x="96" y="115" font-family="Arial, sans-serif" font-size="72" font-weight="bold" fill="white" text-anchor="middle">IGA</text>
-  <rect x="40" y="140" width="112" height="6" rx="3" fill="#22c55e"/>
+  
+  <!-- IGA letters - clean bold style -->
+  <g fill="white">
+    <!-- I -->
+    <rect x="36" y="66" width="17" height="60" rx="2"/>
+    
+    <!-- G -->
+    <path d="M66 96c0-17 14-30 30-30 8 0 15 3 20 7l-10 11c-3-2-6-4-10-4-9 0-17 8-17 16s8 16 17 16c5 0 9-2 12-5v-8h-12v-13h29v24c-7 8-17 13-29 13-17 0-30-13-30-27z"/>
+    
+    <!-- A -->
+    <path d="M127 126l21-60h17l21 60h-17l-4-11h-17l-4 11h-17zm22-23h10l-5-16-5 16z"/>
+  </g>
+  
+  <!-- Checkmark/Tick - clean diagonal crossing through letters -->
+  <path d="M26 110 L54 127 L161 51" stroke="#ffffff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
 </svg>

@@ -3,11 +3,44 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 
+// Input validation helpers
+function validateEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+function validatePassword(password: string): { valid: boolean; message?: string } {
+  if (password.length < 8) {
+    return { valid: false, message: 'Password must be at least 8 characters long' };
+  }
+  return { valid: true };
+}
+
 export async function signUp(formData: FormData) {
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;
   const displayName = formData.get('displayName') as string;
   const role = (formData.get('role') as string) || 'student';
+
+  // Input validation
+  if (!email || !password || !displayName) {
+    return { error: 'All fields are required' };
+  }
+
+  if (!validateEmail(email)) {
+    return { error: 'Please enter a valid email address' };
+  }
+
+  const passwordValidation = validatePassword(password);
+  if (!passwordValidation.valid) {
+    return { error: passwordValidation.message };
+  }
+
+  // Validate role
+  const validRoles = ['student', 'teacher'];
+  if (!validRoles.includes(role)) {
+    return { error: 'Invalid role selected' };
+  }
 
   const supabase = await createClient();
 
@@ -18,6 +51,7 @@ export async function signUp(formData: FormData) {
     options: {
       data: {
         display_name: displayName,
+        role: role,
       },
     },
   });
@@ -27,37 +61,71 @@ export async function signUp(formData: FormData) {
   }
 
   if (authData.user) {
-    // Create user profile in users table
+    // Create user profile in users table with all required fields
     const { error: profileError } = await supabase.from('users').insert({
       id: authData.user.id,
-      email,
-      display_name: displayName,
+      email: email.toLowerCase().trim(),
+      display_name: displayName.trim(),
       role,
       subscription_tier: role === 'teacher' ? 'pro' : 'basic',
+      onboarding_completed: false,
+      leaderboard_opt_out: false,
+      xp: 0,
+      streak_days: 0,
       created_at: new Date().toISOString(),
     });
 
     if (profileError) {
-      return { error: profileError.message };
+      console.error('Profile creation error:', profileError);
+      return { error: 'Failed to create user profile. Please try again.' };
     }
   }
 
-  redirect('/dashboard');
+  // Redirect to onboarding for new users
+  redirect('/onboarding');
 }
 
 export async function signIn(formData: FormData) {
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;
+  const redirectTo = formData.get('redirectTo') as string | null;
+
+  // Input validation
+  if (!email || !password) {
+    return { error: 'Email and password are required' };
+  }
+
+  if (!validateEmail(email)) {
+    return { error: 'Please enter a valid email address' };
+  }
 
   const supabase = await createClient();
 
-  const { error } = await supabase.auth.signInWithPassword({
-    email,
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: email.toLowerCase().trim(),
     password,
   });
 
   if (error) {
     return { error: error.message };
+  }
+
+  // Check if user has completed onboarding
+  if (data.user) {
+    const { data: profile } = await supabase
+      .from('users')
+      .select('onboarding_completed, role')
+      .eq('id', data.user.id)
+      .single();
+
+    if (profile && !profile.onboarding_completed) {
+      redirect('/onboarding');
+    }
+
+    // Use redirect parameter if provided, otherwise redirect based on role
+    if (redirectTo) {
+      redirect(redirectTo);
+    }
   }
 
   redirect('/dashboard');

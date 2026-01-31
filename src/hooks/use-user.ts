@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
-interface UserProfile {
+export interface UserProfile {
   id: string;
   email: string;
   display_name?: string;
@@ -11,28 +11,32 @@ interface UserProfile {
   role: 'student' | 'teacher' | 'content_moderator' | 'super_admin';
   subscription_tier: 'basic' | 'essential' | 'pro';
   leaderboard_opt_out?: boolean;
-  country?: string; // User's country code
+  country?: string;
   exam_boards?: string[];
-  level?: string; // Single level for students
-  levels?: string[]; // Multiple levels for teachers
+  level?: string;
+  levels?: string[];
   subjects_of_interest?: string[];
   onboarding_completed?: boolean;
   xp?: number;
   streak_days?: number;
-  // Temporarily removed fields until database is updated
-  // school_name?: string; // For teachers
-  // notification_preferences?: Record<string, boolean>; // User notification settings
   created_at: string;
 }
 
 // Global cache for user profile to avoid refetching on every component mount
 let cachedUser: UserProfile | null = null;
 let cacheTimestamp = 0;
-let globalFetchPromise: Promise<void> | null = null; // Prevent parallel fetches
-const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes - extended for better performance
-const FETCH_TIMEOUT = 8000; // 8 second timeout - reduced for better UX
+let globalFetchPromise: Promise<UserProfile | null> | null = null;
+let globalFetchResolve: ((user: UserProfile | null) => void) | null = null;
+const CACHE_DURATION = 3 * 60 * 1000; // 3 minutes - reduced for fresher data
+const FETCH_TIMEOUT = 8000; // 8 second timeout
 
 const supabase = createClient();
+
+// Helper to invalidate cache (can be called from other modules)
+export function invalidateUserCache() {
+  cachedUser = null;
+  cacheTimestamp = 0;
+}
 
 export function useUser() {
   const [user, setUser] = useState<UserProfile | null>(cachedUser);
@@ -41,29 +45,34 @@ export function useUser() {
   const mountedRef = useRef(true);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const fetchUserProfile = useCallback(async (userId: string, forceRefresh = false) => {
+  const fetchUserProfile = useCallback(async (userId: string, forceRefresh = false): Promise<UserProfile | null> => {
     // Check cache first
     if (!forceRefresh && cachedUser && cachedUser.id === userId && Date.now() - cacheTimestamp < CACHE_DURATION) {
       if (mountedRef.current) {
         setUser(cachedUser);
         setLoading(false);
       }
-      return;
+      return cachedUser;
     }
 
     // If another fetch is in progress globally, wait for it
     if (globalFetchPromise) {
-      await globalFetchPromise;
-      if (cachedUser && mountedRef.current) {
-        setUser(cachedUser);
+      const result = await globalFetchPromise;
+      if (mountedRef.current) {
+        setUser(result);
         setLoading(false);
       }
-      return;
+      return result;
     }
 
     // Prevent duplicate fetches
-    if (fetchingRef.current) return;
+    if (fetchingRef.current) return cachedUser;
     fetchingRef.current = true;
+
+    // Create global promise with proper typing
+    globalFetchPromise = new Promise<UserProfile | null>((resolve) => {
+      globalFetchResolve = resolve;
+    });
 
     // Set a timeout to prevent infinite loading on slow connections
     timeoutRef.current = setTimeout(() => {
@@ -71,12 +80,16 @@ export function useUser() {
         console.warn('User fetch timeout - using cached data or null');
         setLoading(false);
         fetchingRef.current = false;
+        // Resolve global promise on timeout
+        if (globalFetchResolve) {
+          globalFetchResolve(cachedUser);
+          globalFetchResolve = null;
+        }
+        globalFetchPromise = null;
       }
     }, FETCH_TIMEOUT);
 
-    // Set global promise to prevent parallel fetches across components
-    let resolveGlobalFetch: () => void;
-    globalFetchPromise = new Promise((resolve) => { resolveGlobalFetch = resolve; });
+    let fetchedUser: UserProfile | null = null;
 
     try {
       const { data, error } = await supabase
@@ -91,7 +104,10 @@ export function useUser() {
         timeoutRef.current = null;
       }
 
-      if (!mountedRef.current) return;
+      if (!mountedRef.current) {
+        fetchedUser = data || null;
+        return fetchedUser;
+      }
 
       if (error) {
         if (error.code === 'PGRST116') {
@@ -103,9 +119,10 @@ export function useUser() {
               .insert({
                 id: authUser.id,
                 email: authUser.email,
-                display_name: authUser.user_metadata?.display_name || authUser.email,
+                display_name: authUser.user_metadata?.display_name || authUser.email?.split('@')[0] || 'User',
                 role: authUser.user_metadata?.role || 'student',
                 subscription_tier: authUser.user_metadata?.role === 'teacher' ? 'pro' : 'basic',
+                onboarding_completed: false,
               });
             
             if (!insertError && mountedRef.current) {
@@ -114,36 +131,45 @@ export function useUser() {
                 .select('*')
                 .eq('id', userId)
                 .single();
-              if (newData && mountedRef.current) {
+              if (newData) {
                 cachedUser = newData;
                 cacheTimestamp = Date.now();
-                setUser(newData);
-                setLoading(false);
-                fetchingRef.current = false;
-                return;
+                fetchedUser = newData;
+                if (mountedRef.current) {
+                  setUser(newData);
+                  setLoading(false);
+                }
+                return fetchedUser;
               }
             }
           }
+        }
+        // Log non-404 errors
+        if (error.code !== 'PGRST116') {
+          console.error('Error fetching user profile:', error.message);
         }
         if (mountedRef.current) {
           setUser(null);
           setLoading(false);
         }
-        fetchingRef.current = false;
-        return;
+        return null;
       }
 
-      if (data && mountedRef.current) {
+      if (data) {
         cachedUser = data;
         cacheTimestamp = Date.now();
-        setUser(data);
+        fetchedUser = data;
+        if (mountedRef.current) {
+          setUser(data);
+        }
       } else if (mountedRef.current) {
         setUser(null);
       }
-    } catch (err) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       // Only log non-auth errors
-      if (err && !(err as any).message?.includes('JWT')) {
-        console.error('Error fetching user profile:', err);
+      if (!errorMessage.includes('JWT')) {
+        console.error('Error fetching user profile:', errorMessage);
       }
       if (mountedRef.current) {
         setUser(null);
@@ -157,13 +183,20 @@ export function useUser() {
         setLoading(false);
       }
       fetchingRef.current = false;
+      // Resolve global promise
+      if (globalFetchResolve) {
+        globalFetchResolve(fetchedUser);
+        globalFetchResolve = null;
+      }
       globalFetchPromise = null;
-      resolveGlobalFetch!();
     }
+
+    return fetchedUser;
   }, []);
 
   useEffect(() => {
     mountedRef.current = true;
+    let isSubscribed = true;
 
     // Get initial session with timeout for mobile
     const sessionPromise = supabase.auth.getSession();
@@ -172,26 +205,27 @@ export function useUser() {
     );
 
     Promise.race([sessionPromise, timeoutPromise]).then((result) => {
-      if (!mountedRef.current) return;
+      if (!isSubscribed || !mountedRef.current) return;
       
       if (result && 'data' in result && result.data.session?.user) {
         fetchUserProfile(result.data.session.user.id);
       } else {
         setLoading(false);
       }
-    }).catch(() => {
-      if (mountedRef.current) {
+    }).catch((err: unknown) => {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      console.error('Session fetch error:', errorMessage);
+      if (isSubscribed && mountedRef.current) {
         setLoading(false);
       }
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: string, session: { user?: { id: string } } | null) => {
-      if (!mountedRef.current) return;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!isSubscribed || !mountedRef.current) return;
       
       if (event === 'SIGNED_OUT') {
-        cachedUser = null;
-        cacheTimestamp = 0;
+        invalidateUserCache();
         setUser(null);
         setLoading(false);
       } else if (session?.user) {
@@ -201,9 +235,11 @@ export function useUser() {
     });
 
     return () => {
+      isSubscribed = false;
       mountedRef.current = false;
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
       }
       subscription.unsubscribe();
     };
@@ -212,8 +248,9 @@ export function useUser() {
   // Provide a refresh function for manual refresh
   const refresh = useCallback(() => {
     if (user?.id) {
-      fetchUserProfile(user.id, true);
+      return fetchUserProfile(user.id, true);
     }
+    return Promise.resolve(null);
   }, [user?.id, fetchUserProfile]);
 
   return { user, loading, refresh };

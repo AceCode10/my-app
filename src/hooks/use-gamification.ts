@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { XPService, type UserGamification } from '@/lib/gamification/xp-service';
 import { StreakService, type StreakData } from '@/lib/gamification/streak-service';
 import { BadgeService, type UserBadge } from '@/lib/gamification/badge-service';
@@ -20,15 +20,20 @@ export function useGamification() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  
+  // Use refs to track mounted state and prevent memory leaks
+  const mountedRef = useRef(true);
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const xpService = new XPService();
-  const streakService = new StreakService();
-  const badgeService = new BadgeService();
-  const notificationService = new NotificationService();
+  // Memoize services to prevent recreation on every render
+  const xpService = useMemo(() => new XPService(), []);
+  const streakService = useMemo(() => new StreakService(), []);
+  const badgeService = useMemo(() => new BadgeService(), []);
+  const notificationService = useMemo(() => new NotificationService(), []);
 
   // Load all gamification data with retry logic
   const loadData = useCallback(async (retryCount = 0) => {
-    if (!user) return;
+    if (!user || !mountedRef.current) return;
 
     try {
       const [gamData, streakInfo, badgeList, notifList, unread] = await Promise.all([
@@ -39,10 +44,17 @@ export function useGamification() {
         notificationService.getUnreadCount(user.id)
       ]);
 
+      // Check if still mounted before updating state
+      if (!mountedRef.current) return;
+
       // If gamification data is null and we haven't retried too many times, retry
       if (!gamData && retryCount < 2) {
         console.log('Gamification data not found, retrying...');
-        setTimeout(() => loadData(retryCount + 1), 1000);
+        retryTimeoutRef.current = setTimeout(() => {
+          if (mountedRef.current) {
+            loadData(retryCount + 1);
+          }
+        }, 1000);
         return;
       }
 
@@ -51,54 +63,91 @@ export function useGamification() {
       setBadges(badgeList);
       setNotifications(notifList);
       setUnreadCount(unread);
-    } catch (error) {
-      console.error('Error loading gamification data:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Error loading gamification data:', errorMessage);
       // Retry on error
-      if (retryCount < 2) {
-        setTimeout(() => loadData(retryCount + 1), 1000);
+      if (retryCount < 2 && mountedRef.current) {
+        retryTimeoutRef.current = setTimeout(() => {
+          if (mountedRef.current) {
+            loadData(retryCount + 1);
+          }
+        }, 1000);
         return;
       }
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
     }
-  }, [user]);
+  }, [user, xpService, streakService, badgeService, notificationService]);
 
+  // Initial data load
   useEffect(() => {
+    mountedRef.current = true;
     loadData();
+    
+    return () => {
+      // Clear any pending retry timeouts
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null;
+      }
+    };
   }, [loadData]);
 
   // Subscribe to real-time updates
   useEffect(() => {
     if (!user) return;
+    
+    let isSubscribed = true;
 
-    // XP updates
-    const handleXPEarned = () => loadData();
+    // Event handlers with mounted check
+    const handleXPEarned = () => {
+      if (isSubscribed && mountedRef.current) loadData();
+    };
+    const handleStreakUpdate = () => {
+      if (isSubscribed && mountedRef.current) loadData();
+    };
+    const handleBadgeEarned = () => {
+      if (isSubscribed && mountedRef.current) loadData();
+    };
+
+    // Add event listeners
     window.addEventListener('xp_earned', handleXPEarned);
-
-    // Streak updates
-    const handleStreakUpdate = () => loadData();
     window.addEventListener('streak_updated', handleStreakUpdate);
-
-    // Badge updates
-    const handleBadgeEarned = () => loadData();
     window.addEventListener('badge_earned', handleBadgeEarned);
 
-    // Notification updates
+    // Notification subscription
     const unsubscribe = notificationService.subscribeToNotifications(
       user.id,
       (notification) => {
-        setNotifications(prev => [notification, ...prev.slice(0, 9)]);
-        setUnreadCount(prev => prev + 1);
+        if (isSubscribed && mountedRef.current) {
+          setNotifications(prev => [notification, ...prev.slice(0, 9)]);
+          setUnreadCount(prev => prev + 1);
+        }
       }
     );
 
     return () => {
+      isSubscribed = false;
       window.removeEventListener('xp_earned', handleXPEarned);
       window.removeEventListener('streak_updated', handleStreakUpdate);
       window.removeEventListener('badge_earned', handleBadgeEarned);
       unsubscribe();
     };
-  }, [user]);
+  }, [user, loadData, notificationService]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   // Helper functions
   const getLevelProgress = useCallback(() => {

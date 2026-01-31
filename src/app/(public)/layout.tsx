@@ -16,6 +16,7 @@ import {
 import { allSubjects } from '@/lib/subjects';
 import { cn } from '@/lib/utils';
 import { OrganizationJsonLd, WebsiteJsonLd, SoftwareApplicationJsonLd } from '@/components/seo/json-ld';
+import { IGALogoIcon } from '@/components/ui/iga-logo';
 import { useDebounce } from '@/hooks/use-debounce';
 
 // Maximum time to show loading state before showing fallback UI
@@ -129,7 +130,12 @@ export default function PublicLayout({
             <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between h-16">
                     <div className="flex-shrink-0">
-                        <Link href="/" className="text-2xl font-bold text-foreground">IGA<span className="text-primary">Prep</span></Link>
+                        <Link href="/" className="flex items-center gap-2">
+                            <div className="w-10 h-10">
+                                <IGALogoIcon size="lg" />
+                            </div>
+                            <span className="text-xl font-bold text-foreground">IGA<span className="text-primary">Prep</span></span>
+                        </Link>
                     </div>
                     <nav className="hidden md:flex items-center space-x-1">
                         {isClient && (
@@ -336,7 +342,12 @@ export default function PublicLayout({
             <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
                 <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-8">
                     <div className="col-span-full lg:col-span-1 mb-4 lg:mb-0">
-                         <h3 className="text-xl font-bold text-foreground">IGA<span className="text-primary">Prep</span></h3>
+                         <div className="flex items-center gap-2">
+                             <div className="w-12 h-12">
+                                 <IGALogoIcon size="lg" />
+                             </div>
+                             <h3 className="text-xl font-bold text-foreground">IGA<span className="text-primary">Prep</span></h3>
+                         </div>
                          <p className="mt-2 text-sm">The best revision materials for IGCSE, GCSE & A-Levels.</p>
                     </div>
                     <div>

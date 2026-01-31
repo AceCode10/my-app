@@ -18,6 +18,7 @@ interface EnvVar {
 }
 
 const ENV_VARS: EnvVar[] = [
+  // Required Supabase Configuration
   {
     name: 'NEXT_PUBLIC_SUPABASE_URL',
     required: true,
@@ -43,6 +44,7 @@ const ENV_VARS: EnvVar[] = [
     description: 'Supabase service role key (for admin operations)',
     validator: (value) => value.startsWith('eyJ'),
   },
+  // Required Application Configuration
   {
     name: 'NEXT_PUBLIC_APP_URL',
     required: true,
@@ -67,6 +69,32 @@ const ENV_VARS: EnvVar[] = [
     required: false,
     description: 'Initial admin email address',
     validator: (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
+  },
+  // AI Services (optional but recommended)
+  {
+    name: 'OPENAI_API_KEY',
+    required: false,
+    description: 'OpenAI API key for AI features (question extraction, etc.)',
+    validator: (value) => value.startsWith('sk-'),
+  },
+  {
+    name: 'GEMINI_API_KEY',
+    required: false,
+    description: 'Google Gemini API key for AI features',
+    validator: (value) => value.startsWith('AIza'),
+  },
+  // Email Configuration (optional)
+  {
+    name: 'RESEND_API_KEY',
+    required: false,
+    description: 'Resend API key for email notifications',
+    validator: (value) => value.startsWith('re_'),
+  },
+  {
+    name: 'SMTP_HOST',
+    required: false,
+    description: 'SMTP host for email sending',
+    validator: (value) => value.length > 0,
   },
 ];
 

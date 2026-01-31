@@ -154,7 +154,7 @@ export default function TeacherSubjectsPage() {
             My Subjects
           </h1>
           <p className="text-muted-foreground mt-1">
-            Subjects you teach - manage content and track student progress
+            
           </p>
         </div>
         <div className="flex gap-2">

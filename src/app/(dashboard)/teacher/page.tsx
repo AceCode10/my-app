@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { 
     Users, PlusCircle, BookOpen, ArrowRight, Book, Activity, Bell,
     ClipboardCheck, FileText, Settings, BarChart3, GraduationCap,
-    Clock, CheckCircle, AlertCircle, Target, TrendingUp, Layers, Hammer, Globe
+    Clock, CheckCircle, AlertCircle, Target, TrendingUp, Layers, Hammer
 } from 'lucide-react';
 import { useUser } from '@/hooks/use-user';
 import { Button } from '@/components/ui/button';
@@ -22,7 +22,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { EXAM_BOARDS } from '@/lib/exam-boards';
 import { getFriendlyName } from '@/lib/utils/name';
-import { getCountryName } from '@/lib/countries';
 
 const supabase = createClient();
 
@@ -140,7 +139,6 @@ const DashboardView = ({
     
     const userExamBoards = user?.exam_boards || [];
     const userLevels = user?.levels || [];
-    const userCountry = user?.country;
     const selectedBoardsInfo = EXAM_BOARDS.filter(b => userExamBoards.includes(b.id));
 
     return (
@@ -151,14 +149,8 @@ const DashboardView = ({
                 <h2 className="text-2xl sm:text-3xl font-bold text-foreground">Welcome back, {getFriendlyName(user?.display_name, user?.email)}!</h2>
                 <p className="text-muted-foreground mt-1 text-sm sm:text-base">Your teaching overview at a glance</p>
             </div>
-            <div className="flex flex-col gap-2">
+            {(selectedBoardsInfo.length > 0 || userLevels.length > 0) && (
                 <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                    {userCountry && (
-                        <div className="flex items-center gap-1">
-                            <Globe className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
-                            <span className="text-xs sm:text-sm">{getCountryName(userCountry)}</span>
-                        </div>
-                    )}
                     {selectedBoardsInfo.length > 0 && (
                         <div className="flex items-center gap-1">
                             <span className="text-xs sm:text-sm text-muted-foreground">Board:</span>
@@ -186,8 +178,8 @@ const DashboardView = ({
                             </div>
                         </div>
                     )}
-                                    </div>
-            </div>
+                </div>
+            )}
         </div>
 
         {/* Stats Cards */}

@@ -29,13 +29,15 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: 'any' },
-      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/favicon.png', sizes: 'any' },
+      { url: '/icon', sizes: '64x64', type: 'image/png' },
+      { url: '/iga-logo.svg', type: 'image/svg+xml' },
     ],
     apple: [
-      { url: '/apple-touch-icon.png', sizes: '180x180' },
+      { url: '/apple-icon', sizes: '180x180', type: 'image/png' },
     ],
     other: [
-      { rel: 'mask-icon', url: '/safari-pinned-tab.svg', color: '#16a34a' },
+      { rel: 'mask-icon', url: '/iga-logo.svg', color: '#16a34a' },
     ],
   },
   appleWebApp: {

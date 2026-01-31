@@ -1,9 +1,31 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type QueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 
 const supabase = createClient();
+
+// Standardized cache times based on data volatility
+const CACHE_TIMES = {
+  // Static data that rarely changes
+  static: {
+    staleTime: 15 * 60 * 1000, // 15 minutes
+    gcTime: 60 * 60 * 1000, // 1 hour
+  },
+  // Semi-static data that changes occasionally
+  semiStatic: {
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
+  },
+  // Dynamic data that changes frequently
+  dynamic: {
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+  },
+};
+
+// Default result limit to prevent performance issues
+const DEFAULT_LIMIT = 100;
 
 // Cached subjects query
 export function useSubjects(options?: { includeAll?: boolean; examBoardId?: string; level?: string }) {
@@ -13,7 +35,8 @@ export function useSubjects(options?: { includeAll?: boolean; examBoardId?: stri
       let query = supabase
         .from('subjects')
         .select('id, name, slug, code, description, icon_url, color, status, display_order, exam_board_id, level')
-        .order('display_order', { ascending: true });
+        .order('display_order', { ascending: true })
+        .limit(DEFAULT_LIMIT);
       
       if (!options?.includeAll) {
         query = query.eq('status', 'published');
@@ -29,8 +52,7 @@ export function useSubjects(options?: { includeAll?: boolean; examBoardId?: stri
       if (error) throw error;
       return data || [];
     },
-    staleTime: 10 * 60 * 1000, // 10 minutes - subjects rarely change
-    gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
+    ...CACHE_TIMES.static,
   });
 }
 
@@ -43,12 +65,13 @@ export function useExamBoards() {
         .from('exam_boards')
         .select('id, name, code, is_active, display_order')
         .eq('is_active', true)
-        .order('display_order', { ascending: true });
+        .order('display_order', { ascending: true })
+        .limit(50);
       
       if (error) throw error;
       return data || [];
     },
-    staleTime: 30 * 60 * 1000, // 30 minutes - exam boards rarely change
+    ...CACHE_TIMES.static,
   });
 }
 
@@ -63,18 +86,19 @@ export function useTopicsBySubject(subjectId: string | null) {
         .from('topics')
         .select('id, name, slug, description, display_order, subject_id')
         .eq('subject_id', subjectId)
-        .order('display_order', { ascending: true });
+        .order('display_order', { ascending: true })
+        .limit(DEFAULT_LIMIT);
       
       if (error) throw error;
       return data || [];
     },
     enabled: !!subjectId,
-    staleTime: 10 * 60 * 1000,
+    ...CACHE_TIMES.semiStatic,
   });
 }
 
-// Cached past papers with subjects
-export function usePastPapers(filters?: { subjectId?: string; year?: string }) {
+// Cached past papers with subjects - with pagination support
+export function usePastPapers(filters?: { subjectId?: string; year?: string; limit?: number }) {
   return useQuery({
     queryKey: ['past-papers', filters],
     queryFn: async () => {
@@ -89,7 +113,8 @@ export function usePastPapers(filters?: { subjectId?: string; year?: string }) {
         `)
         .eq('status', 'published')
         .order('year', { ascending: false })
-        .order('session', { ascending: true });
+        .order('session', { ascending: true })
+        .limit(filters?.limit || DEFAULT_LIMIT);
 
       if (filters?.subjectId && filters.subjectId !== 'all') {
         query = query.eq('subject_id', filters.subjectId);
@@ -102,12 +127,12 @@ export function usePastPapers(filters?: { subjectId?: string; year?: string }) {
       if (error) throw error;
       return data || [];
     },
-    staleTime: 5 * 60 * 1000,
+    ...CACHE_TIMES.semiStatic,
   });
 }
 
-// Cached notes
-export function useNotes(filters?: { subjectId?: string; visibility?: string }) {
+// Cached notes with pagination support
+export function useNotes(filters?: { subjectId?: string; visibility?: string; limit?: number }) {
   return useQuery({
     queryKey: ['notes', filters],
     queryFn: async () => {
@@ -119,7 +144,8 @@ export function useNotes(filters?: { subjectId?: string; visibility?: string }) 
           subjects(id, name, slug),
           topics(id, name, slug)
         `)
-        .order('updated_at', { ascending: false });
+        .order('updated_at', { ascending: false })
+        .limit(filters?.limit || DEFAULT_LIMIT);
 
       if (filters?.subjectId && filters.subjectId !== 'all') {
         query = query.eq('subject_id', filters.subjectId);
@@ -135,7 +161,7 @@ export function useNotes(filters?: { subjectId?: string; visibility?: string }) 
       if (error) throw error;
       return data || [];
     },
-    staleTime: 5 * 60 * 1000,
+    ...CACHE_TIMES.semiStatic,
   });
 }
 
@@ -159,12 +185,12 @@ export function useUserProfile(userId: string | null) {
       return data;
     },
     enabled: !!userId,
-    staleTime: 5 * 60 * 1000,
+    ...CACHE_TIMES.dynamic,
   });
 }
 
-// Prefetch common data
-export async function prefetchCommonData(queryClient: any) {
+// Prefetch common data with proper typing
+export async function prefetchCommonData(queryClient: QueryClient) {
   await Promise.all([
     queryClient.prefetchQuery({
       queryKey: ['subjects', undefined, undefined, undefined],
@@ -173,10 +199,11 @@ export async function prefetchCommonData(queryClient: any) {
           .from('subjects')
           .select('id, name, slug, code, description, icon_url, color, status, display_order, exam_board_id, level')
           .eq('status', 'published')
-          .order('display_order');
+          .order('display_order')
+          .limit(DEFAULT_LIMIT);
         return data || [];
       },
-      staleTime: 10 * 60 * 1000,
+      ...CACHE_TIMES.static,
     }),
     queryClient.prefetchQuery({
       queryKey: ['exam-boards'],
@@ -185,10 +212,11 @@ export async function prefetchCommonData(queryClient: any) {
           .from('exam_boards')
           .select('id, name, code, full_name, color, is_active, display_order')
           .eq('is_active', true)
-          .order('display_order');
+          .order('display_order')
+          .limit(50);
         return data || [];
       },
-      staleTime: 30 * 60 * 1000,
+      ...CACHE_TIMES.static,
     }),
   ]);
 }

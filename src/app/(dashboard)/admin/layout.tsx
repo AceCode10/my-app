@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { KodiLoadingGif } from '@/components/ui/kodi-loading-gif';
+import { IGALogoIcon } from '@/components/ui/iga-logo';
 
 interface NavItem {
   label: string;
@@ -171,9 +172,9 @@ export default function AdminLayout({
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center justify-between h-16 px-6 border-b">
-            <Link href="/admin" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-sm">IGA</span>
+            <Link href="/admin" className="flex items-center gap-2">
+              <div className="w-12 h-12 flex-shrink-0">
+                <IGALogoIcon size="lg" />
               </div>
               <div>
                 <h1 className="text-sm font-bold text-foreground">IGA Prep</h1>

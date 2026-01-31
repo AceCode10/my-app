@@ -34,6 +34,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
   Search,
   Plus,
   Trash2,
@@ -51,7 +56,12 @@ import {
   EyeOff,
   BookOpen,
   GripHorizontal,
+  SlidersHorizontal,
+  X,
 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 import { TestPDFExport } from '@/components/teacher/test-pdf-export';
 import { ExamQuestionCard } from '@/components/teacher/exam-question-card';
 import {
@@ -242,6 +252,8 @@ export default function TestBuilderPage() {
   const [showPDFExport, setShowPDFExport] = useState(false);
   const [showAnswerKey, setShowAnswerKey] = useState(false);
   const [loadingTest, setLoadingTest] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [previewQuestion, setPreviewQuestion] = useState<Question | null>(null);
   
   // Resizable panel state (percentage width for left panel)
   const [leftPanelWidth, setLeftPanelWidth] = useState(40);
@@ -1082,125 +1094,177 @@ export default function TestBuilderPage() {
         </div>
       </div>
 
-      {/* Filters Bar - Moved to top */}
-      <Card className="mb-4">
-        <CardContent className="py-3">
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Search */}
-            <div className="relative flex-1 min-w-[200px] max-w-[300px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search questions..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
+      {/* Compact Filters Bar */}
+      <div className="flex items-center gap-3 mb-4">
+        {/* Search */}
+        <div className="relative flex-1 max-w-[300px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search questions..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
 
-            {/* Filters - Order: Board, Level, Subject, Topic, Difficulty, Type */}
-            {/* 1. Exam Board */}
-            <Select value={selectedExamBoard} onValueChange={(v) => {
-              setSelectedExamBoard(v);
-              // Reset level, subject and topic when exam board changes
-              setSelectedLevel('');
-              setSelectedSubject('');
-              setSelectedTopic('all');
-            }}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="Board" />
-              </SelectTrigger>
-              <SelectContent>
-                {examBoards.map(eb => (
-                  <SelectItem key={eb.id} value={eb.id}>{eb.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* 2. Level */}
-            <Select value={selectedLevel} onValueChange={(v) => {
-              setSelectedLevel(v);
-              // Reset subject and topic when level changes
-              setSelectedSubject('');
-              setSelectedTopic('all');
-            }}>
-              <SelectTrigger className="w-[120px]">
-                <SelectValue placeholder="Level" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableLevels.map(level => (
-                  <SelectItem key={level} value={level}>{level}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* 3. Subject */}
-            <Select value={selectedSubject} onValueChange={(v) => {
-              setSelectedSubject(v);
-              setSelectedTopic('all');
-            }}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="Subject" />
-              </SelectTrigger>
-              <SelectContent>
-                {filteredSubjects.map(s => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.code && `${s.code} - `}{s.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* 4. Topic (can be All) */}
-            <Select value={selectedTopic} onValueChange={setSelectedTopic}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="Topic" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Topics</SelectItem>
-                {topics.map(t => (
-                  <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* 5. Difficulty (can be All) */}
-            <Select value={selectedDifficulty} onValueChange={setSelectedDifficulty}>
-              <SelectTrigger className="w-[130px]">
-                <SelectValue placeholder="Difficulty" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Difficulties</SelectItem>
-                <SelectItem value="easy">Easy</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="hard">Hard</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* 6. Type (can be All) */}
-            <Select value={selectedType} onValueChange={setSelectedType}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="multiple_choice">MCQ</SelectItem>
-                <SelectItem value="short_answer">Short Answer</SelectItem>
-                <SelectItem value="essay">Long Answer</SelectItem>
-                <SelectItem value="numeric">Numeric</SelectItem>
-                <SelectItem value="tf">True/False</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* Question count */}
-            <div className="ml-auto text-sm text-muted-foreground">
-              {loadingQuestions ? 'Loading...' : `${groupedQuestions.length} questions`}
-              {groupedQuestions.length > 0 && !loadingQuestions && (
-                <span className="ml-2">• {groupedQuestions.reduce((sum, g) => sum + g.totalMarks, 0)} marks</span>
+        {/* Filters Popover */}
+        <Popover open={showFilters} onOpenChange={setShowFilters}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="gap-2">
+              <SlidersHorizontal className="h-4 w-4" />
+              Filters
+              {(selectedTopic !== 'all' || selectedDifficulty !== 'all' || selectedType !== 'all') && (
+                <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                  {[selectedTopic !== 'all', selectedDifficulty !== 'all', selectedType !== 'all'].filter(Boolean).length}
+                </Badge>
               )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80" align="start">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium">Filter Questions</h4>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => {
+                    setSelectedTopic('all');
+                    setSelectedDifficulty('all');
+                    setSelectedType('all');
+                  }}
+                  className="h-8 text-xs"
+                >
+                  Reset
+                </Button>
+              </div>
+              
+              {/* Exam Board */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Exam Board</label>
+                <Select value={selectedExamBoard} onValueChange={(v) => {
+                  setSelectedExamBoard(v);
+                  setSelectedLevel('');
+                  setSelectedSubject('');
+                  setSelectedTopic('all');
+                }}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select board" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {examBoards.map(eb => (
+                      <SelectItem key={eb.id} value={eb.id}>{eb.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Level */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Level</label>
+                <Select value={selectedLevel} onValueChange={(v) => {
+                  setSelectedLevel(v);
+                  setSelectedSubject('');
+                  setSelectedTopic('all');
+                }}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableLevels.map(level => (
+                      <SelectItem key={level} value={level}>{level}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Subject */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Subject</label>
+                <Select value={selectedSubject} onValueChange={(v) => {
+                  setSelectedSubject(v);
+                  setSelectedTopic('all');
+                }}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select subject" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredSubjects.map(s => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.code && `${s.code} - `}{s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Topic */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Topic</label>
+                <Select value={selectedTopic} onValueChange={setSelectedTopic}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="All Topics" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Topics</SelectItem>
+                    {topics.map(t => (
+                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Difficulty */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Difficulty</label>
+                <Select value={selectedDifficulty} onValueChange={setSelectedDifficulty}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="All Difficulties" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Difficulties</SelectItem>
+                    <SelectItem value="easy">Easy</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="hard">Hard</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Type */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Question Type</label>
+                <Select value={selectedType} onValueChange={setSelectedType}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="All Types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="multiple_choice">MCQ</SelectItem>
+                    <SelectItem value="short_answer">Short Answer</SelectItem>
+                    <SelectItem value="essay">Long Answer</SelectItem>
+                    <SelectItem value="numeric">Numeric</SelectItem>
+                    <SelectItem value="tf">True/False</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Button 
+                className="w-full" 
+                onClick={() => setShowFilters(false)}
+              >
+                Apply Filters
+              </Button>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </PopoverContent>
+        </Popover>
+
+        {/* Question count */}
+        <div className="ml-auto text-sm text-muted-foreground">
+          {loadingQuestions ? 'Loading...' : `${groupedQuestions.length} questions`}
+          {groupedQuestions.length > 0 && !loadingQuestions && (
+            <span className="ml-2">• {groupedQuestions.reduce((sum, g) => sum + g.totalMarks, 0)} marks</span>
+          )}
+        </div>
+      </div>
 
       {/* Main content - Resizable panels */}
       <div 
@@ -1340,19 +1404,32 @@ export default function TestBuilderPage() {
                                 )}
                               </div>
                             </div>
-                            <Button
-                              size="icon"
-                              variant={isAnyPartSelected ? "secondary" : "default"}
-                              onClick={() => !isAnyPartSelected && addQuestion(question)}
-                              disabled={isAnyPartSelected}
-                              className={`h-8 w-8 flex-shrink-0 ${!isAnyPartSelected ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
-                            >
-                              {isAnyPartSelected ? (
-                                <CheckCircle2 className="h-4 w-4" />
-                              ) : (
-                                <Plus className="h-5 w-5" />
-                              )}
-                            </Button>
+                            <div className="flex flex-col gap-1 flex-shrink-0">
+                              {/* Preview Button */}
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => setPreviewQuestion(question)}
+                                className="h-8 w-8 text-muted-foreground hover:text-primary"
+                                title="Preview question"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              {/* Add Button */}
+                              <Button
+                                size="icon"
+                                variant={isAnyPartSelected ? "secondary" : "default"}
+                                onClick={() => !isAnyPartSelected && addQuestion(question)}
+                                disabled={isAnyPartSelected}
+                                className={`h-8 w-8 ${!isAnyPartSelected ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
+                              >
+                                {isAnyPartSelected ? (
+                                  <CheckCircle2 className="h-4 w-4" />
+                                ) : (
+                                  <Plus className="h-5 w-5" />
+                                )}
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       );
@@ -1389,14 +1466,25 @@ export default function TestBuilderPage() {
                     {settings.durationMinutes && ` • ${settings.durationMinutes} minutes`}
                   </CardDescription>
                 </div>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setShowAnswerKey(!showAnswerKey)}
-                >
-                  {showAnswerKey ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
-                  {showAnswerKey ? 'Hide Answers' : 'Show Answers'}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setShowAnswerKey(!showAnswerKey)}
+                  >
+                    {showAnswerKey ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
+                    {showAnswerKey ? 'Hide Answers' : 'Show Answers'}
+                  </Button>
+                  <Button 
+                    variant="default" 
+                    size="sm"
+                    onClick={exportPDF}
+                    disabled={testQuestions.length === 0}
+                  >
+                    <Eye className="h-4 w-4 mr-1" />
+                    Preview Test
+                  </Button>
+                </div>
               </div>
             </CardHeader>
 
@@ -1610,6 +1698,116 @@ export default function TestBuilderPage() {
         open={showPDFExport}
         onOpenChange={setShowPDFExport}
       />
+
+      {/* Question Preview Modal */}
+      <Dialog open={!!previewQuestion} onOpenChange={(open) => !open && setPreviewQuestion(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              Question Preview
+              {previewQuestion?.question_number && (
+                <Badge variant="outline">Q{previewQuestion.question_number}</Badge>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              <div className="flex items-center gap-2 mt-1">
+                <Badge variant="secondary" className={`text-xs ${getTypeBadgeColor(previewQuestion?.question_type || '')} text-white`}>
+                  {formatQuestionType(previewQuestion?.question_type || '')}
+                </Badge>
+                <Badge variant="outline" className={`text-xs ${getDifficultyColor(previewQuestion?.difficulty || '')}`}>
+                  {previewQuestion?.difficulty || 'medium'}
+                </Badge>
+                <span className="text-xs">
+                  {previewQuestion?.marks || 0} mark{(previewQuestion?.marks || 0) !== 1 ? 's' : ''}
+                </span>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          
+          {previewQuestion && (
+            <div className="space-y-4">
+              {/* Question Image */}
+              {(previewQuestion.image_url || previewQuestion.question_image_url) && (
+                <div className="rounded-lg border overflow-hidden">
+                  <img 
+                    src={previewQuestion.question_image_url || previewQuestion.image_url || ''} 
+                    alt="Question" 
+                    className="max-w-full max-h-[400px] object-contain mx-auto"
+                  />
+                </div>
+              )}
+              
+              {/* Question Text */}
+              {(previewQuestion.stem_markdown || previewQuestion.stem_md) && (
+                <div className="prose prose-sm max-w-none dark:prose-invert">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkMath]}
+                    rehypePlugins={[rehypeKatex]}
+                  >
+                    {previewQuestion.stem_markdown || previewQuestion.stem_md || ''}
+                  </ReactMarkdown>
+                </div>
+              )}
+              
+              {/* MCQ Options */}
+              {(previewQuestion.question_type === 'mcq' || previewQuestion.question_type === 'multiple_choice' || previewQuestion.question_type === 'Multiple Choice') && previewQuestion.options && (
+                <div className="space-y-2 pl-4">
+                  {(Array.isArray(previewQuestion.options) 
+                    ? previewQuestion.options 
+                    : Object.entries(previewQuestion.options).map(([key, value]) => ({ label: key, text: value }))
+                  ).map((opt: any, idx: number) => (
+                    <div key={idx} className="flex items-start gap-2">
+                      <span className="font-semibold text-muted-foreground min-w-[24px]">
+                        {opt.label || String.fromCharCode(65 + idx)}.
+                      </span>
+                      <span>{typeof opt === 'string' ? opt : (opt.text || opt.value || '')}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {/* Answer Key */}
+              {previewQuestion.correct_answer && (
+                <div className="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
+                  <p className="text-sm font-semibold text-green-800 dark:text-green-200 mb-1">Answer:</p>
+                  <p className="text-sm text-green-700 dark:text-green-300">
+                    {typeof previewQuestion.correct_answer === 'string' 
+                      ? previewQuestion.correct_answer 
+                      : JSON.stringify(previewQuestion.correct_answer)}
+                  </p>
+                </div>
+              )}
+              
+              {/* Examiner Comment */}
+              {previewQuestion.examiner_comment && (
+                <div className="p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <p className="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-1">Examiner Notes:</p>
+                  <p className="text-sm text-blue-700 dark:text-blue-300">{previewQuestion.examiner_comment}</p>
+                </div>
+              )}
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPreviewQuestion(null)}>
+              Close
+            </Button>
+            <Button 
+              onClick={() => {
+                if (previewQuestion && !selectedQuestionIds.has(previewQuestion.id)) {
+                  addQuestion(previewQuestion);
+                }
+                setPreviewQuestion(null);
+              }}
+              disabled={!previewQuestion || selectedQuestionIds.has(previewQuestion?.id || '')}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              {selectedQuestionIds.has(previewQuestion?.id || '') ? 'Already Added' : 'Add to Test'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

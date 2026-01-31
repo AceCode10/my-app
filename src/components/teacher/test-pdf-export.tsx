@@ -695,13 +695,10 @@ function QuestionPaperPDF({ test, options }: { test: TestData; options: PDFOptio
                         </View>
                       )}
 
-                      {/* For MCQ/TF - show marks after options (only if marks > 0) */}
+                      {/* For MCQ/TF - show marks only (no answer line - students circle the letter) */}
                       {(question.question_type === 'mcq' || question.question_type === 'multiple_choice' || question.question_type === 'Multiple Choice' || question.question_type === 'tf') && tq.marks > 0 && (
-                        <View style={{ marginTop: 8 }}>
-                          <View style={styles.answerLineRow}>
-                            <View style={styles.answerLine} />
-                            <Text style={styles.lineMarks}>[{tq.marks}]</Text>
-                          </View>
+                        <View style={{ marginTop: 8, alignItems: 'flex-end' }}>
+                          <Text style={{ fontSize: 11 }}>[{tq.marks}]</Text>
                         </View>
                       )}
 
