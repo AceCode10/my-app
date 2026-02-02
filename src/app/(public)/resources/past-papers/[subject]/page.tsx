@@ -154,10 +154,27 @@ export default function SubjectPastPapersPage({
   const components = [...new Set(papers.map(p => p.component_code).filter((c): c is string => Boolean(c)))];
   const resourceTypes = [...new Set(papers.map(p => p.resource_type).filter((r): r is string => Boolean(r)))];
 
-  // Get component name for display
+  // Get component name for display (avoid duplicate "Paper")
   const getComponentName = (code: string) => {
     const comp = paperComponents.find(c => c.component_code === code);
-    return comp?.component_name || `Paper ${code}`;
+    if (comp?.component_name) {
+      // If component_name already starts with "Paper", use it as-is
+      return comp.component_name;
+    }
+    // Check if code already starts with "Paper" to avoid "Paper Paper X"
+    if (code.toLowerCase().startsWith('paper')) {
+      return code;
+    }
+    return `Paper ${code}`;
+  };
+
+  // Generate short paper title like "Paper 1 (0417/11)"
+  const getShortPaperTitle = (paper: Paper) => {
+    const subjectCode = subject?.code || '0000';
+    const paperNum = paper.paper_number || paper.component_code || '1';
+    const variant = paper.variant || '1';
+    // Format: "Paper 1 (0417/11)"
+    return `Paper ${paperNum} (${subjectCode}/${variant})`;
   };
 
   // Filter papers
@@ -202,20 +219,22 @@ export default function SubjectPastPapersPage({
     })
     .map(group => ({
       ...group,
-      // Sort papers by component_code numerically, then by variant numerically
+      // Sort papers by paper_number numerically, then by variant numerically
       papers: group.papers.sort((a, b) => {
-        // First sort by component code (e.g., 1, 2, 3, 4)
-        const aCode = parseInt(a.component_code || '0') || 0;
-        const bCode = parseInt(b.component_code || '0') || 0;
-        if (aCode !== bCode) return aCode - bCode;
+        // First sort by paper_number (e.g., 1, 2, 3)
+        const aPaperNum = parseInt(a.paper_number || a.component_code || '0') || 0;
+        const bPaperNum = parseInt(b.paper_number || b.component_code || '0') || 0;
+        if (aPaperNum !== bPaperNum) return aPaperNum - bPaperNum;
         
-        // Then sort by variant (e.g., 11, 12, 13 or 1, 2, 3)
+        // Then sort by variant (e.g., 11, 12, 13)
         const aVariant = parseInt(a.variant || '0') || 0;
         const bVariant = parseInt(b.variant || '0') || 0;
         if (aVariant !== bVariant) return aVariant - bVariant;
         
-        // Finally by paper_number as fallback
-        return (a.paper_number || '').localeCompare(b.paper_number || '');
+        // Finally by component_code as fallback
+        const aCode = parseInt(a.component_code || '0') || 0;
+        const bCode = parseInt(b.component_code || '0') || 0;
+        return aCode - bCode;
       })
     }));
 
@@ -380,7 +399,7 @@ export default function SubjectPastPapersPage({
                     <div className="flex items-start justify-between">
                       <div>
                         <div className="font-medium text-foreground text-sm">
-                          {paper.title || `Paper ${paper.paper_number || ''} ${paper.variant ? `(Variant ${paper.variant})` : ''}`}
+                          {getShortPaperTitle(paper)}
                         </div>
                         <div className="flex items-center gap-2 mt-1">
                           {paper.duration_minutes && (

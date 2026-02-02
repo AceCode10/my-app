@@ -52,8 +52,14 @@ export default function PaperDetailPage() {
   useEffect(() => {
     fetchPaper();
     fetchQuestions();
-    fetchPreviousAttempts();
   }, [paperId]);
+
+  // Fetch previous attempts after paper is loaded (needed for duration check)
+  useEffect(() => {
+    if (paper) {
+      fetchPreviousAttempts();
+    }
+  }, [paper]);
 
   async function fetchPaper() {
     try {
@@ -106,10 +112,64 @@ export default function PaperDetailPage() {
         .order('started_at', { ascending: false })
         .limit(5);
 
-      setPreviousAttempts(data || []);
+      if (!data) {
+        setPreviousAttempts([]);
+        return;
+      }
+
+      // Check for expired timed attempts and auto-submit them
+      const paperData = paper;
+      const updatedAttempts = await Promise.all(data.map(async (attempt: any) => {
+        if (attempt.status === 'in_progress' && attempt.practice_mode === 'timed' && paperData?.duration_minutes) {
+          const startTime = new Date(attempt.started_at).getTime();
+          const durationMs = paperData.duration_minutes * 60 * 1000;
+          const elapsed = Date.now() - startTime;
+          
+          // If time has expired, auto-submit this attempt
+          if (elapsed >= durationMs) {
+            const timeSpent = Math.floor(elapsed / 1000);
+            
+            // Update the attempt to submitted status
+            const { error } = await supabase
+              .from('assessment_attempts')
+              .update({
+                status: 'submitted',
+                submitted_at: new Date().toISOString(),
+                time_spent_seconds: timeSpent,
+                review_status: 'pending',
+                auto_submitted: true
+              })
+              .eq('id', attempt.id);
+            
+            if (!error) {
+              // Mark as closed
+              await supabase
+                .from('assessment_attempts')
+                .update({
+                  status: 'closed',
+                  completed_at: new Date().toISOString()
+                })
+                .eq('id', attempt.id)
+                .eq('status', 'submitted');
+              
+              // Show notification
+              toast({
+                title: 'Attempt Auto-Submitted',
+                description: `Your timed attempt from ${new Date(attempt.started_at).toLocaleDateString()} has been automatically submitted because the time expired.`,
+                variant: 'default'
+              });
+              
+              return { ...attempt, status: 'closed', auto_submitted: true };
+            }
+          }
+        }
+        return attempt;
+      }));
+
+      setPreviousAttempts(updatedAttempts);
       
-      // Check for in-progress attempt
-      const inProgress = data?.find((a: any) => a.status === 'in_progress');
+      // Check for in-progress attempt (only non-expired ones now)
+      const inProgress = updatedAttempts.find((a: any) => a.status === 'in_progress');
       setInProgressAttempt(inProgress || null);
     } catch (error) {
       console.error('Error fetching attempts:', error);

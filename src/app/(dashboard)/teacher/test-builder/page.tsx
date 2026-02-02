@@ -1332,21 +1332,11 @@ export default function TestBuilderPage() {
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex-1 min-w-0">
-                              {/* Question number and parts indicator */}
+                              {/* Parts indicator - no question numbers in question bank */}
                               <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                {question.question_number && (
-                                  <span className="text-xs font-semibold text-primary">
-                                    Q{question.question_number}
-                                    {hasMultipleParts && (
-                                      <span className="ml-1 text-muted-foreground">
-                                        ({parts.map(p => p.part_label || 'main').join(', ')})
-                                      </span>
-                                    )}
-                                  </span>
-                                )}
                                 {hasMultipleParts && (
                                   <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-                                    {parts.length} parts
+                                    {parts.length} parts ({parts.map(p => p.part_label || 'main').join(', ')})
                                   </Badge>
                                 )}
                                 {question.source === 'paper' && (
@@ -1678,15 +1668,12 @@ export default function TestBuilderPage() {
         onOpenChange={setShowPDFExport}
       />
 
-      {/* Question Preview Modal */}
+      {/* Question Preview Modal - Shows full question with all parts */}
       <Dialog open={!!previewQuestion} onOpenChange={(open) => !open && setPreviewQuestion(null)}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               Question Preview
-              {previewQuestion?.question_number && (
-                <Badge variant="outline">Q{previewQuestion.question_number}</Badge>
-              )}
             </DialogTitle>
             <DialogDescription>
               <div className="flex items-center gap-2 mt-1">
@@ -1696,74 +1683,154 @@ export default function TestBuilderPage() {
                 <Badge variant="outline" className={`text-xs ${getDifficultyColor(previewQuestion?.difficulty || '')}`}>
                   {previewQuestion?.difficulty || 'medium'}
                 </Badge>
-                <span className="text-xs">
-                  {previewQuestion?.marks || 0} mark{(previewQuestion?.marks || 0) !== 1 ? 's' : ''}
-                </span>
+                {(() => {
+                  // Calculate total marks for the question group
+                  if (!previewQuestion) return null;
+                  const relatedParts = getRelatedQuestionParts(previewQuestion);
+                  const totalMarks = relatedParts.reduce((sum, p) => sum + (p.marks || 0), 0);
+                  return (
+                    <span className="text-xs">
+                      {totalMarks} mark{totalMarks !== 1 ? 's' : ''} total
+                    </span>
+                  );
+                })()}
               </div>
             </DialogDescription>
           </DialogHeader>
           
           {previewQuestion && (
             <div className="space-y-4">
-              {/* Question Image */}
-              {(previewQuestion.image_url || previewQuestion.question_image_url) && (
-                <div className="rounded-lg border overflow-hidden">
-                  <img 
-                    src={previewQuestion.question_image_url || previewQuestion.image_url || ''} 
-                    alt="Question" 
-                    className="max-w-full max-h-[400px] object-contain mx-auto"
-                  />
-                </div>
-              )}
-              
-              {/* Question Text */}
-              {(previewQuestion.stem_markdown || previewQuestion.stem_md) && (
-                <div className="prose prose-sm max-w-none dark:prose-invert">
-                  <ReactMarkdown
-                    remarkPlugins={[remarkMath]}
-                    rehypePlugins={[rehypeKatex]}
-                  >
-                    {previewQuestion.stem_markdown || previewQuestion.stem_md || ''}
-                  </ReactMarkdown>
-                </div>
-              )}
-              
-              {/* MCQ Options */}
-              {(previewQuestion.question_type === 'mcq' || previewQuestion.question_type === 'multiple_choice' || previewQuestion.question_type === 'Multiple Choice') && previewQuestion.options && (
-                <div className="space-y-2 pl-4">
-                  {(Array.isArray(previewQuestion.options) 
-                    ? previewQuestion.options 
-                    : Object.entries(previewQuestion.options).map(([key, value]) => ({ label: key, text: value }))
-                  ).map((opt: any, idx: number) => (
-                    <div key={idx} className="flex items-start gap-2">
-                      <span className="font-semibold text-muted-foreground min-w-[24px]">
-                        {opt.label || String.fromCharCode(65 + idx)}.
-                      </span>
-                      <span>{typeof opt === 'string' ? opt : (opt.text || opt.value || '')}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              {/* Answer Key */}
-              {previewQuestion.correct_answer && (
-                <div className="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
-                  <p className="text-sm font-semibold text-green-800 dark:text-green-200 mb-1">Answer:</p>
-                  <p className="text-sm text-green-700 dark:text-green-300">
-                    {typeof previewQuestion.correct_answer === 'string' 
-                      ? previewQuestion.correct_answer 
-                      : JSON.stringify(previewQuestion.correct_answer)}
-                  </p>
-                </div>
-              )}
-              
-              {/* Examiner Comment */}
-              {previewQuestion.examiner_comment && (
-                <div className="p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
-                  <p className="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-1">Examiner Notes:</p>
-                  <p className="text-sm text-blue-700 dark:text-blue-300">{previewQuestion.examiner_comment}</p>
-                </div>
-              )}
+              {/* Get all related parts including context */}
+              {(() => {
+                const relatedParts = getRelatedQuestionParts(previewQuestion);
+                // Find context/parent question (marks=0 or no part_label among multi-part)
+                const contextPart = relatedParts.find(p => 
+                  (p.marks === 0 && !p.part_label) || 
+                  (!p.parent_question_id && relatedParts.length > 1 && relatedParts.some(r => r.parent_question_id === p.id))
+                );
+                const answerableParts = relatedParts.filter(p => p.marks > 0 || p.part_label);
+                
+                return (
+                  <>
+                    {/* Context/Stem (if exists) */}
+                    {contextPart && (
+                      <div className="p-4 bg-muted/30 border-l-4 border-primary rounded-r-lg">
+                        {contextPart.image_url && (
+                          <div className="mb-3 rounded-lg border overflow-hidden">
+                            <img 
+                              src={contextPart.image_url} 
+                              alt="Question context" 
+                              className="max-w-full max-h-[300px] object-contain mx-auto"
+                            />
+                          </div>
+                        )}
+                        <div className="prose prose-sm max-w-none dark:prose-invert">
+                          <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                            {contextPart.stem_markdown || contextPart.stem_md || ''}
+                          </ReactMarkdown>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Question Parts */}
+                    {answerableParts.map((part, idx) => (
+                      <div key={part.id} className="border rounded-lg overflow-hidden">
+                        {/* Part header */}
+                        <div className="flex items-center justify-between px-4 py-2 bg-muted/30 border-b">
+                          <div className="flex items-center gap-2">
+                            {part.part_label && (
+                              <span className="text-sm font-semibold">({part.part_label})</span>
+                            )}
+                            <Badge variant="outline" className="text-xs">
+                              {formatQuestionType(part.question_type)}
+                            </Badge>
+                          </div>
+                          {part.marks > 0 && (
+                            <span className="text-sm text-muted-foreground">
+                              [{part.marks} mark{part.marks !== 1 ? 's' : ''}]
+                            </span>
+                          )}
+                        </div>
+                        
+                        {/* Part content */}
+                        <div className="p-4">
+                          {part.image_url && !contextPart?.image_url && (
+                            <div className="mb-3 rounded-lg border overflow-hidden">
+                              <img 
+                                src={part.image_url} 
+                                alt="Question" 
+                                className="max-w-full max-h-[300px] object-contain mx-auto"
+                              />
+                            </div>
+                          )}
+                          
+                          {(part.stem_markdown || part.stem_md) && (
+                            <div className="prose prose-sm max-w-none dark:prose-invert mb-4">
+                              <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                                {part.stem_markdown || part.stem_md || ''}
+                              </ReactMarkdown>
+                            </div>
+                          )}
+                          
+                          {/* MCQ Options */}
+                          {(part.question_type === 'mcq' || part.question_type === 'multiple_choice') && part.options && (
+                            <div className="space-y-2 pl-4">
+                              {(Array.isArray(part.options) 
+                                ? part.options 
+                                : Object.entries(part.options).map(([key, value]) => ({ label: key, text: value }))
+                              ).map((opt: any, optIdx: number) => (
+                                <div key={optIdx} className="flex items-start gap-2">
+                                  <span className="font-semibold text-muted-foreground min-w-[24px]">
+                                    {opt.label || String.fromCharCode(65 + optIdx)}.
+                                  </span>
+                                  <span>{typeof opt === 'string' ? opt : (opt.text || opt.value || '')}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {/* Answer lines placeholder */}
+                          {part.question_type !== 'mcq' && part.question_type !== 'multiple_choice' && (
+                            <div className="mt-3 space-y-2">
+                              {Array.from({ length: Math.min(part.marks || 2, 4) }).map((_, i) => (
+                                <div key={i} className="border-b border-dashed border-muted-foreground/30 h-6" />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {/* Answer Key */}
+                    {answerableParts.some(p => p.correct_answer) && (
+                      <div className="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
+                        <p className="text-sm font-semibold text-green-800 dark:text-green-200 mb-2">Answers:</p>
+                        {answerableParts.filter(p => p.correct_answer).map((p, i) => (
+                          <p key={i} className="text-sm text-green-700 dark:text-green-300">
+                            {p.part_label && <span className="font-medium">({p.part_label}) </span>}
+                            {typeof p.correct_answer === 'string' 
+                              ? p.correct_answer 
+                              : JSON.stringify(p.correct_answer)}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Examiner Comment */}
+                    {answerableParts.some(p => p.examiner_comment) && (
+                      <div className="p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
+                        <p className="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-1">Examiner Notes:</p>
+                        {answerableParts.filter(p => p.examiner_comment).map((p, i) => (
+                          <p key={i} className="text-sm text-blue-700 dark:text-blue-300">
+                            {p.part_label && <span className="font-medium">({p.part_label}) </span>}
+                            {p.examiner_comment}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           )}
           

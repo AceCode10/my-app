@@ -222,9 +222,7 @@ export default function SubjectTopicalQuestionsPage({
                       )}
                     </div>
                   </div>
-                  {topic.description && (
-                    <p className="text-sm text-muted-foreground mb-4">{topic.description}</p>
-                  )}
+{/* Description removed - no longer displayed */}
                 </div>
                 
                 <div className="flex items-center gap-2 text-xs text-muted-foreground mb-4">

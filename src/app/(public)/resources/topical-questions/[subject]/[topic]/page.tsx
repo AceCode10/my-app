@@ -189,23 +189,53 @@ export default function TopicPracticePage({
         groupsByNumber.get(num)!.push(q);
       });
       
-      // Sort each group by display_order and part_label
+      // Sort each group by display_order and part_label, respecting parent_question_id hierarchy
       const sortedGroups: QuestionGroup[] = [];
       groupsByNumber.forEach((questions, questionNumber) => {
-        // Sort: context/parent first (no part_label), then by part_label
-        const sorted = [...questions].sort((a, b) => {
-          // First by display_order
+        // Build hierarchy: find parent-child relationships
+        const questionsById = new Map(questions.map(q => [q.id, q]));
+        const childrenByParentId = new Map<string, Question[]>();
+        const rootQuestions: Question[] = [];
+        
+        questions.forEach(q => {
+          if (q.parent_question_id && questionsById.has(q.parent_question_id)) {
+            const siblings = childrenByParentId.get(q.parent_question_id) || [];
+            siblings.push(q);
+            childrenByParentId.set(q.parent_question_id, siblings);
+          } else {
+            rootQuestions.push(q);
+          }
+        });
+        
+        // Sort root questions
+        rootQuestions.sort((a, b) => {
           const orderA = a.display_order ?? 9999;
           const orderB = b.display_order ?? 9999;
           if (orderA !== orderB) return orderA - orderB;
-          
-          // Then by part_label (empty first)
           const labelA = a.part_label || '';
           const labelB = b.part_label || '';
           if (!labelA && labelB) return -1;
           if (labelA && !labelB) return 1;
           return labelA.localeCompare(labelB);
         });
+        
+        // Flatten hierarchy: parent first, then children
+        const sorted: Question[] = [];
+        const addWithChildren = (q: Question) => {
+          sorted.push(q);
+          const children = childrenByParentId.get(q.id) || [];
+          // Sort children by display_order then part_label
+          children.sort((a, b) => {
+            const orderA = a.display_order ?? 9999;
+            const orderB = b.display_order ?? 9999;
+            if (orderA !== orderB) return orderA - orderB;
+            const labelA = a.part_label || '';
+            const labelB = b.part_label || '';
+            return labelA.localeCompare(labelB);
+          });
+          children.forEach(child => addWithChildren(child));
+        };
+        rootQuestions.forEach(q => addWithChildren(q));
         
         // Calculate total marks (only from answerable parts)
         const totalMarks = sorted.reduce((sum, q) => {
@@ -426,18 +456,27 @@ export default function TopicPracticePage({
     }
   };
 
-  const handleSelfAssessment = (assessment: SelfAssessment) => {
+  const handleSelfAssessment = (assessment: SelfAssessment, questionId?: string) => {
     if (!currentGroup) return;
-    // Apply assessment to all answerable questions in the group
-    setQuestionStatuses(prev => {
-      const updated = { ...prev };
-      currentGroup.questions.forEach(q => {
-        if (q.marks > 0 && q.needs_answer !== false && !q.is_context_only) {
-          updated[q.id] = { ...updated[q.id], assessment };
-        }
+    
+    if (questionId) {
+      // Apply assessment to a specific question
+      setQuestionStatuses(prev => ({
+        ...prev,
+        [questionId]: { ...prev[questionId], assessment }
+      }));
+    } else {
+      // Apply assessment to all answerable questions in the group (legacy behavior)
+      setQuestionStatuses(prev => {
+        const updated = { ...prev };
+        currentGroup.questions.forEach(q => {
+          if (q.marks > 0 && q.needs_answer !== false && !q.is_context_only) {
+            updated[q.id] = { ...updated[q.id], assessment };
+          }
+        });
+        return updated;
       });
-      return updated;
-    });
+    }
   };
 
   const toggleShowAnswer = () => {
@@ -465,7 +504,7 @@ export default function TopicPracticePage({
     }
   };
 
-  // Calculate stats - count groups, not individual parts
+  // Calculate stats - count individual answerable parts
   const getGroupAssessment = (group: QuestionGroup): SelfAssessment => {
     // Return the assessment of the first answerable question in the group
     for (const q of group.questions) {
@@ -475,10 +514,18 @@ export default function TopicPracticePage({
     }
     return null;
   };
+
+  // Get all answerable parts across all groups
+  const allAnswerableParts = questionGroups.flatMap(g => 
+    g.questions.filter(q => q.marks > 0 && q.needs_answer !== false && !q.is_context_only)
+  );
+  const totalAnswerableParts = allAnswerableParts.length;
   
-  const correctCount = questionGroups.filter(g => getGroupAssessment(g) === 'correct').length;
-  const incorrectCount = questionGroups.filter(g => getGroupAssessment(g) === 'incorrect').length;
-  const flaggedCount = questionGroups.filter(g => getGroupAssessment(g) === 'flagged').length;
+  // Count individual part assessments
+  const correctCount = allAnswerableParts.filter(q => questionStatuses[q.id]?.assessment === 'correct').length;
+  const incorrectCount = allAnswerableParts.filter(q => questionStatuses[q.id]?.assessment === 'incorrect').length;
+  const flaggedCount = allAnswerableParts.filter(q => questionStatuses[q.id]?.assessment === 'flagged').length;
+  const answeredCount = correctCount + incorrectCount + flaggedCount;
 
   // Loading state
   if (isLoading) {
@@ -543,7 +590,7 @@ export default function TopicPracticePage({
               </Badge>
             )}
             <span className="text-muted-foreground">
-              {Math.floor(estimatedTime / 60)} {estimatedTime >= 120 ? 'hours' : 'hour'}{estimatedTime % 60 > 0 ? ` ${estimatedTime % 60} mins` : ''} • {questions.length} questions
+              {Math.floor(estimatedTime / 60)} {estimatedTime >= 120 ? 'hours' : 'hour'}{estimatedTime % 60 > 0 ? ` ${estimatedTime % 60} mins` : ''} • {questionGroups.length} questions
             </span>
           </div>
 
@@ -569,14 +616,14 @@ export default function TopicPracticePage({
         </div>
 
         {/* Question Navigator Grid */}
-        {questions.length > 0 ? (
+        {questionGroups.length > 0 ? (
           <>
             <div className="mb-6">
               <h2 className="text-lg font-semibold text-foreground mb-4">Questions</h2>
               <div className="flex flex-wrap gap-2">
-                {questions.map((q, idx) => (
+                {questionGroups.map((group, idx) => (
                   <button
-                    key={q.id}
+                    key={`group-${group.questionNumber}`}
                     onClick={() => {
                       handleQuestionSelect(idx);
                       setViewMode('practice');
@@ -698,18 +745,51 @@ export default function TopicPracticePage({
       {/* Progress Bar */}
       <div className="mb-4">
         <div className="flex justify-between text-xs text-muted-foreground mb-1">
-          <span>Progress</span>
-          <span>{correctCount + incorrectCount + flaggedCount} / {questionGroups.length} answered</span>
+          <span>Progress ({totalAnswerableParts} parts)</span>
+          <span>{answeredCount} / {totalAnswerableParts} answered</span>
         </div>
-        <Progress value={questionGroups.length > 0 ? ((correctCount + incorrectCount + flaggedCount) / questionGroups.length) * 100 : 0} className="h-2" />
+        <Progress value={totalAnswerableParts > 0 ? (answeredCount / totalAnswerableParts) * 100 : 0} className="h-2" />
       </div>
 
       {/* Question Navigator - Shows one button per question group */}
       <div className="mb-6 overflow-x-auto pb-2">
         <div className="flex gap-2 min-w-max">
           {questionGroups.map((group, idx) => {
-            const groupAssessment = getGroupAssessment(group);
+            // Get all answerable parts in this group
+            const groupAnswerableParts = group.questions.filter(q => 
+              q.marks > 0 && q.needs_answer !== false && !q.is_context_only
+            );
+            // Count how many parts are assessed in this group
+            const assessedParts = groupAnswerableParts.filter(q => 
+              questionStatuses[q.id]?.assessment !== null && questionStatuses[q.id]?.assessment !== undefined
+            );
+            // Determine group coloring based on majority assessment or partial completion
+            const correctParts = groupAnswerableParts.filter(q => questionStatuses[q.id]?.assessment === 'correct').length;
+            const incorrectParts = groupAnswerableParts.filter(q => questionStatuses[q.id]?.assessment === 'incorrect').length;
+            const flaggedParts = groupAnswerableParts.filter(q => questionStatuses[q.id]?.assessment === 'flagged').length;
+            const allPartsAssessed = assessedParts.length === groupAnswerableParts.length && groupAnswerableParts.length > 0;
+            const somePartsAssessed = assessedParts.length > 0;
+            
+            // Color based on: all correct = green, any incorrect = red, any flagged = orange, partial = mixed
+            let buttonColor = "bg-background border-border"; // default
+            if (allPartsAssessed) {
+              if (incorrectParts > 0) {
+                buttonColor = "bg-red-500 text-white border-red-500";
+              } else if (flaggedParts > 0) {
+                buttonColor = "bg-orange-500 text-white border-orange-500";
+              } else {
+                buttonColor = "bg-green-500 text-white border-green-500";
+              }
+            } else if (somePartsAssessed) {
+              // Partial completion - show a mixed/partial state
+              buttonColor = "bg-blue-100 border-blue-400 text-blue-700";
+            }
+            
             const isViewed = group.questions.some(q => questionStatuses[q.id]?.viewed);
+            if (!somePartsAssessed && isViewed) {
+              buttonColor = "bg-muted border-muted-foreground/30";
+            }
+            
             return (
               <button
                 key={`group-${group.questionNumber}`}
@@ -718,11 +798,7 @@ export default function TopicPracticePage({
                   "w-10 h-10 rounded-lg border-2 font-medium transition-all flex-shrink-0",
                   "flex items-center justify-center text-sm",
                   idx === currentIndex && "ring-2 ring-primary ring-offset-2",
-                  groupAssessment === 'correct' && "bg-green-500 text-white border-green-500",
-                  groupAssessment === 'incorrect' && "bg-red-500 text-white border-red-500",
-                  groupAssessment === 'flagged' && "bg-orange-500 text-white border-orange-500",
-                  !groupAssessment && isViewed && "bg-muted border-muted-foreground/30",
-                  !groupAssessment && !isViewed && "bg-background border-border"
+                  buttonColor
                 )}
               >
                 {idx + 1}
@@ -778,6 +854,8 @@ export default function TopicPracticePage({
                 }
                 
                 // Answerable parts - with marks
+                const partAssessment = questionStatuses[q.id]?.assessment;
+                
                 return (
                   <div key={q.id} className="rounded-lg border bg-card overflow-hidden">
                     {/* Part header */}
@@ -833,80 +911,84 @@ export default function TopicPracticePage({
                           </p>
                         </div>
                       )}
+                      
+                      {/* Self Assessment for THIS part */}
+                      <div className="border-t pt-3 mt-4">
+                        <p className="text-xs text-muted-foreground mb-2">How did you do on this part?</p>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleSelfAssessment('correct', q.id)}
+                              className={cn(
+                                "w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all",
+                                partAssessment === 'correct'
+                                  ? "bg-green-500 border-green-500 text-white"
+                                  : "border-green-500 text-green-500 hover:bg-green-500/10"
+                              )}
+                              title="I got it right"
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleSelfAssessment('incorrect', q.id)}
+                              className={cn(
+                                "w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all",
+                                partAssessment === 'incorrect'
+                                  ? "bg-red-500 border-red-500 text-white"
+                                  : "border-red-500 text-red-500 hover:bg-red-500/10"
+                              )}
+                              title="I got it wrong"
+                            >
+                              <XCircle className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleSelfAssessment('flagged', q.id)}
+                              className={cn(
+                                "w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all",
+                                partAssessment === 'flagged'
+                                  ? "bg-orange-500 border-orange-500 text-white"
+                                  : "border-orange-500 text-orange-500 hover:bg-orange-500/10"
+                              )}
+                              title="Flag for review"
+                            >
+                              <Flag className="w-4 h-4" />
+                            </button>
+                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => {
+                              setQuestionStatuses(prev => ({
+                                ...prev,
+                                [q.id]: { ...prev[q.id], showAnswer: !showAnswer }
+                              }));
+                            }}
+                            className="text-xs"
+                          >
+                            {showAnswer ? (
+                              <>
+                                <EyeOff className="w-3 h-3 mr-1" />
+                                Hide answer
+                              </>
+                            ) : (
+                              <>
+                                <Eye className="w-3 h-3 mr-1" />
+                                View answer
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                        <Link 
+                          href={`/resources/revision-notes/${subjectSlug}`}
+                          className="text-xs text-primary hover:underline flex items-center gap-1 mt-2"
+                        >
+                          Stuck? <span className="text-primary">View related notes</span>
+                        </Link>
+                      </div>
                     </div>
                   </div>
                 );
               })}
-            </div>
-
-            {/* Self Assessment Section - For the whole group */}
-            {currentGroup.totalMarks > 0 && (
-              <div className="border-t pt-4 mt-6">
-                <p className="text-sm text-muted-foreground mb-3">How did you do on this question?</p>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => handleSelfAssessment('correct')}
-                    className={cn(
-                      "w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all",
-                      getGroupAssessment(currentGroup) === 'correct'
-                        ? "bg-green-500 border-green-500 text-white"
-                        : "border-green-500 text-green-500 hover:bg-green-500/10"
-                    )}
-                  >
-                    <CheckCircle className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => handleSelfAssessment('incorrect')}
-                    className={cn(
-                      "w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all",
-                      getGroupAssessment(currentGroup) === 'incorrect'
-                        ? "bg-red-500 border-red-500 text-white"
-                        : "border-red-500 text-red-500 hover:bg-red-500/10"
-                    )}
-                  >
-                    <XCircle className="w-5 h-5" />
-                  </button>
-                  <div className="border-l h-6 mx-2" />
-                  <button
-                    onClick={() => handleSelfAssessment('flagged')}
-                    className={cn(
-                      "w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all",
-                      getGroupAssessment(currentGroup) === 'flagged'
-                        ? "bg-orange-500 border-orange-500 text-white"
-                        : "border-orange-500 text-orange-500 hover:bg-orange-500/10"
-                    )}
-                  >
-                    <Flag className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Stuck? and View Answer */}
-            <div className="flex items-center justify-between mt-6 pt-4 border-t">
-              <Link 
-                href={`/resources/revision-notes/${subjectSlug}`}
-                className="text-sm text-primary hover:underline flex items-center gap-1"
-              >
-                Stuck? <span className="text-primary">View related notes</span>
-              </Link>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={toggleShowAnswer}
-              >
-                {currentGroup.questions.some(q => questionStatuses[q.id]?.showAnswer) ? (
-                  <>
-                    <EyeOff className="w-4 h-4 mr-2" />
-                    Hide answers
-                  </>
-                ) : (
-                  <>
-                    <Eye className="w-4 h-4 mr-2" />
-                    View answers
-                  </>
-                )}
-              </Button>
             </div>
           </CardContent>
         </Card>

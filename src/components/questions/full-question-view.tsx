@@ -400,7 +400,10 @@ interface RenderItem {
 
 /**
  * Build a hierarchical render structure from flat question list
- * Handles various nesting patterns: a -> a(i), a(ii) or standalone parts
+ * Handles various nesting patterns:
+ * 1. Label-based: a -> a(i), a(ii)
+ * 2. parent_question_id based: parent -> children
+ * 3. Mixed: context parts should appear before their children
  */
 function buildRenderStructure(allParts: PaperQuestion[], answerableParts: PaperQuestion[]): RenderItem[] {
   const result: RenderItem[] = [];
@@ -413,15 +416,36 @@ function buildRenderStructure(allParts: PaperQuestion[], answerableParts: PaperQ
     return label.split('(')[0];
   };
 
-  // First pass: identify all parent labels that have children
+  // Build parent_question_id map for hierarchy
+  const childrenByParentId = new Map<string, PaperQuestion[]>();
+  for (const part of allParts) {
+    if (part.parent_question_id) {
+      const siblings = childrenByParentId.get(part.parent_question_id) || [];
+      siblings.push(part);
+      childrenByParentId.set(part.parent_question_id, siblings);
+    }
+  }
+
+  // First pass: identify all parent labels that have children (label-based)
   const parentsWithChildren = new Set<string>();
   for (const part of allParts) {
     const parentLabel = getParentLabel(part.part_label || '');
     if (parentLabel) parentsWithChildren.add(parentLabel);
   }
 
+  // Identify parts that are parents (have children via parent_question_id)
+  const parentIds = new Set(childrenByParentId.keys());
+
   for (const part of allParts) {
     if (processed.has(part.id)) continue;
+    
+    // Skip if this part has a parent_question_id (it will be processed as a child)
+    if (part.parent_question_id && !processed.has(part.parent_question_id)) {
+      // Check if parent exists in our list
+      const parentExists = allParts.some(p => p.id === part.parent_question_id);
+      if (parentExists) continue;
+    }
+    
     processed.add(part.id);
 
     const isAnswerable = answerableIds.has(part.id);
@@ -430,8 +454,36 @@ function buildRenderStructure(allParts: PaperQuestion[], answerableParts: PaperQ
     // Collect children for this part
     const children: RenderItem[] = [];
     
-    // Check if this part has nested sub-parts
-    if (partLabel && parentsWithChildren.has(partLabel)) {
+    // Method 1: Check if this part has children via parent_question_id
+    const childrenByParent = childrenByParentId.get(part.id) || [];
+    for (const child of childrenByParent) {
+      if (processed.has(child.id)) continue;
+      processed.add(child.id);
+      
+      // Recursively get grandchildren
+      const grandchildren: RenderItem[] = [];
+      const grandchildrenByParent = childrenByParentId.get(child.id) || [];
+      for (const grandchild of grandchildrenByParent) {
+        if (processed.has(grandchild.id)) continue;
+        processed.add(grandchild.id);
+        grandchildren.push({
+          question: grandchild,
+          isContext: !answerableIds.has(grandchild.id),
+          isAnswerable: answerableIds.has(grandchild.id),
+          children: []
+        });
+      }
+      
+      children.push({
+        question: child,
+        isContext: !answerableIds.has(child.id),
+        isAnswerable: answerableIds.has(child.id),
+        children: grandchildren
+      });
+    }
+    
+    // Method 2: Check if this part has nested sub-parts via label (e.g., "b" has "b(i)")
+    if (partLabel && parentsWithChildren.has(partLabel) && children.length === 0) {
       for (const child of allParts) {
         if (processed.has(child.id)) continue;
         const childLabel = child.part_label || '';
