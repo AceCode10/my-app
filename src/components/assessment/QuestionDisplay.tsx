@@ -28,6 +28,13 @@ const MarkdownRenderer = ({ children }: { children: string | null | undefined })
   return <div dangerouslySetInnerHTML={{ __html: formatted }} />;
 };
 
+// Extended question type with context fields
+interface ExtendedQuestion extends Question {
+  is_context_only?: boolean;
+  needs_answer?: boolean;
+  part_label?: string | null;
+}
+
 interface QuestionDisplayProps {
   question: Question;
   questionNumber: number;
@@ -40,6 +47,15 @@ interface QuestionDisplayProps {
   isCorrect?: boolean | null;
   disabled?: boolean;
   className?: string;
+}
+
+// Helper to check if question needs answer input
+function isAnswerableQuestion(question: Question): boolean {
+  const q = question as ExtendedQuestion;
+  if (q.is_context_only === true) return false;
+  if (q.needs_answer === false) return false;
+  if ((q.marks || 0) === 0) return false;
+  return true;
 }
 
 export function QuestionDisplay({
@@ -60,6 +76,10 @@ export function QuestionDisplay({
   const isEssay = question.question_type === 'essay';
   const isCalculation = question.question_type === 'calculation';
   const isTrueFalse = question.question_type === 'true_false';
+  
+  // Check if this question needs an answer input
+  const needsAnswer = isAnswerableQuestion(question);
+  const extQuestion = question as ExtendedQuestion;
 
   return (
     <Card className={cn('relative', className)}>
@@ -118,8 +138,17 @@ export function QuestionDisplay({
       </CardHeader>
 
       <CardContent>
-        {/* MCQ Options */}
-        {isMCQ && question.choices && (
+        {/* Context-only question - no answer input needed */}
+        {!needsAnswer && (
+          <div className="p-4 bg-muted/30 rounded-lg border-l-4 border-primary/30">
+            <p className="text-sm text-muted-foreground italic">
+              This is context information for the following question(s). No answer required.
+            </p>
+          </div>
+        )}
+
+        {/* MCQ Options - only show if answer needed */}
+        {needsAnswer && isMCQ && question.choices && (
           <RadioGroup
             value={selectedChoiceId || ''}
             onValueChange={(value) => onAnswerChange(null, value)}
@@ -167,8 +196,8 @@ export function QuestionDisplay({
           </RadioGroup>
         )}
 
-        {/* True/False */}
-        {isTrueFalse && (
+        {/* True/False - only show if answer needed */}
+        {needsAnswer && isTrueFalse && (
           <RadioGroup
             value={answer || ''}
             onValueChange={(value) => onAnswerChange(value)}
@@ -193,8 +222,8 @@ export function QuestionDisplay({
           </RadioGroup>
         )}
 
-        {/* Short Answer / Calculation */}
-        {(isShortAnswer || isCalculation) && (
+        {/* Short Answer / Calculation - only show if answer needed */}
+        {needsAnswer && (isShortAnswer || isCalculation) && (
           <div className="space-y-2">
             <Label htmlFor="answer">Your Answer</Label>
             <Input
@@ -214,8 +243,8 @@ export function QuestionDisplay({
           </div>
         )}
 
-        {/* Essay / Long Answer */}
-        {isEssay && (
+        {/* Essay / Long Answer - only show if answer needed */}
+        {needsAnswer && isEssay && (
           <div className="space-y-2">
             <Label htmlFor="essay">Your Answer</Label>
             <Textarea

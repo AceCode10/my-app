@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { createClient } from '@/lib/supabase/client';
 import { useDebounce } from '@/hooks/use-debounce';
+import { getProxiedStorageUrl } from '@/lib/storage-proxy';
 
 interface Paper {
   id: string;
@@ -413,7 +414,7 @@ export default function SubjectPastPapersPage({
                       {/* Question Paper Download */}
                       {(paper.question_paper_url || paper.paper_url) ? (
                         <a 
-                          href={paper.question_paper_url || paper.paper_url} 
+                          href={getProxiedStorageUrl(paper.question_paper_url || paper.paper_url)} 
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex justify-between items-center bg-muted/50 p-3 rounded-lg hover:bg-muted transition-colors"
@@ -436,7 +437,7 @@ export default function SubjectPastPapersPage({
                       {/* Mark Scheme */}
                       {paper.mark_scheme_url ? (
                         <a 
-                          href={paper.mark_scheme_url} 
+                          href={getProxiedStorageUrl(paper.mark_scheme_url)} 
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex justify-between items-center bg-muted/50 p-3 rounded-lg hover:bg-muted transition-colors"
@@ -459,7 +460,7 @@ export default function SubjectPastPapersPage({
                       {/* Insert (if available) */}
                       {paper.insert_url && (
                         <a 
-                          href={paper.insert_url} 
+                          href={getProxiedStorageUrl(paper.insert_url)} 
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex justify-between items-center bg-muted/50 p-3 rounded-lg hover:bg-muted transition-colors"
@@ -475,7 +476,7 @@ export default function SubjectPastPapersPage({
                       {/* Examiner Report (if available) */}
                       {paper.examiner_report_url && (
                         <a 
-                          href={paper.examiner_report_url} 
+                          href={getProxiedStorageUrl(paper.examiner_report_url)} 
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex justify-between items-center bg-muted/50 p-3 rounded-lg hover:bg-muted transition-colors"
@@ -491,7 +492,7 @@ export default function SubjectPastPapersPage({
                       {/* Source Files ZIP (if available) - auto-download on click */}
                       {paper.source_files_url && (
                         <a 
-                          href={paper.source_files_url} 
+                          href={getProxiedStorageUrl(paper.source_files_url)} 
                           download
                           className="flex justify-between items-center bg-muted/50 p-3 rounded-lg hover:bg-muted transition-colors"
                         >

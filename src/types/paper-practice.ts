@@ -53,10 +53,14 @@ export interface PaperQuestion {
   // Question ordering
   question_number: number;
   section_name: string | null; // e.g., "Section A", "Section B"
-  part_label: string | null; // e.g., "a", "b", "c"
+  part_label: string | null; // e.g., "a", "b", "i", "ii", "a(i)", "b(ii)" - supports 3 levels
   display_order: number | null; // Numeric ordering for consistent sorting
   parent_question_id: string | null; // Reference to parent question for multi-part questions
   needs_answer: boolean; // Whether this part requires a student answer (has answer lines in paper)
+  
+  // Context for parent questions (shared context that introduces sub-parts)
+  context_text: string | null; // e.g., "A computer system consists of both hardware and software."
+  is_context_only: boolean; // True if this is just context with no marks (introduces sub-parts)
   
   // Question content
   question_text: string | null;

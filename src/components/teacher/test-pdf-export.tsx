@@ -238,27 +238,28 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginRight: 8,
   },
-  // Answer lines - solid dotted style like Cambridge exams
+  // Answer lines - dotted style like Cambridge exams
   answerLineRow: {
     flexDirection: 'row',
     marginTop: 0,
     marginBottom: 0,
     alignItems: 'flex-end',
-    height: 22,
+    height: 24,
   },
   answerLine: {
     flex: 1,
-    height: 22,
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#000',
+    height: 24,
+    borderBottomWidth: 1.2, // Increased from 0.5 for more visible dots
+    borderBottomColor: '#333', // Slightly darker for better visibility
     borderStyle: 'dotted',
+    marginRight: 5, // Extend line closer to marks column
   },
   lineMarks: {
-    width: 35,
+    width: 30, // Reduced from 35 to give more space to answer line
     textAlign: 'right',
     fontSize: 11,
-    paddingLeft: 8,
-    paddingBottom: 2,
+    paddingLeft: 5,
+    paddingBottom: 3,
   },
   // MCQ options
   optionsContainer: {

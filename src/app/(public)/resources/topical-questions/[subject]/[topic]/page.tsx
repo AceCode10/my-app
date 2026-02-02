@@ -4,6 +4,7 @@ import React, { useEffect, useState, use, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { ChevronRight, ChevronLeft, CheckCircle, XCircle, Clock, RotateCcw, Home, AlertCircle, Download, FileText, Play, Flag, BookOpen, Eye, EyeOff, Keyboard, Trophy } from 'lucide-react';
+import { getProxiedStorageUrl } from '@/lib/storage-proxy';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -26,7 +27,14 @@ interface Question {
   correct_answer: any;
   explanation?: string;
   examiner_comment?: string;
-  question_number?: string;
+  question_number?: string | number;
+  parent_question_id?: string | null;
+  part_label?: string | null;
+  context_text?: string | null;
+  display_order?: number;
+  is_context_only?: boolean;
+  needs_answer?: boolean;
+  image_url?: string | null;
 }
 
 interface Topic {
@@ -54,6 +62,13 @@ interface QuestionStatus {
   showAnswer: boolean;
 }
 
+// A question group contains all parts of a multi-part question
+interface QuestionGroup {
+  questionNumber: number | string;
+  questions: Question[];  // All parts including context
+  totalMarks: number;
+}
+
 export default function TopicPracticePage({
   params,
 }: {
@@ -71,6 +86,7 @@ export default function TopicPracticePage({
   const [subject, setSubject] = useState<Subject | null>(null);
   const [topic, setTopic] = useState<Topic | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [questionGroups, setQuestionGroups] = useState<QuestionGroup[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [questionStatuses, setQuestionStatuses] = useState<Record<string, QuestionStatus>>({});
   const [error, setError] = useState<string | null>(null);
@@ -146,11 +162,12 @@ export default function TopicPracticePage({
       setTopic(topicData);
       const finalTopic = topicData;
 
-      // Fetch questions for this topic
+      // Fetch questions for this topic - order by display_order for proper hierarchy
       const { data: questionsData, error: questionsError } = await supabase
         .from('questions')
         .select('*')
         .eq('topic_id', finalTopic.id)
+        .order('display_order', { ascending: true })
         .order('created_at', { ascending: true });
 
       if (questionsError) {
@@ -158,11 +175,76 @@ export default function TopicPracticePage({
         throw questionsError;
       }
 
-      setQuestions(questionsData || []);
+      const allQuestions = (questionsData || []) as Question[];
+      
+      // Group questions by question_number (like past papers)
+      // Each group contains all parts of a multi-part question
+      const groupsByNumber = new Map<number | string, Question[]>();
+      
+      allQuestions.forEach(q => {
+        const num = q.question_number || 'unknown';
+        if (!groupsByNumber.has(num)) {
+          groupsByNumber.set(num, []);
+        }
+        groupsByNumber.get(num)!.push(q);
+      });
+      
+      // Sort each group by display_order and part_label
+      const sortedGroups: QuestionGroup[] = [];
+      groupsByNumber.forEach((questions, questionNumber) => {
+        // Sort: context/parent first (no part_label), then by part_label
+        const sorted = [...questions].sort((a, b) => {
+          // First by display_order
+          const orderA = a.display_order ?? 9999;
+          const orderB = b.display_order ?? 9999;
+          if (orderA !== orderB) return orderA - orderB;
+          
+          // Then by part_label (empty first)
+          const labelA = a.part_label || '';
+          const labelB = b.part_label || '';
+          if (!labelA && labelB) return -1;
+          if (labelA && !labelB) return 1;
+          return labelA.localeCompare(labelB);
+        });
+        
+        // Calculate total marks (only from answerable parts)
+        const totalMarks = sorted.reduce((sum, q) => {
+          if (q.is_context_only || q.needs_answer === false || q.marks === 0) return sum;
+          return sum + (q.marks || 0);
+        }, 0);
+        
+        // Only include groups that have at least one answerable question
+        const hasAnswerable = sorted.some(q => 
+          !q.is_context_only && q.needs_answer !== false && q.marks > 0
+        );
+        
+        if (hasAnswerable) {
+          sortedGroups.push({
+            questionNumber,
+            questions: sorted,
+            totalMarks
+          });
+        }
+      });
+      
+      // Sort groups by question number
+      sortedGroups.sort((a, b) => {
+        const numA = typeof a.questionNumber === 'number' ? a.questionNumber : parseInt(String(a.questionNumber)) || 0;
+        const numB = typeof b.questionNumber === 'number' ? b.questionNumber : parseInt(String(b.questionNumber)) || 0;
+        return numA - numB;
+      });
+      
+      setQuestionGroups(sortedGroups);
+      
+      // Also set flat questions for backward compatibility
+      const flatQuestions = sortedGroups.flatMap(g => g.questions.filter(q => 
+        !q.is_context_only && q.needs_answer !== false && q.marks > 0
+      ));
+      setQuestions(flatQuestions);
       
       // Initialize question statuses
       const statuses: Record<string, QuestionStatus> = {};
-      (questionsData || []).forEach(q => {
+      (questionsData || []).forEach((q: Question) => {
         statuses[q.id] = { viewed: false, assessment: null, showAnswer: false };
       });
       setQuestionStatuses(statuses);
@@ -179,7 +261,8 @@ export default function TopicPracticePage({
   }
 
   const currentQuestion = questions[currentIndex];
-  const estimatedTime = topic?.estimated_time || Math.max(60, questions.length * 4);
+  const currentGroup = questionGroups[currentIndex];
+  const estimatedTime = topic?.estimated_time || Math.max(60, questionGroups.length * 4);
 
   const handleStartPractice = useCallback(() => {
     setViewMode('practice');
@@ -289,9 +372,15 @@ export default function TopicPracticePage({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [viewMode, currentIndex, currentQuestion, questions.length]);
 
-  // Check if session is complete
-  const isSessionComplete = Object.values(questionStatuses).length > 0 && 
-    Object.values(questionStatuses).every(s => s.assessment !== null);
+  // Check if session is complete - based on groups, not individual questions
+  const isSessionComplete = questionGroups.length > 0 && 
+    questionGroups.every(group => {
+      // A group is complete if any of its answerable questions has an assessment
+      return group.questions.some(q => 
+        q.marks > 0 && q.needs_answer !== false && !q.is_context_only && 
+        questionStatuses[q.id]?.assessment !== null
+      );
+    });
 
   const handleFinishSession = useCallback(() => {
     setViewMode('summary');
@@ -314,44 +403,58 @@ export default function TopicPracticePage({
 
   const handleQuestionSelect = (index: number) => {
     setCurrentIndex(index);
-    const q = questions[index];
-    if (q) {
-      setQuestionStatuses(prev => ({
-        ...prev,
-        [q.id]: { ...prev[q.id], viewed: true }
-      }));
+    const group = questionGroups[index];
+    if (group) {
+      // Mark all questions in the group as viewed
+      setQuestionStatuses(prev => {
+        const updated = { ...prev };
+        group.questions.forEach(q => {
+          updated[q.id] = { ...updated[q.id], viewed: true };
+        });
+        return updated;
+      });
     }
     // Update progress tracking
-    if (subject && topic && questions.length > 0) {
-      const completionPercentage = Math.round(((index + 1) / questions.length) * 100);
+    if (subject && topic && questionGroups.length > 0) {
+      const completionPercentage = Math.round(((index + 1) / questionGroups.length) * 100);
       trackProgress('practicing_questions', {
         subjectId: subject.id,
         topicId: topic.id,
-        questionId: q?.id,
-        progressData: { questionIndex: index, totalQuestions: questions.length },
+        progressData: { questionIndex: index, totalQuestions: questionGroups.length },
         completionPercentage
       });
     }
   };
 
   const handleSelfAssessment = (assessment: SelfAssessment) => {
-    if (!currentQuestion) return;
-    setQuestionStatuses(prev => ({
-      ...prev,
-      [currentQuestion.id]: { ...prev[currentQuestion.id], assessment }
-    }));
+    if (!currentGroup) return;
+    // Apply assessment to all answerable questions in the group
+    setQuestionStatuses(prev => {
+      const updated = { ...prev };
+      currentGroup.questions.forEach(q => {
+        if (q.marks > 0 && q.needs_answer !== false && !q.is_context_only) {
+          updated[q.id] = { ...updated[q.id], assessment };
+        }
+      });
+      return updated;
+    });
   };
 
   const toggleShowAnswer = () => {
-    if (!currentQuestion) return;
-    setQuestionStatuses(prev => ({
-      ...prev,
-      [currentQuestion.id]: { ...prev[currentQuestion.id], showAnswer: !prev[currentQuestion.id]?.showAnswer }
-    }));
+    if (!currentGroup) return;
+    // Toggle showAnswer for all questions in the group
+    const currentShowState = currentGroup.questions.some(q => questionStatuses[q.id]?.showAnswer);
+    setQuestionStatuses(prev => {
+      const updated = { ...prev };
+      currentGroup.questions.forEach(q => {
+        updated[q.id] = { ...updated[q.id], showAnswer: !currentShowState };
+      });
+      return updated;
+    });
   };
 
   const goToNextQuestion = () => {
-    if (currentIndex < questions.length - 1) {
+    if (currentIndex < questionGroups.length - 1) {
       handleQuestionSelect(currentIndex + 1);
     }
   };
@@ -362,10 +465,20 @@ export default function TopicPracticePage({
     }
   };
 
-  // Calculate stats
-  const correctCount = Object.values(questionStatuses).filter(s => s.assessment === 'correct').length;
-  const incorrectCount = Object.values(questionStatuses).filter(s => s.assessment === 'incorrect').length;
-  const flaggedCount = Object.values(questionStatuses).filter(s => s.assessment === 'flagged').length;
+  // Calculate stats - count groups, not individual parts
+  const getGroupAssessment = (group: QuestionGroup): SelfAssessment => {
+    // Return the assessment of the first answerable question in the group
+    for (const q of group.questions) {
+      if (q.marks > 0 && q.needs_answer !== false && !q.is_context_only) {
+        return questionStatuses[q.id]?.assessment || null;
+      }
+    }
+    return null;
+  };
+  
+  const correctCount = questionGroups.filter(g => getGroupAssessment(g) === 'correct').length;
+  const incorrectCount = questionGroups.filter(g => getGroupAssessment(g) === 'incorrect').length;
+  const flaggedCount = questionGroups.filter(g => getGroupAssessment(g) === 'flagged').length;
 
   // Loading state
   if (isLoading) {
@@ -438,7 +551,7 @@ export default function TopicPracticePage({
           <div className="flex flex-wrap gap-3">
             {topic?.pdf_url && (
               <Button asChild className="bg-primary hover:bg-primary/90">
-                <a href={topic.pdf_url} target="_blank" rel="noopener noreferrer">
+                <a href={getProxiedStorageUrl(topic.pdf_url)} target="_blank" rel="noopener noreferrer">
                   <Download className="w-4 h-4 mr-2" />
                   Download PDF
                 </a>
@@ -446,7 +559,7 @@ export default function TopicPracticePage({
             )}
             {topic?.answers_pdf_url && (
               <Button variant="outline" asChild>
-                <a href={topic.answers_pdf_url} target="_blank" rel="noopener noreferrer">
+                <a href={getProxiedStorageUrl(topic.answers_pdf_url)} target="_blank" rel="noopener noreferrer">
                   <FileText className="w-4 h-4 mr-2" />
                   All answers
                 </a>
@@ -570,7 +683,7 @@ export default function TopicPracticePage({
           Back to overview
         </Button>
         <div className="flex items-center gap-4">
-          <Stopwatch isRunning={viewMode === 'practice'} onTimeUpdate={(s) => setTotalTimeSpent(s)} />
+          {/* Timer removed for topical questions - only show progress stats */}
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span className="text-green-600 font-medium">{correctCount} ✓</span>
             <span className="text-red-600 font-medium">{incorrectCount} ✗</span>
@@ -586,29 +699,30 @@ export default function TopicPracticePage({
       <div className="mb-4">
         <div className="flex justify-between text-xs text-muted-foreground mb-1">
           <span>Progress</span>
-          <span>{correctCount + incorrectCount + flaggedCount} / {questions.length} answered</span>
+          <span>{correctCount + incorrectCount + flaggedCount} / {questionGroups.length} answered</span>
         </div>
-        <Progress value={((correctCount + incorrectCount + flaggedCount) / questions.length) * 100} className="h-2" />
+        <Progress value={questionGroups.length > 0 ? ((correctCount + incorrectCount + flaggedCount) / questionGroups.length) * 100 : 0} className="h-2" />
       </div>
 
-      {/* Question Navigator */}
+      {/* Question Navigator - Shows one button per question group */}
       <div className="mb-6 overflow-x-auto pb-2">
         <div className="flex gap-2 min-w-max">
-          {questions.map((q, idx) => {
-            const status = questionStatuses[q.id];
+          {questionGroups.map((group, idx) => {
+            const groupAssessment = getGroupAssessment(group);
+            const isViewed = group.questions.some(q => questionStatuses[q.id]?.viewed);
             return (
               <button
-                key={q.id}
+                key={`group-${group.questionNumber}`}
                 onClick={() => handleQuestionSelect(idx)}
                 className={cn(
                   "w-10 h-10 rounded-lg border-2 font-medium transition-all flex-shrink-0",
                   "flex items-center justify-center text-sm",
                   idx === currentIndex && "ring-2 ring-primary ring-offset-2",
-                  status?.assessment === 'correct' && "bg-green-500 text-white border-green-500",
-                  status?.assessment === 'incorrect' && "bg-red-500 text-white border-red-500",
-                  status?.assessment === 'flagged' && "bg-orange-500 text-white border-orange-500",
-                  !status?.assessment && status?.viewed && "bg-muted border-muted-foreground/30",
-                  !status?.assessment && !status?.viewed && "bg-background border-border"
+                  groupAssessment === 'correct' && "bg-green-500 text-white border-green-500",
+                  groupAssessment === 'incorrect' && "bg-red-500 text-white border-red-500",
+                  groupAssessment === 'flagged' && "bg-orange-500 text-white border-orange-500",
+                  !groupAssessment && isViewed && "bg-muted border-muted-foreground/30",
+                  !groupAssessment && !isViewed && "bg-background border-border"
                 )}
               >
                 {idx + 1}
@@ -618,90 +732,155 @@ export default function TopicPracticePage({
         </div>
       </div>
 
-      {/* Question Display */}
-      {currentQuestion && (
+      {/* Question Display - Shows all parts of the current group */}
+      {currentGroup && (
         <Card className="mb-6">
           <CardContent className="pt-6">
             {/* Question Header */}
             <div className="flex items-center justify-between mb-4">
-              <Badge variant="outline" className="text-sm">
-                {currentQuestion.question_number || `${currentIndex + 1}`}
+              <Badge variant="default" className="text-lg px-4 py-2 font-bold rounded-md">
+                Q{currentGroup.questionNumber}
               </Badge>
-              <Badge variant="secondary">
-                {currentQuestion.marks || 1} mark{(currentQuestion.marks || 1) > 1 ? 's' : ''}
-              </Badge>
+              {currentGroup.totalMarks > 0 && (
+                <Badge variant="secondary">
+                  {currentGroup.totalMarks} mark{currentGroup.totalMarks > 1 ? 's' : ''}
+                </Badge>
+              )}
             </div>
 
-            {/* Question Text */}
-            <div className="prose prose-sm max-w-none dark:prose-invert mb-6">
-              <p className="text-lg text-foreground leading-relaxed whitespace-pre-wrap">
-                {currentQuestion.stem_markdown || currentQuestion.stem_md}
-              </p>
+            {/* Render all parts of the question group */}
+            <div className="space-y-4">
+              {currentGroup.questions.map((q, partIdx) => {
+                const isContext = q.is_context_only || q.marks === 0 || q.needs_answer === false;
+                const showAnswer = questionStatuses[q.id]?.showAnswer;
+                
+                // Context parts - no marks, just display
+                if (isContext) {
+                  return (
+                    <div key={q.id} className={cn(
+                      "rounded-lg p-4",
+                      !q.part_label ? "bg-muted/30 border-l-4 border-primary" : "bg-muted/20"
+                    )}>
+                      <div className="flex items-start gap-3">
+                        {q.part_label && (
+                          <Badge variant="outline" className="text-sm font-semibold shrink-0">
+                            ({q.part_label})
+                          </Badge>
+                        )}
+                        <div className="flex-1">
+                          <p className="text-foreground leading-relaxed whitespace-pre-wrap">
+                            {q.stem_markdown || q.stem_md || q.context_text}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+                
+                // Answerable parts - with marks
+                return (
+                  <div key={q.id} className="rounded-lg border bg-card overflow-hidden">
+                    {/* Part header */}
+                    <div className="flex items-center justify-between px-4 py-2 bg-muted/30 border-b">
+                      <div className="flex items-center gap-2">
+                        {q.part_label && (
+                          <span className="text-sm font-semibold text-foreground">
+                            ({q.part_label})
+                          </span>
+                        )}
+                      </div>
+                      {q.marks > 0 && (
+                        <span className="text-sm text-muted-foreground">
+                          {q.marks} {q.marks === 1 ? 'mark' : 'marks'}
+                        </span>
+                      )}
+                    </div>
+                    
+                    {/* Part content */}
+                    <div className="p-4">
+                      <p className="text-foreground leading-relaxed whitespace-pre-wrap mb-4">
+                        {q.stem_markdown || q.stem_md}
+                      </p>
+                      
+                      {/* MCQ Options */}
+                      {(q.question_type === 'multiple_choice' || q.question_type === 'mcq') && q.options && (
+                        <div className="space-y-2">
+                          {(q.options as any[]).map((option: any, idx: number) => (
+                            <div
+                              key={option.label || idx}
+                              className={cn(
+                                "p-3 rounded-lg border-2 transition-all",
+                                showAnswer && option.is_correct
+                                  ? "border-green-500 bg-green-500/10"
+                                  : "border-border"
+                              )}
+                            >
+                              <span className="font-semibold mr-2">{option.label || String.fromCharCode(65 + idx)}.</span>
+                              <span>{option.text}</span>
+                              {showAnswer && option.is_correct && (
+                                <CheckCircle className="inline-block ml-2 w-4 h-4 text-green-500" />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* Answer display for this part */}
+                      {showAnswer && q.correct_answer && (
+                        <div className="mt-3 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+                          <p className="text-sm text-green-700 dark:text-green-400">
+                            <strong>Answer:</strong> {typeof q.correct_answer === 'object' ? JSON.stringify(q.correct_answer) : String(q.correct_answer)}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
-            {/* MCQ Options */}
-            {(currentQuestion.question_type === 'multiple_choice' || currentQuestion.question_type === 'mcq') && currentQuestion.options && (
-              <div className="space-y-2 mb-6">
-                {(currentQuestion.options as any[]).map((option: any, idx: number) => (
-                  <div
-                    key={option.label || idx}
+            {/* Self Assessment Section - For the whole group */}
+            {currentGroup.totalMarks > 0 && (
+              <div className="border-t pt-4 mt-6">
+                <p className="text-sm text-muted-foreground mb-3">How did you do on this question?</p>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => handleSelfAssessment('correct')}
                     className={cn(
-                      "p-3 rounded-lg border-2 transition-all",
-                      questionStatuses[currentQuestion.id]?.showAnswer && option.is_correct
-                        ? "border-green-500 bg-green-500/10"
-                        : "border-border hover:border-primary/50"
+                      "w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all",
+                      getGroupAssessment(currentGroup) === 'correct'
+                        ? "bg-green-500 border-green-500 text-white"
+                        : "border-green-500 text-green-500 hover:bg-green-500/10"
                     )}
                   >
-                    <span className="font-semibold mr-2">{option.label || String.fromCharCode(65 + idx)}.</span>
-                    <span>{option.text}</span>
-                    {questionStatuses[currentQuestion.id]?.showAnswer && option.is_correct && (
-                      <CheckCircle className="inline-block ml-2 w-4 h-4 text-green-500" />
+                    <CheckCircle className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => handleSelfAssessment('incorrect')}
+                    className={cn(
+                      "w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all",
+                      getGroupAssessment(currentGroup) === 'incorrect'
+                        ? "bg-red-500 border-red-500 text-white"
+                        : "border-red-500 text-red-500 hover:bg-red-500/10"
                     )}
-                  </div>
-                ))}
+                  >
+                    <XCircle className="w-5 h-5" />
+                  </button>
+                  <div className="border-l h-6 mx-2" />
+                  <button
+                    onClick={() => handleSelfAssessment('flagged')}
+                    className={cn(
+                      "w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all",
+                      getGroupAssessment(currentGroup) === 'flagged'
+                        ? "bg-orange-500 border-orange-500 text-white"
+                        : "border-orange-500 text-orange-500 hover:bg-orange-500/10"
+                    )}
+                  >
+                    <Flag className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
             )}
-
-            {/* Self Assessment Section */}
-            <div className="border-t pt-4 mt-6">
-              <p className="text-sm text-muted-foreground mb-3">How did you do?</p>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => handleSelfAssessment('correct')}
-                  className={cn(
-                    "w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all",
-                    questionStatuses[currentQuestion.id]?.assessment === 'correct'
-                      ? "bg-green-500 border-green-500 text-white"
-                      : "border-green-500 text-green-500 hover:bg-green-500/10"
-                  )}
-                >
-                  <CheckCircle className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => handleSelfAssessment('incorrect')}
-                  className={cn(
-                    "w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all",
-                    questionStatuses[currentQuestion.id]?.assessment === 'incorrect'
-                      ? "bg-red-500 border-red-500 text-white"
-                      : "border-red-500 text-red-500 hover:bg-red-500/10"
-                  )}
-                >
-                  <XCircle className="w-5 h-5" />
-                </button>
-                <div className="border-l h-6 mx-2" />
-                <button
-                  onClick={() => handleSelfAssessment('flagged')}
-                  className={cn(
-                    "w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all",
-                    questionStatuses[currentQuestion.id]?.assessment === 'flagged'
-                      ? "bg-orange-500 border-orange-500 text-white"
-                      : "border-orange-500 text-orange-500 hover:bg-orange-500/10"
-                  )}
-                >
-                  <Flag className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
 
             {/* Stuck? and View Answer */}
             <div className="flex items-center justify-between mt-6 pt-4 border-t">
@@ -716,53 +895,19 @@ export default function TopicPracticePage({
                 size="sm"
                 onClick={toggleShowAnswer}
               >
-                {questionStatuses[currentQuestion.id]?.showAnswer ? (
+                {currentGroup.questions.some(q => questionStatuses[q.id]?.showAnswer) ? (
                   <>
                     <EyeOff className="w-4 h-4 mr-2" />
-                    Hide answer
+                    Hide answers
                   </>
                 ) : (
                   <>
                     <Eye className="w-4 h-4 mr-2" />
-                    View answer
+                    View answers
                   </>
                 )}
               </Button>
             </div>
-
-            {/* Answer Display */}
-            {questionStatuses[currentQuestion.id]?.showAnswer && (
-              <div className="mt-4 p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
-                <h4 className="font-semibold text-green-700 dark:text-green-400 mb-2">Answer:</h4>
-                <p className="text-foreground">
-                  {(() => {
-                    const answer = currentQuestion.correct_answer;
-                    // Handle JSONB stored as string
-                    if (typeof answer === 'string') {
-                      try {
-                        const parsed = JSON.parse(answer);
-                        return typeof parsed === 'object' ? JSON.stringify(parsed) : String(parsed);
-                      } catch {
-                        return answer;
-                      }
-                    }
-                    return typeof answer === 'object' ? JSON.stringify(answer) : String(answer);
-                  })()}
-                </p>
-                {currentQuestion.explanation && (
-                  <div className="mt-3 pt-3 border-t border-green-500/30">
-                    <h5 className="font-medium text-green-700 dark:text-green-400 mb-1">Explanation:</h5>
-                    <p className="text-muted-foreground text-sm">{currentQuestion.explanation}</p>
-                  </div>
-                )}
-                {currentQuestion.examiner_comment && currentQuestion.examiner_comment !== 'N/A' && (
-                  <div className="mt-3 pt-3 border-t border-green-500/30">
-                    <h5 className="font-medium text-green-700 dark:text-green-400 mb-1">Examiner's Comment:</h5>
-                    <p className="text-muted-foreground text-sm">{currentQuestion.examiner_comment}</p>
-                  </div>
-                )}
-              </div>
-            )}
           </CardContent>
         </Card>
       )}
@@ -779,7 +924,7 @@ export default function TopicPracticePage({
         </Button>
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">
-            {currentIndex + 1} of {questions.length}
+            {currentIndex + 1} of {questionGroups.length}
           </span>
           {isSessionComplete && (
             <Button size="sm" onClick={handleFinishSession}>
@@ -788,7 +933,7 @@ export default function TopicPracticePage({
             </Button>
           )}
         </div>
-        {currentIndex === questions.length - 1 ? (
+        {currentIndex === questionGroups.length - 1 ? (
           <Button onClick={handleFinishSession}>
             Finish
             <Trophy className="w-4 h-4 ml-2" />

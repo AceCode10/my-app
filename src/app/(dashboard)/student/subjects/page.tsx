@@ -185,7 +185,7 @@ export default function SubjectsPage() {
             <div className="flex flex-col gap-4">
                 <div>
                     <h2 className="text-2xl sm:text-3xl font-bold text-foreground">My Subjects</h2>
-                    <p className="text-muted-foreground mt-1">Your personalized learning dashboard</p>
+                    <p className="text-muted-foreground mt-1"></p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2">
                     {mySubjects.length > 0 && (

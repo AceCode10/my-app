@@ -78,7 +78,21 @@ export class PDFGenerationService {
         const q = aq.question;
         if (!q) continue;
 
-        const marks = aq.custom_marks || q.marks || 1;
+        const marks = aq.custom_marks || q.marks || 0;
+        
+        // Check if this is a context-only question (no answer needed)
+        const isContextOnly = q.is_context_only === true || q.needs_answer === false || marks === 0;
+
+        // Context-only questions - display without marks or answer lines
+        if (isContextOnly) {
+          html += `
+            <div style="margin-bottom: 15px; page-break-inside: avoid; padding: 10px; background: #f5f5f5; border-left: 3px solid #666;">
+              <strong>Question ${i + 1}</strong>
+              <p style="margin: 10px 0 0 0;">${q.stem_markdown}</p>
+            </div>
+          `;
+          continue;
+        }
 
         html += `
           <div style="margin-bottom: 25px; page-break-inside: avoid;">

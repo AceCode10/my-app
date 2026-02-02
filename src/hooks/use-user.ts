@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 
 export interface UserProfile {
   id: string;
@@ -27,8 +28,8 @@ let cachedUser: UserProfile | null = null;
 let cacheTimestamp = 0;
 let globalFetchPromise: Promise<UserProfile | null> | null = null;
 let globalFetchResolve: ((user: UserProfile | null) => void) | null = null;
-const CACHE_DURATION = 3 * 60 * 1000; // 3 minutes - reduced for fresher data
-const FETCH_TIMEOUT = 8000; // 8 second timeout
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache for better performance
+const FETCH_TIMEOUT = 15000; // 15 second timeout for slow connections
 
 const supabase = createClient();
 
@@ -221,7 +222,7 @@ export function useUser() {
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
       if (!isSubscribed || !mountedRef.current) return;
       
       if (event === 'SIGNED_OUT') {

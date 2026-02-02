@@ -975,6 +975,106 @@ export async function POST(
       );
     }
 
+    // ============================================
+    // SECOND PASS: Set parent_question_id for hierarchical structure
+    // ============================================
+    // Build parent/child relationships based on question_number and part_label
+    if (insertedData && insertedData.length > 0) {
+      console.log('[Parent Linking] Setting parent_question_id for hierarchical questions...');
+      
+      // Group questions by question_number
+      const questionsByNumber = new Map<number, any[]>();
+      for (const q of insertedData) {
+        const num = q.question_number;
+        if (!questionsByNumber.has(num)) {
+          questionsByNumber.set(num, []);
+        }
+        questionsByNumber.get(num)!.push(q);
+      }
+      
+      const updates: { id: string; parent_question_id: string }[] = [];
+      
+      for (const [questionNum, questions] of questionsByNumber) {
+        if (questions.length <= 1) continue; // No hierarchy needed
+        
+        // Find the main question (no part_label or context-only)
+        const mainQuestion = questions.find(q => !q.part_label);
+        if (!mainQuestion) continue;
+        
+        // Find letter parts (a, b, c) - these are children of main question
+        const letterParts = questions.filter(q => 
+          q.part_label && 
+          /^[a-z]$/i.test(q.part_label)
+        );
+        
+        // Find sub-parts like a(i), b(ii) - these are children of letter parts
+        const subParts = questions.filter(q => 
+          q.part_label && 
+          /^[a-z]\([ivx]+\)$/i.test(q.part_label)
+        );
+        
+        // Set parent for letter parts (parent is main question)
+        for (const part of letterParts) {
+          updates.push({
+            id: part.id,
+            parent_question_id: mainQuestion.id
+          });
+        }
+        
+        // Set parent for sub-parts (parent is the letter part)
+        for (const subPart of subParts) {
+          // Extract the letter from "a(i)" -> "a"
+          const letterMatch = subPart.part_label.match(/^([a-z])/i);
+          if (letterMatch) {
+            const parentLetter = letterMatch[1].toLowerCase();
+            const parentPart = letterParts.find(p => p.part_label?.toLowerCase() === parentLetter);
+            if (parentPart) {
+              updates.push({
+                id: subPart.id,
+                parent_question_id: parentPart.id
+              });
+            } else {
+              // Fallback to main question if letter part not found
+              updates.push({
+                id: subPart.id,
+                parent_question_id: mainQuestion.id
+              });
+            }
+          }
+        }
+        
+        // Also set parent for any other parts that have part_label but weren't matched
+        const otherParts = questions.filter(q => 
+          q.part_label && 
+          q.id !== mainQuestion.id &&
+          !letterParts.includes(q) &&
+          !subParts.includes(q)
+        );
+        for (const part of otherParts) {
+          updates.push({
+            id: part.id,
+            parent_question_id: mainQuestion.id
+          });
+        }
+      }
+      
+      // Apply updates
+      if (updates.length > 0) {
+        console.log(`[Parent Linking] Updating ${updates.length} questions with parent_question_id...`);
+        for (const update of updates) {
+          const { error: updateError } = await supabase
+            .from('paper_questions')
+            .update({ parent_question_id: update.parent_question_id })
+            .eq('id', update.id);
+          
+          if (updateError) {
+            console.error(`[Parent Linking] Error updating ${update.id}:`, updateError);
+          }
+        }
+        console.log('[Parent Linking] Done setting parent_question_id');
+      }
+    }
+
     // Calculate summary statistics
     const questionTypes = questionsToInsert.reduce((acc: Record<string, number>, q: any) => {
       acc[q.question_type] = (acc[q.question_type] || 0) + 1;

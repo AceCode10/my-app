@@ -55,8 +55,9 @@ export default function PracticePaperPage({
   const [paper, setPaper] = useState<Paper | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [practiceMode, setPracticeMode] = useState<'timed' | 'untimed' | null>(null);
   const [isStarting, setIsStarting] = useState(false);
+  const [hasQuestions, setHasQuestions] = useState(false);
+  const [questionCount, setQuestionCount] = useState(0);
 
   useEffect(() => {
     fetchPaper();
@@ -80,6 +81,16 @@ export default function PracticePaperPage({
       
       setPaper(data);
       setError(null);
+      
+      // Check if this paper has extracted questions
+      const { count } = await supabase
+        .from('paper_questions')
+        .select('*', { count: 'exact', head: true })
+        .eq('paper_id', paperId)
+        .gt('marks', 0); // Only count answerable questions
+      
+      setHasQuestions((count || 0) > 0);
+      setQuestionCount(count || 0);
     } catch (err: any) {
       console.error('Error fetching paper:', err);
       setError(err.message || 'Failed to load paper');
@@ -88,27 +99,25 @@ export default function PracticePaperPage({
     }
   }
 
-  async function handleStartPractice(mode: 'timed' | 'untimed') {
+  async function handleStartPractice(mode: 'questions' | 'pdf') {
+    if (isStarting) return;
     setIsStarting(true);
-    setPracticeMode(mode);
     
     try {
-      // Check if user is authenticated
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
-        // Redirect to login if not authenticated
         router.push(`/login?redirect=/practice/paper/${paperId}`);
         return;
       }
 
-      // Create a new attempt
+      // Create attempt
       const { data: attempt, error } = await supabase
         .from('assessment_attempts')
         .insert({
           user_id: user.id,
           paper_id: paperId,
-          practice_mode: mode,
+          practice_mode: 'timed',
           status: 'in_progress',
           started_at: new Date().toISOString()
         })
@@ -117,12 +126,15 @@ export default function PracticePaperPage({
 
       if (error) throw error;
 
-      // Navigate to the practice session with uploaded questions
-      router.push(`/student/papers/${paperId}/practice?attempt=${attempt.id}`);
+      // Navigate based on mode
+      if (mode === 'questions' && hasQuestions) {
+        router.push(`/practice/paper/${paperId}/questions?attempt=${attempt.id}`);
+      } else {
+        router.push(`/practice/paper/${paperId}/exam?attempt=${attempt.id}`);
+      }
     } catch (err: any) {
       console.error('Error starting practice:', err);
       setIsStarting(false);
-      setPracticeMode(null);
     }
   }
 
@@ -236,59 +248,50 @@ export default function PracticePaperPage({
               </div>
             </div>
 
-            {/* Practice Mode Selection */}
+            {/* Take Exam Options */}
             <div className="border-t pt-6">
-              <h3 className="font-semibold text-foreground mb-4">Choose Practice Mode</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Timed Mode */}
-                <button
-                  onClick={() => handleStartPractice('timed')}
-                  disabled={isStarting || !paperUrl}
-                  className="p-6 border-2 rounded-xl text-left hover:border-primary hover:bg-primary/5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="p-2 bg-orange-500/10 rounded-lg">
-                      <Timer className="w-6 h-6 text-orange-500" />
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-foreground">Timed Exam</h4>
-                      <p className="text-xs text-muted-foreground">
-                        {paper?.duration_minutes ? (paper.duration_minutes >= 60 ? `${Math.floor(paper.duration_minutes / 60)}h ${paper.duration_minutes % 60 > 0 ? `${paper.duration_minutes % 60}m` : ''}` : `${paper.duration_minutes} minutes`) : 'Standard time'}
-                      </p>
-                    </div>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Practice under real exam conditions with a countdown timer. 
-                    Best for final exam preparation.
-                  </p>
-                  {isStarting && practiceMode === 'timed' && (
-                    <div className="mt-3 text-sm text-primary">Starting...</div>
-                  )}
-                </button>
-
-                {/* Untimed Mode */}
-                <button
-                  onClick={() => handleStartPractice('untimed')}
-                  disabled={isStarting || !paperUrl}
-                  className="p-6 border-2 rounded-xl text-left hover:border-primary hover:bg-primary/5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="p-2 bg-green-500/10 rounded-lg">
-                      <Play className="w-6 h-6 text-green-500" />
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-foreground">Practice Mode</h4>
-                      <p className="text-xs text-muted-foreground">No time limit</p>
-                    </div>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Take your time to work through questions carefully. 
-                    Ideal for learning and revision.
-                  </p>
-                  {isStarting && practiceMode === 'untimed' && (
-                    <div className="mt-3 text-sm text-primary">Starting...</div>
-                  )}
-                </button>
+              <div className="space-y-3">
+                {/* Interactive Questions - Primary option if available */}
+                {hasQuestions ? (
+                  <Button
+                    className="w-full h-14 text-lg"
+                    onClick={() => handleStartPractice('questions')}
+                    disabled={isStarting}
+                  >
+                    {isStarting ? (
+                      <Timer className="w-5 h-5 mr-2 animate-spin" />
+                    ) : (
+                      <Play className="w-5 h-5 mr-2" />
+                    )}
+                    Take Exam ({questionCount} questions)
+                  </Button>
+                ) : (
+                  <Button
+                    className="w-full h-14 text-lg"
+                    onClick={() => handleStartPractice('pdf')}
+                    disabled={isStarting || !paperUrl}
+                  >
+                    {isStarting ? (
+                      <Timer className="w-5 h-5 mr-2 animate-spin" />
+                    ) : (
+                      <Play className="w-5 h-5 mr-2" />
+                    )}
+                    Take Exam (PDF Mode)
+                  </Button>
+                )}
+                
+                {/* Info about exam */}
+                <p className="text-center text-sm text-muted-foreground">
+                  {paper?.duration_minutes ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Clock className="w-4 h-4" />
+                      {paper.duration_minutes >= 60 
+                        ? `${Math.floor(paper.duration_minutes / 60)}h ${paper.duration_minutes % 60 > 0 ? `${paper.duration_minutes % 60}m` : ''}` 
+                        : `${paper.duration_minutes} minutes`}
+                      {paper.total_marks && ` • ${paper.total_marks} marks`}
+                    </span>
+                  ) : 'Standard time'}
+                </p>
               </div>
             </div>
           </CardContent>

@@ -41,7 +41,10 @@ function preprocessMarkScheme(text: string): string {
     .replace(/Cambridge International.*?Mark Scheme/gi, '')
     .replace(/PUBLISHED/gi, '')
     .replace(/May\/June \d{4}/gi, '')
+    .replace(/February\/March \d{4}/gi, '')
+    .replace(/October\/November \d{4}/gi, '')
     .replace(/© Cambridge University Press.*?\d{4}/gi, '')
+    .replace(/© UCLES \d{4}/gi, '')
     .replace(/Page \d+ of \d+/gi, '')
     .replace(/\[Turn over\]/gi, '');
   
@@ -58,17 +61,26 @@ function preprocessMarkScheme(text: string): string {
     ''
   );
   
-  // Normalize question number patterns
+  // Normalize question number patterns - handle various formats
   processed = processed
     .replace(/Question\s+Answer\s+Marks/gi, '[TABLE_HEADER]')
-    .replace(/(\d+)\s*\(([a-z])\)/gi, '$1($2)') // Normalize 7 (a) to 7(a)
-    .replace(/(\d+)\s*\(([ivx]+)\)/gi, '$1($2)'); // Normalize 7 (i) to 7(i)
+    // Normalize "7 (a)" to "7(a)" - with space
+    .replace(/(\d+)\s+\(([a-z])\)/gi, '$1($2)')
+    // Normalize "7 (a) (i)" to "7(a)(i)" - with spaces
+    .replace(/(\d+)\s*\(([a-z])\)\s*\(([ivx]+)\)/gi, '$1($2)($3)')
+    // Mark question boundaries clearly
+    .replace(/^(\d{1,2})\s*\(([a-z])\)\s*\(([ivx]+)\)/gim, '[Q:$1][PART:$2][SUBPART:$3]')
+    .replace(/^(\d{1,2})\s*\(([a-z])\)/gim, '[Q:$1][PART:$2]')
+    .replace(/^Question\s+(\d{1,2})\s*\(([a-z])\)\s*\(([ivx]+)\)/gim, '[Q:$1][PART:$2][SUBPART:$3]')
+    .replace(/^Question\s+(\d{1,2})\s*\(([a-z])\)/gim, '[Q:$1][PART:$2]')
+    .replace(/^Question\s+(\d{1,2})/gim, '[Q:$1]');
   
   // Mark answer points
   processed = processed
     .replace(/•\s*/g, '[POINT] ')
     .replace(/–\s*/g, '[SUBPOINT] ')
     .replace(/\(1st\)/g, '[MARK:1:PRIMARY]')
+    .replace(/\[1\]/g, '[MARK:1]')
     .replace(/\(1\)/g, '[MARK:1]')
     .replace(/\(2\)/g, '[MARK:2]')
     .replace(/\(3\)/g, '[MARK:3]')

@@ -85,6 +85,14 @@ interface Question {
   topic_id: string | null;
   subjects?: { name: string } | null;
   topics?: { name: string } | null;
+  // Structure fields
+  parent_question_id: string | null;
+  part_label: string | null;
+  question_number: number | null;
+  context_text: string | null;
+  is_context_only: boolean | null;
+  needs_answer: boolean | null;
+  display_order: number | null;
 }
 
 interface Subject {
@@ -173,6 +181,7 @@ export default function QuestionsPage() {
     setLoading(true);
     try {
       // Build server-side filters
+      // Question Bank only shows parent questions (not child parts) that have been assigned to topics
       let query = supabase
         .from('questions')
         .select(`
@@ -180,6 +189,9 @@ export default function QuestionsPage() {
           subjects:subject_id(name),
           topics:topic_id(name)
         `)
+        .not('topic_id', 'is', null) // Only show questions assigned to topics
+        .is('parent_question_id', null) // Only show parent questions, not child parts
+        .order('question_number', { ascending: true })
         .order('created_at', { ascending: false });
 
       // Apply filters server-side for better performance
@@ -207,10 +219,12 @@ export default function QuestionsPage() {
       const to = from + itemsPerPage - 1;
       query = query.range(from, to);
 
-      // Get total count for pagination
+      // Get total count for pagination (only parent questions with topic_id)
       const { count, error: countError } = await supabase
         .from('questions')
-        .select('*', { count: 'exact', head: true });
+        .select('*', { count: 'exact', head: true })
+        .not('topic_id', 'is', null)
+        .is('parent_question_id', null);
       
       if (countError) throw countError;
       setTotalCount(count || 0);
@@ -787,14 +801,29 @@ export default function QuestionsPage() {
                       </TableCell>
                       <TableCell className="max-w-md">
                         <div 
-                          className="line-clamp-2 text-sm cursor-pointer hover:text-primary"
+                          className="cursor-pointer hover:text-primary"
                           onClick={() => {
                             setPreviewQuestion(question);
                             setPreviewDialogOpen(true);
                           }}
                         >
-                          {(question.stem_markdown || 'No content').substring(0, 100)}
-                          {(question.stem_markdown || '').length > 100 && '...'}
+                          <div className="flex items-center gap-2 mb-1">
+                            {question.question_number && (
+                              <Badge variant="outline" className="text-xs">
+                                Q{question.question_number}{question.part_label ? question.part_label : ''}
+                              </Badge>
+                            )}
+                            {question.is_context_only && (
+                              <Badge variant="secondary" className="text-xs">Context</Badge>
+                            )}
+                            {question.question_type === 'context' && (
+                              <Badge variant="secondary" className="text-xs">Context</Badge>
+                            )}
+                          </div>
+                          <div className="line-clamp-2 text-sm">
+                            {(question.stem_markdown || 'No content').substring(0, 100)}
+                            {(question.stem_markdown || '').length > 100 && '...'}
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>

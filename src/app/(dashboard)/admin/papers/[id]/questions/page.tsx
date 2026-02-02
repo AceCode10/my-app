@@ -138,6 +138,7 @@ function SortableQuestionRow({
   isSelected, 
   isBeingDraggedOver,
   isChild,
+  nestingLevel = 0,
   hasChildren,
   isExpanded,
   onToggleExpand,
@@ -149,6 +150,7 @@ function SortableQuestionRow({
   isSelected: boolean; 
   isBeingDraggedOver: boolean;
   isChild?: boolean;
+  nestingLevel?: number; // 0 = main, 1 = letter part, 2 = roman sub-part
   hasChildren?: boolean;
   isExpanded?: boolean;
   onToggleExpand?: () => void;
@@ -193,7 +195,8 @@ function SortableQuestionRow({
         />
       </TableCell>
       <TableCell>
-        <div className={cn("flex items-center gap-2", isChild && "pl-6")}>
+        {/* Indentation based on nesting level: 0=none, 1=pl-6, 2=pl-12 */}
+        <div className={cn("flex items-center gap-2", nestingLevel === 1 && "pl-6", nestingLevel >= 2 && "pl-12")}>
           {hasChildren ? (
             <button
               className="p-0.5 hover:bg-muted rounded"
@@ -860,6 +863,27 @@ export default function PaperQuestionsPage() {
     }
 
     setSaving(true);
+    
+    // Refresh session before saving to prevent timeout issues after long edit sessions
+    try {
+      const { error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError) {
+        console.warn('Session refresh warning:', refreshError);
+        // Try to get current session - may still work if token is valid
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          toast({
+            variant: 'destructive',
+            title: 'Session Expired',
+            description: 'Please refresh the page and try again'
+          });
+          setSaving(false);
+          return;
+        }
+      }
+    } catch (sessionError) {
+      console.error('Session check error:', sessionError);
+    }
 
     try {
       let options = null;
@@ -1522,6 +1546,7 @@ export default function PaperQuestionsPage() {
   }
 
   // Add selected questions to topic (copy to questions bank)
+  // This preserves the full question structure including parent/child relationships
   async function handleAddToTopic() {
     if (!selectedTopicId || selectedQuestions.size === 0) return;
     
@@ -1531,7 +1556,12 @@ export default function PaperQuestionsPage() {
       const selectedQs = questions.filter(q => selectedQuestions.has(q.id));
       
       // Filter out questions without text (stem_markdown is NOT NULL)
-      const validQuestions = selectedQs.filter(q => q.question_text && q.question_text.trim().length > 0);
+      // But keep context-only questions that have children
+      const validQuestions = selectedQs.filter(q => {
+        const hasText = q.question_text && q.question_text.trim().length > 0;
+        const isContextParent = q.is_context_only || (q.context_text && !q.part_label);
+        return hasText || isContextParent;
+      });
       
       if (validQuestions.length === 0) {
         toast({
@@ -1543,48 +1573,93 @@ export default function PaperQuestionsPage() {
         return;
       }
       
+      // Create a mapping from old paper_question IDs to new question IDs
+      // This is needed to preserve parent/child relationships
+      const oldToNewIdMap = new Map<string, string>();
+      
+      // Sort questions so parents come before children
+      const sortedQuestions = [...validQuestions].sort((a, b) => {
+        // Parents (no parent_question_id) come first
+        if (!a.parent_question_id && b.parent_question_id) return -1;
+        if (a.parent_question_id && !b.parent_question_id) return 1;
+        // Then sort by question_number and part_label
+        if (a.question_number !== b.question_number) return a.question_number - b.question_number;
+        return (a.part_label || '').localeCompare(b.part_label || '');
+      });
+      
       // Map paper questions to topical questions format
-      // Note: questions table uses 'stem_markdown' instead of 'question_text'
-      const topicalQuestions = validQuestions.map(q => {
-        // Map question types to valid enum values
+      // Preserving structure: parent_question_id, part_label, context_text, is_context_only, needs_answer
+      const topicalQuestions = sortedQuestions.map(q => {
+        // Map question types to valid enum values for questions table
+        // Based on the check constraint, valid types are: mcq, true_false, short_answer, essay, structured, context
         let questionType = 'short_answer';
-        if (q.question_type === 'mcq') questionType = 'mcq'; // Keep as mcq, not multiple_choice
+        console.log('Original question_type:', q.question_type, 'for question:', q.question_text?.substring(0, 50));
+        
+        if (q.question_type === 'mcq') questionType = 'mcq';
         else if (q.question_type === 'true_false') questionType = 'true_false';
-        else if (q.question_type === 'essay') questionType = 'essay'; // Keep as essay
-        else if (q.question_type === 'calculation') questionType = 'short_answer'; // Map to short_answer
-        else if (q.question_type === 'structured') questionType = 'short_answer';
-        else if (q.question_type && ['mcq', 'multiple_choice', 'tf', 'true_false', 'numeric', 'short_answer', 'long_answer', 'fill_blank', 'essay'].includes(q.question_type)) {
-          questionType = q.question_type; // Use original if valid
+        else if (q.question_type === 'essay') questionType = 'essay';
+        else if (q.question_type === 'context') questionType = 'context';
+        else if (q.question_type === 'calculation') questionType = 'calculation';
+        else if (q.question_type === 'structured') questionType = 'structured';
+        else if (q.question_type === 'short_answer') questionType = 'short_answer';
+        else if (q.question_type === 'long_answer') questionType = 'essay'; // Map long_answer to essay
+        else if (q.question_type === 'fill_blank') questionType = 'fill_blank';
+        else if (q.question_type === 'numeric') questionType = 'numeric';
+        else if (q.question_type === 'multiple_choice') questionType = 'mcq';
+        else if (q.question_type === 'tf') questionType = 'true_false';
+        else {
+          // Default to short_answer for any unknown types
+          console.log('Unknown question_type, defaulting to short_answer:', q.question_type);
+          questionType = 'short_answer';
         }
         
-        const questionText = q.question_text || q.stem_markdown || '';
+        console.log('Mapped question_type:', questionType);
         
-        console.log('Mapping question:', {
-          id: q.id,
-          question_text: q.question_text,
-          stem_markdown: q.stem_markdown,
-          final_text: questionText,
-          all_fields: Object.keys(q)
-        });
+        // Determine if this is a context-only question
+        const isContextOnly = q.is_context_only || 
+          (q.marks === 0 && !q.part_label) ||
+          questionType === 'context';
+        
+        // For context-only questions, set marks to 0 and needs_answer to false
+        const marks = isContextOnly ? 0 : (q.marks || 1);
+        const needsAnswer = isContextOnly ? false : (q.needs_answer !== false);
+        
+        const questionText = q.question_text || q.stem_markdown || q.context_text || '';
         
         return {
+          // Store original paper_question_id for mapping
+          _original_id: q.id,
+          _original_parent_id: q.parent_question_id,
+          
           topic_id: selectedTopicId,
           subject_id: paper?.subject_id || null,
           exam_board_id: paper?.exam_board_id || null,
-          stem_markdown: questionText.trim(), // NOT NULL - must have value
-          stem_md: questionText.trim(), // Also populate stem_md for backward compatibility
+          stem_markdown: questionText.trim(),
+          stem_md: questionText.trim(),
           question_type: questionType,
           difficulty: q.difficulty || 'medium',
-          marks: q.marks || 1,
-          correct_answer: q.correct_answer || '', // Empty string instead of null for NOT NULL constraint
+          marks: marks,
+          correct_answer: q.correct_answer || '',
           explanation: q.mark_scheme || null,
           options: q.options || null,
-          question_number: `${q.question_number}${q.part_label || ''}`,
+          
+          // Preserve question structure
+          question_number: q.question_number || 1,
+          part_label: q.part_label || null,
+          parent_question_id: null, // Will be updated after insert
+          context_text: q.context_text || null,
+          is_context_only: isContextOnly,
+          needs_answer: needsAnswer,
+          display_order: q.display_order || (q.question_number * 100) + (q.part_label ? q.part_label.charCodeAt(0) : 0),
+          
+          // Preserve media
+          image_url: q.image_url || q.question_image_url || null,
+          
           status: 'published'
         };
       });
       
-      console.log('Inserting topical questions:', topicalQuestions);
+      console.log('Inserting topical questions with structure:', topicalQuestions);
       
       // Check required fields before insert
       const validTopicalQuestions = topicalQuestions.filter(q => {
@@ -1593,20 +1668,20 @@ export default function PaperQuestionsPage() {
           q.stem_md && 
           q.question_type && 
           q.status &&
-          q.correct_answer !== null && // Ensure correct_answer is not null
-          q.marks !== null; // Ensure marks is not null
+          q.correct_answer !== null &&
+          q.marks !== null;
           
         if (!hasRequiredFields) {
-          console.error('Question missing required fields:', {
-            topic_id: q.topic_id,
-            stem_markdown: !!q.stem_markdown,
-            stem_md: !!q.stem_md,
-            question_type: q.question_type,
-            status: q.status,
-            correct_answer: q.correct_answer,
-            marks: q.marks
-          });
+          console.error('Question missing required fields:', q);
         }
+        
+        // Also check if question_type is valid
+        const validTypes = ['mcq', 'true_false', 'short_answer', 'essay', 'structured', 'context', 'calculation', 'fill_blank', 'numeric'];
+        if (!validTypes.includes(q.question_type)) {
+          console.error('Invalid question_type:', q.question_type, 'for question:', q.stem_markdown?.substring(0, 50));
+          return false;
+        }
+        
         return hasRequiredFields;
       });
       
@@ -1614,41 +1689,53 @@ export default function PaperQuestionsPage() {
         throw new Error('No valid questions to insert - all missing required fields');
       }
       
-      try {
-        const { data, error, status, statusText } = await supabase
+      // Insert questions in batches, updating parent_question_id as we go
+      const insertedQuestions: any[] = [];
+      
+      for (const q of validTopicalQuestions) {
+        // Remove temporary fields before insert
+        const { _original_id, _original_parent_id, ...questionToInsert } = q;
+        
+        // If this question has a parent, look up the new parent ID
+        if (_original_parent_id && oldToNewIdMap.has(_original_parent_id)) {
+          questionToInsert.parent_question_id = oldToNewIdMap.get(_original_parent_id)!;
+        }
+        
+        console.log('Inserting question:', {
+          id: questionToInsert.stem_markdown?.substring(0, 50),
+          question_type: questionToInsert.question_type,
+          is_context_only: questionToInsert.is_context_only,
+          needs_answer: questionToInsert.needs_answer,
+          _original_id: _original_id,
+          _original_parent_id: _original_parent_id,
+          parent_question_id: questionToInsert.parent_question_id,
+          part_label: questionToInsert.part_label,
+          question_number: questionToInsert.question_number
+        });
+        
+        const { data, error } = await supabase
           .from('questions')
-          .insert(validTopicalQuestions)
-          .select();
+          .insert(questionToInsert)
+          .select()
+          .single();
         
         if (error) {
           console.error('Supabase insert error:', error);
-          console.error('Full error response:', {
-            message: error.message,
-            details: error.details,
-            hint: error.hint,
-            code: error.code,
-            status: status,
-            statusText: statusText
-          });
-          
-          // Try to get more specific error info
-          if (error.details) {
-            console.error('Error details parsed:', JSON.parse(JSON.stringify(error.details)));
-          }
-          
           throw new Error(`Database error: ${error.message || 'Unknown error'}`);
         }
         
-        console.log('Successfully inserted questions:', data);
-        
-      } catch (err: any) {
-        console.error('Caught error in insert operation:', err);
-        throw err;
+        // Store the mapping from old ID to new ID
+        if (data && _original_id) {
+          oldToNewIdMap.set(_original_id, data.id);
+          insertedQuestions.push(data);
+        }
       }
+      
+      console.log('Successfully inserted questions with structure:', insertedQuestions);
       
       toast({
         title: 'Success!',
-        description: `Added ${selectedQs.length} question(s) to the topic. They are now available in the Questions Bank.`
+        description: `Added ${insertedQuestions.length} question(s) to the topic with full structure preserved. They are now available in the Questions Bank.`
       });
       
       setIsAddToTopicDialogOpen(false);
@@ -1893,8 +1980,11 @@ export default function PaperQuestionsPage() {
                   >
                     <TableBody>
                       {(() => {
-                        // Group questions: parent questions and their children
-                        const parentQuestions = questions.filter(q => !(q as any).parent_question_id);
+                        // Group questions: supports 3-level hierarchy
+                        // Level 0: Main questions (Q1, Q2) - no parent_question_id
+                        // Level 1: Letter parts (2a, 2b) - parent is main question
+                        // Level 2: Roman sub-parts (2b(i), 2b(ii)) - parent is letter part
+                        const topLevelQuestions = questions.filter(q => !(q as any).parent_question_id);
                         const childrenByParent = questions.reduce((acc, q) => {
                           const parentId = (q as any).parent_question_id;
                           if (parentId) {
@@ -1916,7 +2006,8 @@ export default function PaperQuestionsPage() {
                           });
                         };
 
-                        return parentQuestions.map((question) => {
+                        // Recursive function to render questions with their children
+                        const renderQuestionWithChildren = (question: PaperQuestion, depth: number = 0) => {
                           const children = childrenByParent[question.id] || [];
                           const hasChildren = children.length > 0;
                           const isExpanded = expandedQuestions.has(question.id);
@@ -1929,26 +2020,23 @@ export default function PaperQuestionsPage() {
                                 isBeingDraggedOver={dragOverId === question.id}
                                 hasChildren={hasChildren}
                                 isExpanded={isExpanded}
-                                onToggleExpand={() => toggleExpand(question.id)}
+                                isChild={depth > 0}
+                                nestingLevel={depth}
+                                onToggleExpand={hasChildren ? () => toggleExpand(question.id) : undefined}
                                 onToggleSelection={() => toggleQuestionSelection(question.id)}
                                 onEdit={() => openEditQuestion(question)}
-                                onDelete={() => deleteQuestion(question.id)}
+                                onDelete={() => handleDeleteQuestion(question)}
                               />
-                              {isExpanded && children.map((child) => (
-                                <SortableQuestionRow
-                                  key={child.id}
-                                  question={child}
-                                  isSelected={selectedQuestions.has(child.id)}
-                                  isBeingDraggedOver={dragOverId === child.id}
-                                  isChild={true}
-                                  onToggleSelection={() => toggleQuestionSelection(child.id)}
-                                  onEdit={() => openEditQuestion(child)}
-                                  onDelete={() => deleteQuestion(child.id)}
-                                />
-                              ))}
+                              {isExpanded && children.map((child) => 
+                                renderQuestionWithChildren(child, depth + 1)
+                              )}
                             </React.Fragment>
                           );
-                        });
+                        };
+
+                        return topLevelQuestions.map((question) => 
+                          renderQuestionWithChildren(question, 0)
+                        );
                       })()}
                     </TableBody>
                   </SortableContext>
@@ -2039,25 +2127,48 @@ export default function PaperQuestionsPage() {
               </div>
             </div>
 
-            {/* Context Text (for questions with shared context) */}
+            {/* Context Text (for questions that can have children - main questions and letter parts only) */}
+            {/* Context is NOT allowed for:
+                - Context-only questions (they ARE the context)
+                - Roman numeral sub-parts like (i), (ii) - they should inherit context from parent */}
             {!questionForm.is_context_only && (
+              // Only show context field if this is a main question or letter part (not a sub-part)
+              !questionForm.part_label || /^[a-z]$/i.test(questionForm.part_label)
+            ) && (
               <div className="space-y-2">
                 <Label>Shared Context (Optional)</Label>
                 <Textarea
-                  placeholder="Enter shared context that appears before this question (e.g., 'Describe the following types of malware:')"
+                  placeholder={
+                    !questionForm.part_label 
+                      ? "Enter context that introduces this question (e.g., 'A computer system consists of both hardware and software.')"
+                      : "Enter context for this part (e.g., 'Give two examples of each type of software.')"
+                  }
                   value={questionForm.context_text}
                   onChange={(e) => setQuestionForm({ ...questionForm, context_text: e.target.value })}
                   rows={2}
                   className="text-sm"
                 />
                 <p className="text-xs text-muted-foreground">
-                  This context will be displayed above the question when it shares a stem with other parts
+                  {!questionForm.part_label 
+                    ? "This context introduces the main question and appears before any parts"
+                    : "This context appears before sub-parts (i), (ii), etc. under this letter part"}
                 </p>
               </div>
             )}
 
             {/* Parent Question Selector (for hierarchical ordering) */}
-            {!questionForm.is_context_only && questions.filter(q => (q as any).is_context_only || !q.part_label).length > 0 && (
+            {/* 
+              3-Level Hierarchy Support:
+              - Level 0: Main questions (Q1, Q2) - can be parents to letter parts
+              - Level 1: Letter parts (a, b) - can be parents to roman sub-parts
+              - Level 2: Roman sub-parts (i, ii) - cannot have children
+              
+              A question can be a parent if:
+              1. It's a context-only question
+              2. It's a main question (no part_label)
+              3. It's a letter part (single letter like "a", "b") that can have roman sub-parts
+            */}
+            {!questionForm.is_context_only && (
               <div className="space-y-2">
                 <Label>Parent Question (Optional)</Label>
                 <Select
@@ -2070,19 +2181,44 @@ export default function PaperQuestionsPage() {
                   <SelectTrigger>
                     <SelectValue placeholder="Select parent question..." />
                   </SelectTrigger>
-                  <SelectContent className="max-h-[200px] overflow-y-auto">
+                  <SelectContent className="max-h-[300px] overflow-y-auto">
                     <SelectItem value="none">No parent (standalone question)</SelectItem>
+                    {/* Show questions that can be parents:
+                        - Context-only questions
+                        - Main questions (no part_label)
+                        - Letter parts (single letter) that can have roman sub-parts */}
                     {questions
-                      .filter(q => (q as any).is_context_only || (!q.part_label && q.id !== editingQuestion?.id))
-                      .map(q => (
-                        <SelectItem key={q.id} value={q.id}>
-                          Q{q.question_number}: {q.question_text?.slice(0, 50)}...
-                        </SelectItem>
-                      ))}
+                      .filter(q => {
+                        if (q.id === editingQuestion?.id) return false;
+                        // Context-only can be parent
+                        if ((q as any).is_context_only) return true;
+                        // Main questions (no part_label) can be parent
+                        if (!q.part_label) return true;
+                        // Letter parts (single letter a-z) can be parent to roman sub-parts
+                        if (q.part_label && /^[a-z]$/i.test(q.part_label)) return true;
+                        return false;
+                      })
+                      .map(q => {
+                        const isMainQ = !q.part_label;
+                        const isLetterPart = q.part_label && /^[a-z]$/i.test(q.part_label);
+                        const prefix = isMainQ ? `Q${q.question_number}` : 
+                                      isLetterPart ? `Q${q.question_number}(${q.part_label})` :
+                                      `Q${q.question_number}`;
+                        return (
+                          <SelectItem key={q.id} value={q.id}>
+                            <span className="flex items-center gap-2">
+                              <span className="font-medium">{prefix}:</span>
+                              <span className="truncate max-w-[250px]">
+                                {q.question_text?.slice(0, 40) || (q as any).context_text?.slice(0, 40) || 'Context'}...
+                              </span>
+                            </span>
+                          </SelectItem>
+                        );
+                      })}
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  Link this question as a sub-part under a context question
+                  Link this question as a sub-part (e.g., Q2(b)(i) under Q2(b))
                 </p>
               </div>
             )}

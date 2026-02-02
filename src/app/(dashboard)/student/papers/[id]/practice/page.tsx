@@ -480,10 +480,50 @@ export default function PaperPracticePage() {
   const currentQuestionNumber = currentGroup?.[0];
   const currentQuestionParts = currentGroup?.[1] || [];
   
-  // Count answered questions - use needs_answer field if available, fallback to marks > 0
-  const answerableQuestions = questions.filter(q => 
-    q.needs_answer === true || (q.needs_answer !== false && q.marks > 0)
-  );
+  // Count answered questions - properly identify answerable vs context-only questions
+  const answerableQuestions = useMemo(() => {
+    // Build a set of parent IDs (questions that have children are context-only)
+    const parentIds = new Set(questions.filter(q => q.parent_question_id).map(q => q.parent_question_id));
+    
+    // Context patterns to detect context-only questions
+    const contextPatterns = [
+      'consists of both',
+      'has been the victim',
+      'needs to be considered',
+      'the following',
+      'read the',
+      'study the'
+    ];
+    
+    return questions.filter(q => {
+      // Explicit needs_answer field takes priority
+      if (q.needs_answer === true) return true;
+      if (q.needs_answer === false) return false;
+      
+      // Parent questions (that have children) are context-only
+      if (parentIds.has(q.id)) return false;
+      
+      // Questions with marks > 0 and a part_label are answerable
+      if (q.marks > 0 && q.part_label) return true;
+      
+      // Standalone questions (no part_label, no children) with marks > 0
+      if (q.marks > 0 && !q.part_label) {
+        // Check if there are other parts for this question number
+        const otherParts = questions.filter(p => 
+          p.question_number === q.question_number && p.id !== q.id && p.part_label
+        );
+        // If there are other parts, this is context
+        if (otherParts.length > 0) {
+          // But also check the text pattern
+          const text = (q.question_text || '').toLowerCase();
+          if (contextPatterns.some(p => text.includes(p))) return false;
+        }
+        return otherParts.length === 0;
+      }
+      
+      return false;
+    });
+  }, [questions]);
   const answeredCount = answerableQuestions.filter(q => {
     const ans = answers.get(q.id);
     return ans && (ans.answer_text || ans.selected_option);

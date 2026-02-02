@@ -305,12 +305,14 @@ export default function TestBuilderPage() {
     staleTime: 10 * 60 * 1000,
   });
 
-  // Cached questions query - fetches from both questions and paper_questions tables
+  // Cached questions query - fetches ONLY from questions table (Question Bank)
+  // Paper questions must first be added to a topic to appear here
+  // Optimized: Only fetch answerable questions (marks > 0) to reduce data transfer
   const { data: questions = [], isLoading: loadingQuestions } = useQuery({
     queryKey: ['test-builder-questions', user?.exam_boards],
     queryFn: async () => {
-      // Fetch topical questions
-      const { data: topicalData, error: topicalError } = await supabase
+      // Fetch questions from the Question Bank - only answerable questions
+      const { data: questionBankData, error: questionError } = await supabase
         .from('questions')
         .select(`
           id,
@@ -336,88 +338,22 @@ export default function TestBuilderPage() {
           topic:topics(name),
           subject:subjects(name)
         `)
+        .not('topic_id', 'is', null)
+        .or('marks.gt.0,parent_question_id.not.is.null') // Get answerable questions OR children (for grouping)
+        .order('display_order', { ascending: true })
         .order('created_at', { ascending: false })
-        .limit(500);
+        .limit(1000);
       
-      if (topicalError) console.error('Error fetching topical questions:', topicalError);
+      if (questionError) console.error('Error fetching questions:', questionError);
       
-      // Fetch paper questions
-      const { data: paperData, error: paperError } = await supabase
-        .from('paper_questions')
-        .select(`
-          id,
-          question_text,
-          question_type,
-          question_number,
-          part_label,
-          marks,
-          mark_scheme,
-          examiner_tips,
-          image_url,
-          question_image_url,
-          use_image_question,
-          options,
-          paper_id,
-          parent_question_id,
-          display_order,
-          past_papers!inner(
-            id,
-            subject_id,
-            exam_board_id,
-            subjects(name)
-          )
-        `)
-        .order('created_at', { ascending: false })
-        .limit(300);
-      
-      if (paperError) console.error('Error fetching paper questions:', paperError);
-      
-      // Filter topical questions to only published
-      let filteredTopical = (topicalData || []).filter(q => 
+      // Filter to only published questions
+      let filteredQuestions = (questionBankData || []).filter(q => 
         q.visibility === 'published' || q.status === 'published' || 
         (!q.visibility && !q.status)
       ).map(q => ({
         ...q,
         source: 'topical' as const
       }));
-      
-            
-      // Transform paper questions to match Question interface
-      const transformedPaper = (paperData || []).map((pq: any) => {
-        // Determine if this is an image-based question
-        const hasImageQuestion = pq.use_image_question && pq.question_image_url;
-        // Use question text, or indicate image question if no text but has image
-        const questionContent = pq.question_text || (hasImageQuestion ? '[Image Question]' : '');
-        
-        return {
-          id: pq.id,
-          stem_md: questionContent,
-          stem_markdown: questionContent,
-          question_type: pq.question_type || 'short_answer',
-          marks: pq.marks ?? 1, // Use nullish coalescing to preserve 0 marks for context questions
-          difficulty: pq.difficulty || 'medium',
-          topic_id: '',
-          subject_id: pq.past_papers?.subject_id || '',
-          exam_board_id: pq.past_papers?.exam_board_id || '',
-          options: pq.options || null,
-          correct_answer: pq.mark_scheme || '',
-          examiner_comment: pq.examiner_tips || '',
-          topic: null,
-          subject: pq.past_papers?.subjects || null,
-          parent_question_id: pq.parent_question_id || null,
-          part_label: pq.part_label || null,
-          display_order: pq.display_order ?? 0, // Use nullish coalescing to preserve actual order
-          question_number: pq.question_number || '',
-          image_url: pq.image_url || null,
-          question_image_url: pq.question_image_url || null,
-          use_image_question: pq.use_image_question || false,
-          source: 'paper' as const,
-          paper_id: pq.paper_id
-        };
-      });
-      
-      // Combine both sources
-      let allQuestions = [...filteredTopical, ...transformedPaper];
       
       // Filter by user's exam boards if set
       if (user?.exam_boards && user.exam_boards.length > 0) {
@@ -427,17 +363,18 @@ export default function TestBuilderPage() {
           .in('code', user.exam_boards.map(b => b.toUpperCase()));
         
         if (examBoardsData && examBoardsData.length > 0) {
-          const userExamBoardIds = examBoardsData.map(eb => eb.id);
-          allQuestions = allQuestions.filter(q => 
-            !q.exam_board_id || userExamBoardIds.includes(q.exam_board_id)
+          const userExamBoardIds = new Set(examBoardsData.map(eb => eb.id));
+          filteredQuestions = filteredQuestions.filter(q => 
+            !q.exam_board_id || userExamBoardIds.has(q.exam_board_id)
           );
         }
       }
       
-      return allQuestions as Question[];
+      return filteredQuestions as Question[];
     },
     enabled: !loading,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
   });
 
   // Set default exam board to first item when data loads
@@ -518,6 +455,11 @@ export default function TestBuilderPage() {
       : null;
 
     const filtered = questions.filter(q => {
+      // Skip context-only questions (0 marks and no part_label means it's just context)
+      if (q.marks === 0 && !q.part_label) {
+        return false;
+      }
+      
       const searchText = (q.stem_md || q.stem_markdown || '').toLowerCase();
       if (searchQuery && !searchText.includes(searchQuery.toLowerCase())) {
         return false;
@@ -554,29 +496,30 @@ export default function TestBuilderPage() {
     return filtered;
   }, [questions, searchQuery, selectedExamBoard, selectedSubject, selectedTopic, selectedDifficulty, selectedType, subjects]);
 
-  // Group questions by question_number for display (shows parent questions only, with part count)
+  // Group questions by parent_question_id for display (shows parent questions with their parts)
   const groupedQuestions = useMemo(() => {
-    // Create a map to group questions by their question_number + source + paper_id/subject_id
-    const groups = new Map<string, Question[]>();
+    // Separate parent questions from child questions
+    const parentQuestions = filteredQuestions.filter(q => !q.parent_question_id);
+    const childQuestions = filteredQuestions.filter(q => q.parent_question_id);
     
-    filteredQuestions.forEach(q => {
-      // Create a unique key for grouping
-      const groupKey = q.question_number 
-        ? `${q.source}-${q.paper_id || q.subject_id}-${q.question_number}`
-        : q.id; // Standalone questions use their own ID as key
-      
-      if (!groups.has(groupKey)) {
-        groups.set(groupKey, []);
+    // Create a map of parent_id -> children
+    const childrenMap = new Map<string, Question[]>();
+    childQuestions.forEach(q => {
+      const parentId = q.parent_question_id!;
+      if (!childrenMap.has(parentId)) {
+        childrenMap.set(parentId, []);
       }
-      groups.get(groupKey)!.push(q);
+      childrenMap.get(parentId)!.push(q);
     });
     
-    // Sort each group by part_label and return the first question as representative
+    // Build result: each parent question with its children as parts
     const result: Array<{ question: Question; parts: Question[]; totalMarks: number }> = [];
     
-    groups.forEach((parts) => {
-      // Sort parts by display_order or part_label
-      parts.sort((a, b) => {
+    parentQuestions.forEach(parent => {
+      const children = childrenMap.get(parent.id) || [];
+      
+      // Sort children by display_order or part_label
+      children.sort((a, b) => {
         if (a.display_order !== undefined && b.display_order !== undefined) {
           return a.display_order - b.display_order;
         }
@@ -585,15 +528,52 @@ export default function TestBuilderPage() {
         return partA.localeCompare(partB);
       });
       
-      // Use the first part (or the one without part_label) as the representative
-      const representative = parts.find(p => !p.part_label) || parts[0];
-      const totalMarks = parts.reduce((sum, p) => sum + p.marks, 0);
-      
-      result.push({ question: representative, parts, totalMarks });
+      // If parent has children, include only children with marks (they are the answerable parts)
+      // Parent context text will be shown but parent itself may have 0 marks
+      if (children.length > 0) {
+        // Filter children to only those with marks > 0
+        const answerableParts = children.filter(c => c.marks > 0);
+        if (answerableParts.length > 0) {
+          const totalMarks = answerableParts.reduce((sum, p) => sum + p.marks, 0);
+          result.push({ 
+            question: parent, 
+            parts: answerableParts, 
+            totalMarks 
+          });
+        }
+      } else {
+        // Standalone question (no children) - only include if it has marks
+        if (parent.marks > 0) {
+          result.push({ 
+            question: parent, 
+            parts: [parent], 
+            totalMarks: parent.marks 
+          });
+        }
+      }
+    });
+    
+    // Also handle orphaned child questions (children without parents in the filtered set)
+    const usedChildIds = new Set<string>();
+    result.forEach(r => r.parts.forEach(p => usedChildIds.add(p.id)));
+    
+    childQuestions.forEach(child => {
+      if (!usedChildIds.has(child.id) && child.marks > 0) {
+        // Check if parent exists but was filtered out
+        const parentExists = questions.some(q => q.id === child.parent_question_id);
+        if (!parentExists) {
+          // Orphaned child - show as standalone
+          result.push({ 
+            question: child, 
+            parts: [child], 
+            totalMarks: child.marks 
+          });
+        }
+      }
     });
     
     return result;
-  }, [filteredQuestions]);
+  }, [filteredQuestions, questions]);
 
   // Get all selected question IDs
   const selectedQuestionIds = useMemo(() => {

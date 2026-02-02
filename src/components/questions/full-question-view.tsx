@@ -22,16 +22,64 @@ interface FullQuestionViewProps {
  * Determines if a question part needs an answer input
  * Uses needs_answer field if available, falls back to heuristics
  */
-function isAnswerablePart(q: PaperQuestion): boolean {
+function isAnswerablePart(q: PaperQuestion, allParts: PaperQuestion[]): boolean {
+  // Check is_context_only first - these never need answers
+  if ((q as any).is_context_only === true) return false;
+  
+  // Check marks === 0 - no marks means no answer needed
+  // Use Number() to handle string marks
+  const marks = Number(q.marks) || 0;
+  if (marks === 0) return false;
+  
   // Explicit needs_answer field takes priority
   if (q.needs_answer === true) return true;
   if (q.needs_answer === false) return false;
   
+  // Check if this is a parent question with children - it's context-only
+  const hasChildren = allParts.some(p => p.parent_question_id === q.id);
+  if (hasChildren) return false;
+  
+  // Check for context-only patterns in the text
+  const text = (q.question_text || '').toLowerCase();
+  const contextPatterns = [
+    'consists of both',
+    'has been the victim',
+    'needs to be considered',
+    'the following',
+    'read the',
+    'study the',
+    'look at the',
+    'consider the',
+    'the diagram shows',
+    'the table shows'
+  ];
+  
+  // If no part_label and matches context pattern, it's likely context-only
+  if (!q.part_label && contextPatterns.some(p => text.includes(p))) {
+    // Check if there are any parts under this question number
+    const samQuestionParts = allParts.filter(p => 
+      p.question_number === q.question_number && 
+      p.id !== q.id && 
+      p.part_label
+    );
+    if (samQuestionParts.length > 0) return false;
+  }
+  
   // Fallback heuristics:
-  // 1. Has marks > 0
-  // 2. Has a part label (not just main stem)
-  // 3. Question type suggests answer needed
-  if (q.marks > 0) return true;
+  // 1. Has marks > 0 AND has a part_label OR is standalone
+  // 2. Question type suggests answer needed
+  if (marks > 0) {
+    // If it has a part_label, it's answerable
+    if (q.part_label) return true;
+    // If it's standalone (no other parts with same question_number), it's answerable
+    const otherParts = allParts.filter(p => 
+      p.question_number === q.question_number && p.id !== q.id
+    );
+    if (otherParts.length === 0) return true;
+    // Otherwise, it's likely context for the parts below
+    return false;
+  }
+  
   if (q.question_type === 'mcq' && q.options?.length) return true;
   
   return false;
@@ -89,7 +137,7 @@ export function FullQuestionView({
   // Memoize sorted parts and structure
   const { sortedParts, answerableParts, totalMarks, renderStructure } = useMemo(() => {
     const sorted = sortQuestionParts(questionParts);
-    const answerable = sorted.filter(isAnswerablePart);
+    const answerable = sorted.filter(q => isAnswerablePart(q, sorted));
     const marks = answerable.reduce((sum, q) => sum + (q.marks || 0), 0);
     const structure = buildRenderStructure(sorted, answerable);
     
