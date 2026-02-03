@@ -43,7 +43,11 @@ export default function JoinClassPage() {
       }
 
       try {
-        const { data, error: fetchError } = await supabase
+        // Try both uppercase and original case for the join code
+        const joinCode = code.toUpperCase();
+        
+        // First try to get class with relationships
+        let { data, error: fetchError } = await supabase
           .from('classes')
           .select(`
             id,
@@ -52,8 +56,46 @@ export default function JoinClassPage() {
             subjects(name),
             users!classes_teacher_id_fkey(display_name)
           `)
-          .eq('join_code', code.toUpperCase())
+          .eq('join_code', joinCode)
           .single();
+
+        // If that fails, try without the user relationship (might be RLS issue)
+        if (fetchError || !data) {
+          const { data: basicData, error: basicError } = await supabase
+            .from('classes')
+            .select(`
+              id,
+              name,
+              join_code,
+              subjects(name)
+            `)
+            .eq('join_code', joinCode)
+            .single();
+          
+          if (!basicError && basicData) {
+            data = basicData;
+            fetchError = null;
+          }
+        }
+
+        // If still not found, try with original case
+        if (fetchError || !data) {
+          const { data: origCaseData, error: origCaseError } = await supabase
+            .from('classes')
+            .select(`
+              id,
+              name,
+              join_code,
+              subjects(name)
+            `)
+            .eq('join_code', code)
+            .single();
+          
+          if (!origCaseError && origCaseData) {
+            data = origCaseData;
+            fetchError = null;
+          }
+        }
 
         if (fetchError || !data) {
           setError('Class not found. Please check the invite link.');

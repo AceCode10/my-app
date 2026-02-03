@@ -78,7 +78,7 @@ export default function SubjectPage({
       setTopics(topicsData || []);
 
       // Fetch resource counts
-      const topicIds = (topicsData || []).map(t => t.id);
+      const topicIds = (topicsData || []).map((t: Topic) => t.id);
       
       // Count notes
       const { count: notesCount } = await supabase
@@ -181,42 +181,65 @@ export default function SubjectPage({
         )}
       </div>
 
-      {/* Resource Cards - Clean Style */}
-      <div className="grid grid-cols-3 gap-4">
+      {/* Resource Cards - Tutopiya Style */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
         {isLoading ? (
           Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="bg-card p-6 rounded-xl border">
-              <Skeleton className="h-8 w-8 mx-auto mb-2 rounded" />
-              <Skeleton className="h-4 w-16 mx-auto" />
+            <div key={i} className="flex items-center justify-between p-4 rounded-xl border">
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-6 w-6 rounded" />
+                <Skeleton className="h-5 w-24" />
+              </div>
+              <Skeleton className="h-5 w-5" />
             </div>
           ))
         ) : (
           <>
+            {/* Revision Notes - Blue theme */}
             <Link href={`/resources/revision-notes/${subjectSlug}`}>
-              <div className="bg-card p-6 rounded-xl border hover:border-primary hover:shadow-lg transition-all duration-200 text-center group">
-                <div className="text-3xl mb-2 group-hover:scale-110 transition-transform">📖</div>
-                <div className="font-medium text-sm">Notes</div>
+              <div className="flex items-center justify-between p-4 rounded-xl border-2 border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-900 hover:shadow-md transition-all duration-200 group">
+                <div className="flex items-center gap-3">
+                  <BookOpen className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  <span className="font-medium text-blue-700 dark:text-blue-300">Revision Notes</span>
+                </div>
+                <ArrowRight className="w-5 h-5 text-blue-500 group-hover:translate-x-1 transition-transform" />
               </div>
             </Link>
             
+            {/* Topical Questions - Green theme */}
             <Link href={`/resources/topical-questions/${subjectSlug}`}>
-              <div className="bg-card p-6 rounded-xl border hover:border-primary hover:shadow-lg transition-all duration-200 text-center group">
-                <div className="text-3xl mb-2 group-hover:scale-110 transition-transform">📝</div>
-                <div className="font-medium text-sm">Topical Questions</div>
+              <div className="flex items-center justify-between p-4 rounded-xl border-2 border-green-200 bg-green-50/50 dark:bg-green-950/20 dark:border-green-900 hover:shadow-md transition-all duration-200 group">
+                <div className="flex items-center gap-3">
+                  <ClipboardList className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  <span className="font-medium text-green-700 dark:text-green-300">Topical Questions</span>
+                </div>
+                <ArrowRight className="w-5 h-5 text-green-500 group-hover:translate-x-1 transition-transform" />
               </div>
             </Link>
             
+            {/* Past Papers - Purple theme */}
             <Link href={`/resources/past-papers/${subjectSlug}`}>
-              <div className="bg-card p-6 rounded-xl border hover:border-primary hover:shadow-lg transition-all duration-200 text-center group">
-                <div className="text-3xl mb-2 group-hover:scale-110 transition-transform">📄</div>
-                <div className="font-medium text-sm">Past Papers</div>
+              <div className="flex items-center justify-between p-4 rounded-xl border-2 border-purple-200 bg-purple-50/50 dark:bg-purple-950/20 dark:border-purple-900 hover:shadow-md transition-all duration-200 group">
+                <div className="flex items-center gap-3">
+                  <FileText className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                  <span className="font-medium text-purple-700 dark:text-purple-300">Past Papers</span>
+                </div>
+                <ArrowRight className="w-5 h-5 text-purple-500 group-hover:translate-x-1 transition-transform" />
               </div>
             </Link>
+            
+            {/* Videos - Coming Soon - Orange theme */}
+            <div className="flex items-center justify-between p-4 rounded-xl border-2 border-orange-200 bg-orange-50/50 dark:bg-orange-950/20 dark:border-orange-900 opacity-60 cursor-not-allowed">
+              <div className="flex items-center gap-3">
+                <Play className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                <span className="font-medium text-orange-700 dark:text-orange-300">Videos</span>
+                <Badge variant="secondary" className="text-xs">Coming Soon</Badge>
+              </div>
+              <ArrowRight className="w-5 h-5 text-orange-500" />
+            </div>
           </>
         )}
       </div>
     </div>
   );
 }
-
-    

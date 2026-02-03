@@ -102,10 +102,10 @@ export function AssessmentList({
     <div className={cn('space-y-6', className)}>
       {/* Filters */}
       {showFilters && (
-        <div className="bg-white rounded-lg shadow-sm p-6 space-y-4">
+        <div className="bg-card rounded-xl border p-4 sm:p-6 space-y-4">
           {/* Search */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input
               type="text"
               placeholder="Search assessments..."
@@ -190,7 +190,7 @@ export function AssessmentList({
 
           {/* Active Filters Summary */}
           {(searchQuery || selectedType !== 'all' || selectedSubject !== 'all' || selectedExamBoard !== 'all') && (
-            <div className="flex items-center gap-2 text-sm text-gray-600">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Filter className="w-4 h-4" />
               <span>
                 Showing {sortedAssessments.length} of {assessments.length} assessments

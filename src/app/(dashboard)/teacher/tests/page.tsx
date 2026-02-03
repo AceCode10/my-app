@@ -269,8 +269,8 @@ export default function TeacherTestsPage() {
       </div>
 
       {/* Search */}
-      <Card>
-        <CardHeader>
+      <Card className="rounded-xl">
+        <CardHeader className="pb-0">
           <div className="flex items-center gap-4">
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -286,7 +286,7 @@ export default function TeacherTestsPage() {
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-4">
           {loading ? (
             <div className="space-y-3">
               {[1, 2, 3].map(i => (

@@ -398,9 +398,48 @@ export default function StudentNotesPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="bg-card rounded-xl border divide-y overflow-hidden">
               {filteredNotes.map((note) => (
-                <NoteCard key={note.id} note={note} />
+                <Link key={note.id} href={`/notes/${note.slug}`} className="block">
+                  <div className="flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors group">
+                    {/* Progress Ring */}
+                    <div className="relative flex-shrink-0 w-12 h-12">
+                      <svg className="w-12 h-12 transform -rotate-90">
+                        <circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" strokeWidth="3" className="text-muted/30" />
+                        <circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" strokeWidth="3"
+                          strokeDasharray={125.6} strokeDashoffset={125.6 - (note.progress_percentage / 100) * 125.6}
+                          strokeLinecap="round"
+                          className={note.progress_percentage === 100 ? "text-green-500" : note.progress_percentage > 0 ? "text-yellow-500" : "text-muted-foreground/30"}
+                        />
+                      </svg>
+                      <span className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold">
+                        {note.progress_percentage}%
+                      </span>
+                    </div>
+                    
+                    {/* Note Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                          {note.title}
+                        </h3>
+                        {note.is_bookmarked && (
+                          <Star className="h-4 w-4 text-yellow-500 fill-yellow-500 flex-shrink-0" />
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                        {(note.subject as any)?.name && <span>{(note.subject as any).name}</span>}
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {note.estimated_read_time || 5} min
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {/* Chevron */}
+                    <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
+                  </div>
+                </Link>
               ))}
             </div>
           )}

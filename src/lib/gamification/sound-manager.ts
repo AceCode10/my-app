@@ -3,7 +3,20 @@
  * Uses Howler.js for cross-browser audio support
  */
 
-import { Howl, Howler } from 'howler';
+// Dynamic import to prevent SSR issues - Howler only works in browser
+let Howl: any = null;
+let Howler: any = null;
+
+// Only import Howler on client side
+if (typeof window !== 'undefined') {
+  import('howler').then((module) => {
+    Howl = module.Howl;
+    Howler = module.Howler;
+  }).catch(() => {
+    // Silently fail if howler can't be loaded
+    console.warn('Howler.js could not be loaded');
+  });
+}
 
 export type SoundEffect = 
   // XP Sounds
@@ -137,9 +150,9 @@ class SoundManager {
   /**
    * Load a single sound
    */
-  private loadSound(key: SoundEffect): Howl | undefined {
+  private loadSound(key: SoundEffect): any | undefined {
     const path = SOUND_PATHS[key];
-    if (!path) return undefined;
+    if (!path || !Howl) return undefined;
 
     try {
       const sound = new Howl({
@@ -230,7 +243,9 @@ class SoundManager {
    */
   setEnabled(enabled: boolean): void {
     this.enabled = enabled;
-    Howler.mute(!enabled);
+    if (Howler) {
+      Howler.mute(!enabled);
+    }
   }
 
   /**
@@ -245,7 +260,9 @@ class SoundManager {
    */
   setMasterVolume(volume: number): void {
     this.masterVolume = Math.max(0, Math.min(1, volume));
-    Howler.volume(this.masterVolume);
+    if (Howler) {
+      Howler.volume(this.masterVolume);
+    }
   }
 
   /**

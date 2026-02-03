@@ -171,7 +171,11 @@ export default function SubjectPastPapersPage({
   // Generate short paper title like "Paper 1 (0417/11)"
   const getShortPaperTitle = (paper: Paper) => {
     const subjectCode = subject?.code || '0000';
-    const paperNum = paper.paper_number || paper.component_code || '1';
+    let paperNum = paper.paper_number || paper.component_code || '1';
+    // Strip "Paper " prefix if it already exists to avoid "Paper Paper 2"
+    if (paperNum.toLowerCase().startsWith('paper ')) {
+      paperNum = paperNum.substring(6).trim();
+    }
     const variant = paper.variant || '1';
     // Format: "Paper 1 (0417/11)"
     return `Paper ${paperNum} (${subjectCode}/${variant})`;
@@ -221,9 +225,16 @@ export default function SubjectPastPapersPage({
       ...group,
       // Sort papers by paper_number numerically, then by variant numerically
       papers: group.papers.sort((a, b) => {
+        // Extract numeric paper number (handle "Paper 2" -> 2)
+        const extractNum = (val: string | null | undefined) => {
+          if (!val) return 0;
+          const stripped = val.toLowerCase().replace('paper ', '').trim();
+          return parseInt(stripped) || 0;
+        };
+        
         // First sort by paper_number (e.g., 1, 2, 3)
-        const aPaperNum = parseInt(a.paper_number || a.component_code || '0') || 0;
-        const bPaperNum = parseInt(b.paper_number || b.component_code || '0') || 0;
+        const aPaperNum = extractNum(a.paper_number) || extractNum(a.component_code);
+        const bPaperNum = extractNum(b.paper_number) || extractNum(b.component_code);
         if (aPaperNum !== bPaperNum) return aPaperNum - bPaperNum;
         
         // Then sort by variant (e.g., 11, 12, 13)
@@ -232,8 +243,8 @@ export default function SubjectPastPapersPage({
         if (aVariant !== bVariant) return aVariant - bVariant;
         
         // Finally by component_code as fallback
-        const aCode = parseInt(a.component_code || '0') || 0;
-        const bCode = parseInt(b.component_code || '0') || 0;
+        const aCode = extractNum(a.component_code);
+        const bCode = extractNum(b.component_code);
         return aCode - bCode;
       })
     }));

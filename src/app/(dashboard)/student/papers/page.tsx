@@ -342,73 +342,53 @@ export default function StudentPapersPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="bg-card rounded-xl border divide-y overflow-hidden">
           {filteredPapers.map((paper) => (
-            <Card 
+            <div 
               key={paper.id} 
-              className="hover:shadow-md transition-shadow cursor-pointer group"
+              className="flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors cursor-pointer group"
               onClick={() => router.push(`/student/papers/${paper.id}`)}
             >
-              <CardHeader className="pb-2">
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-sm sm:text-base truncate">{paper.title}</h3>
-                      <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                        {paper.subject_name}
-                      </p>
-                    </div>
-                    {getAttemptBadge(paper.id)}
-                  </div>
+              {/* Year Badge */}
+              <div className="flex-shrink-0 w-14 h-14 rounded-xl bg-primary/10 flex flex-col items-center justify-center">
+                <span className="text-lg font-bold text-primary">{paper.year}</span>
+                <span className="text-[10px] text-muted-foreground uppercase">Paper</span>
+              </div>
+              
+              {/* Paper Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                    {paper.title}
+                  </h3>
+                  {getAttemptBadge(paper.id)}
                 </div>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="space-y-3">
-                  {/* Metadata */}
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      {paper.year}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Target className="h-3 w-3" />
-                      {paper.duration} min
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <FileText className="h-3 w-3" />
-                      {paper.question_count || 0} questions
-                    </span>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex gap-2">
-                    <Button 
-                      size="sm" 
-                      className="flex-1 text-xs"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        router.push(`/student/papers/${paper.id}/practice`);
-                      }}
-                    >
-                      <Play className="h-3 w-3 mr-1" />
-                      Practice
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      className="flex-1 text-xs"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        router.push(`/student/papers/${paper.id}/results`);
-                      }}
-                    >
-                      <History className="h-3 w-3 mr-1" />
-                      Results
-                    </Button>
-                  </div>
+                <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                  <span>{paper.subject_name}</span>
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {paper.duration} min
+                  </span>
+                  <span>{paper.question_count || 0} Q</span>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2">
+                <Button 
+                  size="sm" 
+                  className="hidden sm:flex"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    router.push(`/student/papers/${paper.id}/practice`);
+                  }}
+                >
+                  <Play className="h-4 w-4 mr-1" />
+                  Practice
+                </Button>
+                <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+              </div>
+            </div>
           ))}
         </div>
       )}

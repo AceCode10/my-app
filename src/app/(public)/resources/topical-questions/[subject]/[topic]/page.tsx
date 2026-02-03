@@ -15,6 +15,8 @@ import { createClient } from '@/lib/supabase/client';
 import { useProgress } from '@/hooks/use-progress';
 import { SessionSummary } from '@/components/practice/session-summary';
 import { Stopwatch } from '@/components/practice/question-timer';
+import { useGamification } from '@/hooks/use-gamification';
+import { useUser } from '@/hooks/use-user';
 
 interface Question {
   id: string;
@@ -80,8 +82,11 @@ export default function TopicPracticePage({
   const level = searchParams.get('level') || '';
   const supabase = createClient();
   const { trackProgress } = useProgress();
+  const { user } = useUser();
+  const gamification = useGamification();
   
   const [isLoading, setIsLoading] = useState(true);
+  const [xpAwarded, setXpAwarded] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('landing');
   const [subject, setSubject] = useState<Subject | null>(null);
   const [topic, setTopic] = useState<Topic | null>(null);
@@ -416,7 +421,55 @@ export default function TopicPracticePage({
     setViewMode('summary');
     // Clear saved session
     localStorage.removeItem(`practice-${subjectSlug}-${topicSlug}`);
-  }, [subjectSlug, topicSlug]);
+    
+    // Award XP for completing topical questions (only for logged-in users)
+    if (user && gamification && !xpAwarded) {
+      // Calculate XP based on performance
+      const allAnswerableParts = questionGroups.flatMap(g => 
+        g.questions.filter(q => q.marks > 0 && q.needs_answer !== false && !q.is_context_only)
+      );
+      const correctAnswers = allAnswerableParts.filter(q => questionStatuses[q.id]?.assessment === 'correct').length;
+      const totalAnswerable = allAnswerableParts.length;
+      
+      // Base XP: 5 XP per question answered
+      const baseXP = totalAnswerable * 5;
+      
+      // Bonus XP for correct answers: +3 XP per correct
+      const correctBonus = correctAnswers * 3;
+      
+      // Accuracy bonus: +10 XP if 80%+ correct, +25 XP if 100% correct
+      const accuracy = totalAnswerable > 0 ? (correctAnswers / totalAnswerable) * 100 : 0;
+      let accuracyBonus = 0;
+      if (accuracy === 100) {
+        accuracyBonus = 25;
+      } else if (accuracy >= 80) {
+        accuracyBonus = 10;
+      }
+      
+      const totalXP = baseXP + correctBonus + accuracyBonus;
+      
+      if (totalXP > 0) {
+        gamification.awardXP(totalXP, 'topical_questions_completed');
+        setXpAwarded(true);
+        
+        // Update topic progress in database
+        if (topic) {
+          supabase
+            .from('user_topic_progress')
+            .upsert({
+              user_id: user.id,
+              topic_id: topic.id,
+              completed_questions: correctAnswers,
+              total_questions: totalAnswerable,
+              progress_percentage: Math.round(accuracy),
+              last_practiced_at: new Date().toISOString()
+            }, { onConflict: 'user_id,topic_id' })
+            .then(() => console.log('Topic progress updated'))
+            .catch((err) => console.error('Error updating topic progress:', err));
+        }
+      }
+    }
+  }, [subjectSlug, topicSlug, user, gamification, xpAwarded, questionGroups, questionStatuses, topic, supabase]);
 
   const handleRestartSession = useCallback(() => {
     const statuses: Record<string, QuestionStatus> = {};

@@ -3,11 +3,13 @@
 import React, { useEffect, useState, use } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { ChevronRight, BookOpen, Clock, BarChart3, Play, Download, FileText, Building2, GraduationCap } from 'lucide-react';
+import { ChevronRight, BookOpen, Clock, Play, Download, FileText, Building2, GraduationCap, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { createClient } from '@/lib/supabase/client';
+import { ProgressRing } from '@/components/ui/modern-list';
+import { useUser } from '@/hooks/use-user';
 
 import { getExamBoardById, getLevelById } from '@/lib/exam-boards';
 
@@ -29,6 +31,13 @@ interface Subject {
   code?: string;
 }
 
+interface TopicProgress {
+  topic_id: string;
+  completed_questions: number;
+  total_questions: number;
+  progress_percentage: number;
+}
+
 export default function SubjectTopicalQuestionsPage({ 
   params 
 }: { 
@@ -40,9 +49,11 @@ export default function SubjectTopicalQuestionsPage({
   const level = searchParams.get('level') || 'igcse';
   
   const supabase = createClient();
+  const { user } = useUser();
   const [subject, setSubject] = useState<Subject | null>(null);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [topicQuestionCounts, setTopicQuestionCounts] = useState<Record<string, number>>({});
+  const [topicProgress, setTopicProgress] = useState<Record<string, TopicProgress>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -106,7 +117,7 @@ export default function SubjectTopicalQuestionsPage({
 
       // Fetch question counts per topic
       if (topicsData && topicsData.length > 0) {
-        const topicIds = topicsData.map(t => t.id);
+        const topicIds = topicsData.map((t: Topic) => t.id);
         
         const { data: questionCounts, error: countError } = await supabase
           .from('questions')
@@ -119,6 +130,29 @@ export default function SubjectTopicalQuestionsPage({
             counts[q.topic_id] = (counts[q.topic_id] || 0) + 1;
           });
           setTopicQuestionCounts(counts);
+        }
+        
+        // Fetch user progress for logged-in users
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        if (currentUser) {
+          const { data: progressData } = await supabase
+            .from('user_topic_progress')
+            .select('topic_id, completed_questions, total_questions, progress_percentage')
+            .eq('user_id', currentUser.id)
+            .in('topic_id', topicIds);
+          
+          if (progressData) {
+            const progressMap: Record<string, TopicProgress> = {};
+            progressData.forEach((p: any) => {
+              progressMap[p.topic_id] = {
+                topic_id: p.topic_id,
+                completed_questions: p.completed_questions || 0,
+                total_questions: p.total_questions || 0,
+                progress_percentage: p.progress_percentage || 0
+              };
+            });
+            setTopicProgress(progressMap);
+          }
         }
       }
 
@@ -144,7 +178,7 @@ export default function SubjectTopicalQuestionsPage({
   }
 
   return (
-    <div className="py-8">
+    <div className="py-8 max-w-4xl mx-auto">
       {/* Breadcrumb */}
       <div className="flex items-center text-sm text-muted-foreground mb-6">
         <Link href="/resources/topical-questions" className="hover:text-primary">
@@ -174,18 +208,21 @@ export default function SubjectTopicalQuestionsPage({
         </Link>
       </div>
 
-      {/* Topics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Topics List - Modern Clean Design */}
+      <div className="bg-card rounded-xl border divide-y overflow-hidden">
         {isLoading ? (
           Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="bg-card p-6 rounded-xl border">
-              <Skeleton className="h-6 w-3/4 mb-2" />
-              <Skeleton className="h-4 w-full mb-4" />
-              <Skeleton className="h-10 w-full" />
+            <div key={i} className="flex items-center gap-4 p-4">
+              <Skeleton className="h-11 w-11 rounded-full" />
+              <div className="flex-1">
+                <Skeleton className="h-5 w-3/4 mb-2" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+              <Skeleton className="h-5 w-5" />
             </div>
           ))
         ) : topics.length === 0 ? (
-          <div className="col-span-full text-center py-12 bg-card rounded-xl border">
+          <div className="text-center py-12">
             <BookOpen className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-foreground">No Topics Available</h3>
             <p className="text-muted-foreground mt-2">
@@ -199,66 +236,46 @@ export default function SubjectTopicalQuestionsPage({
             const hasPdf = !!topic.pdf_url;
             const hasQuestions = questionCount > 0;
             const isAvailable = hasPdf || hasQuestions;
+            // Get real user progress if available
+            const userProgress = topicProgress[topic.id];
+            const progress = userProgress?.progress_percentage || 0;
             
             return (
-              <div
+              <Link
                 key={topic.id}
-                className="bg-card p-6 rounded-xl border hover:border-primary hover:shadow-lg transition-all duration-200 flex flex-col"
+                href={`/resources/topical-questions/${subjectSlug}/${topicSlug}`}
+                className="flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors group"
               >
-                <div className="flex-grow">
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="font-bold text-lg text-foreground">{topic.name}</h3>
-                    <div className="flex gap-1">
-                      {hasPdf && (
-                        <Badge variant="outline" className="text-xs">
-                          <FileText className="w-3 h-3 mr-1" />
-                          PDF
-                        </Badge>
-                      )}
-                      {hasQuestions && (
-                        <Badge variant="secondary" className="text-xs">
-                          {questionCount} Q{questionCount !== 1 ? 's' : ''}
-                        </Badge>
-                      )}
-                    </div>
+                {/* Progress Ring */}
+                <ProgressRing progress={progress} size={44} />
+                
+                {/* Topic Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
+                      {topic.name}
+                    </h3>
                   </div>
-{/* Description removed - no longer displayed */}
+                  <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                    {hasQuestions && (
+                      <span>{questionCount} question{questionCount !== 1 ? 's' : ''}</span>
+                    )}
+                    {hasPdf && (
+                      <span className="flex items-center gap-1">
+                        <FileText className="w-3 h-3" />
+                        PDF
+                      </span>
+                    )}
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      ~{topic.estimated_time || Math.max(5, Math.ceil(questionCount * 1.5))} min
+                    </span>
+                  </div>
                 </div>
                 
-                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-4">
-                  <Clock className="w-3 h-3" />
-                  <span>~{topic.estimated_time || Math.max(5, Math.ceil(questionCount * 1.5))} mins</span>
-                  <BarChart3 className="w-3 h-3 ml-2" />
-                  <span>Mixed difficulty</span>
-                </div>
-
-                <div className="flex gap-2">
-                  {hasPdf && (
-                    <Button 
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      asChild
-                    >
-                      <a href={topic.pdf_url} target="_blank" rel="noopener noreferrer">
-                        <Download className="w-4 h-4 mr-1" />
-                        PDF
-                      </a>
-                    </Button>
-                  )}
-                  <Link href={`/resources/topical-questions/${subjectSlug}/${topicSlug}`} className={hasPdf ? "flex-1" : "w-full"}>
-                    <Button 
-                      className="w-full" 
-                      disabled={!isAvailable}
-                      variant={isAvailable ? "default" : "secondary"}
-                      size={hasPdf ? "sm" : "default"}
-                    >
-                      <Play className="w-4 h-4 mr-1" />
-                      {hasQuestions ? 'Practice' : hasPdf ? 'View' : 'Coming Soon'}
-                    </Button>
-                  </Link>
-                </div>
-              </div>
+                {/* Chevron */}
+                <ChevronDown className="w-5 h-5 text-muted-foreground -rotate-90 group-hover:text-primary transition-colors" />
+              </Link>
             );
           })
         )}
