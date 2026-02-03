@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
 import { useToast } from '@/hooks/use-toast';
@@ -75,9 +76,8 @@ export default function TeacherTestsPage() {
   const { user } = useUser();
   const { toast } = useToast();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
-  const [tests, setTests] = useState<Test[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [testToDelete, setTestToDelete] = useState<Test | null>(null);
@@ -85,40 +85,48 @@ export default function TeacherTestsPage() {
   const [testToExport, setTestToExport] = useState<Test | null>(null);
   const [showPDFExport, setShowPDFExport] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      fetchTests();
-    }
-  }, [user]);
-
-  async function fetchTests() {
-    try {
-      console.log('=== fetchTests called ===');
-      console.log('User ID:', user?.id);
-
+  // Cached tests query with react-query
+  const { data: tests = [], isLoading: loading, refetch } = useQuery({
+    queryKey: ['teacher-tests', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      
       // Fetch ONLY from assessments table
       const { data: assessmentsData, error: assessmentsError } = await supabase
         .from('assessments')
         .select('*')
-        .eq('created_by', user?.id)
+        .eq('created_by', user.id)
         .order('updated_at', { ascending: false });
-
-      console.log('Assessments fetched:', assessmentsData?.length || 0);
-      console.log('Assessments data:', assessmentsData);
-      console.log('Assessments error:', assessmentsError);
 
       if (assessmentsError) {
         console.error('Error fetching assessments:', assessmentsError);
         throw assessmentsError;
       }
 
-      // Map to test format
-      const testsData = (assessmentsData || []).map(a => ({
+      // Get all assessment IDs to fetch question counts in one query
+      const assessmentIds = (assessmentsData || []).map((a: { id: string }) => a.id);
+      
+      // Fetch all question counts in a single query (optimized - no N+1)
+      let countMap = new Map<string, number>();
+      if (assessmentIds.length > 0) {
+        const { data: questionCounts } = await supabase
+          .from('assessment_questions')
+          .select('assessment_id')
+          .in('assessment_id', assessmentIds);
+        
+        // Create a map of assessment_id -> question count
+        (questionCounts || []).forEach((q: { assessment_id: string }) => {
+          countMap.set(q.assessment_id, (countMap.get(q.assessment_id) || 0) + 1);
+        });
+      }
+
+      // Map to test format with counts
+      return (assessmentsData || []).map((a: any) => ({
         id: a.id,
         title: a.title,
         description: a.description,
         total_marks: a.total_marks || 0,
-        total_questions: 0,
+        total_questions: countMap.get(a.id) || 0,
         duration_minutes: a.duration_minutes,
         visibility: a.is_published ? 'assigned' : 'private',
         created_at: a.created_at,
@@ -126,25 +134,12 @@ export default function TeacherTestsPage() {
         sections: [],
         allow_calculator: a.calculator_allowed || false,
         subject: null
-      }));
-
-      // Fetch question counts for all tests
-      for (const test of testsData) {
-        const { count } = await supabase
-          .from('assessment_questions')
-          .select('*', { count: 'exact', head: true })
-          .eq('assessment_id', test.id);
-        test.total_questions = count || 0;
-      }
-
-      setTests(testsData);
-    } catch (error) {
-      console.error('Error fetching tests:', error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to load tests' });
-    } finally {
-      setLoading(false);
-    }
-  }
+      })) as Test[];
+    },
+    enabled: !!user?.id,
+    staleTime: 2 * 60 * 1000, // 2 minutes cache
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+  });
 
   async function deleteTest() {
     if (!testToDelete) return;
@@ -159,7 +154,8 @@ export default function TeacherTestsPage() {
 
       if (error) throw error;
 
-      setTests(tests.filter(t => t.id !== testToDelete.id));
+      // Invalidate cache to refetch
+      queryClient.invalidateQueries({ queryKey: ['teacher-tests'] });
       toast({ title: 'Test deleted', description: 'The test has been permanently deleted' });
     } catch (error) {
       console.error('Error deleting test:', error);
@@ -217,7 +213,7 @@ export default function TeacherTestsPage() {
         .eq('assessment_id', test.id);
 
       if (questions && questions.length > 0) {
-        const newQuestions = questions.map(q => ({
+        const newQuestions = questions.map((q: any) => ({
           assessment_id: newAssessment.id,
           question_id: q.question_id,
           question_order: q.question_order,
@@ -230,23 +226,8 @@ export default function TeacherTestsPage() {
         await supabase.from('assessment_questions').insert(newQuestions);
       }
 
-      // Add to list
-      const newTest = {
-        id: newAssessment.id,
-        title: newAssessment.title,
-        description: newAssessment.description,
-        total_marks: newAssessment.total_marks || 0,
-        total_questions: questions?.length || 0,
-        duration_minutes: newAssessment.duration_minutes,
-        visibility: 'private',
-        created_at: newAssessment.created_at,
-        updated_at: newAssessment.updated_at,
-        sections: [],
-        allow_calculator: newAssessment.calculator_allowed || false,
-        subject: null
-      };
-
-      setTests([newTest, ...tests]);
+      // Invalidate cache to refetch with new test
+      queryClient.invalidateQueries({ queryKey: ['teacher-tests'] });
       toast({ title: 'Test duplicated', description: 'A copy of the test has been created' });
     } catch (error) {
       console.error('Error duplicating test:', error);
@@ -460,7 +441,10 @@ export default function TeacherTestsPage() {
       {/* PDF Export Dialog */}
       {testToExport && (
         <TestPDFExport
-          test={testToExport}
+          test={{
+            ...testToExport,
+            description: testToExport.description ?? undefined,
+          }}
           open={showPDFExport}
           onOpenChange={setShowPDFExport}
         />

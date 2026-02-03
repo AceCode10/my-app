@@ -257,6 +257,13 @@ export default function TestBuilderPage() {
   
   // Resizable panel state (percentage width for left panel)
   const [leftPanelWidth, setLeftPanelWidth] = useState(40);
+
+  // Load test for editing when editingTestId is present
+  useEffect(() => {
+    if (editingTestId && user && !loading) {
+      loadTestForEditing(editingTestId);
+    }
+  }, [editingTestId, user, loading]);
   const [isResizing, setIsResizing] = useState(false);
 
   // Cached exam boards query
@@ -307,12 +314,12 @@ export default function TestBuilderPage() {
 
   // Cached questions query - fetches ONLY from questions table (Question Bank)
   // Paper questions must first be added to a topic to appear here
-  // Optimized: Only fetch answerable questions (marks > 0) to reduce data transfer
+  // Optimized: Fetch all questions including context (for proper hierarchy display)
   const { data: questions = [], isLoading: loadingQuestions } = useQuery({
-    queryKey: ['test-builder-questions', user?.exam_boards],
+    queryKey: ['test-builder-questions', user?.exam_boards, selectedExamBoard, selectedSubject],
     queryFn: async () => {
-      // Fetch questions from the Question Bank - only answerable questions
-      const { data: questionBankData, error: questionError } = await supabase
+      // Build optimized query with server-side filtering
+      let query = supabase
         .from('questions')
         .select(`
           id,
@@ -338,11 +345,25 @@ export default function TestBuilderPage() {
           topic:topics(name),
           subject:subjects(name)
         `)
-        .not('topic_id', 'is', null)
-        .or('marks.gt.0,parent_question_id.not.is.null') // Get answerable questions OR children (for grouping)
+        .not('topic_id', 'is', null);
+      
+      // Apply server-side filters for better performance
+      if (selectedSubject) {
+        query = query.eq('subject_id', selectedSubject);
+      } else if (selectedExamBoard) {
+        // Filter by exam board's subjects
+        const subjectIds = subjects
+          .filter(s => s.exam_board_id === selectedExamBoard)
+          .map(s => s.id);
+        if (subjectIds.length > 0) {
+          query = query.in('subject_id', subjectIds);
+        }
+      }
+      
+      const { data: questionBankData, error: questionError } = await query
+        .order('question_number', { ascending: true })
         .order('display_order', { ascending: true })
-        .order('created_at', { ascending: false })
-        .limit(1000);
+        .limit(500); // Reduced limit since we're filtering server-side
       
       if (questionError) console.error('Error fetching questions:', questionError);
       
@@ -454,9 +475,20 @@ export default function TestBuilderPage() {
       ? new Set(subjects.filter(s => s.exam_board_id === selectedExamBoard).map(s => s.id))
       : null;
 
+    // Build a set of parent IDs that have children (so we don't filter them out)
+    const parentIdsWithChildren = new Set<string>();
+    questions.forEach(q => {
+      if (q.parent_question_id) {
+        parentIdsWithChildren.add(q.parent_question_id);
+      }
+    });
+
     const filtered = questions.filter(q => {
-      // Skip context-only questions (0 marks and no part_label means it's just context)
-      if (q.marks === 0 && !q.part_label) {
+      // Keep parent questions that have children (they're containers for multi-part questions)
+      const isParentWithChildren = parentIdsWithChildren.has(q.id);
+      
+      // Skip context-only questions (0 marks and no part_label) UNLESS they're a parent with children
+      if (q.marks === 0 && !q.part_label && !isParentWithChildren) {
         return false;
       }
       
@@ -528,16 +560,30 @@ export default function TestBuilderPage() {
         return partA.localeCompare(partB);
       });
       
-      // If parent has children, include only children with marks (they are the answerable parts)
-      // Parent context text will be shown but parent itself may have 0 marks
+      // If parent has children, include ALL children (context + answerable parts)
+      // This ensures context questions and nested children are displayed
       if (children.length > 0) {
-        // Filter children to only those with marks > 0
-        const answerableParts = children.filter(c => c.marks > 0);
-        if (answerableParts.length > 0) {
-          const totalMarks = answerableParts.reduce((sum, p) => sum + p.marks, 0);
+        // Include all children - context (marks=0) and answerable parts (marks>0)
+        // Also include nested children (grandchildren)
+        const allParts: Question[] = [];
+        const addWithDescendants = (q: Question) => {
+          allParts.push(q);
+          const grandchildren = childQuestions.filter(c => c.parent_question_id === q.id);
+          grandchildren.sort((a, b) => {
+            if (a.display_order !== undefined && b.display_order !== undefined) {
+              return a.display_order - b.display_order;
+            }
+            return (a.part_label || '').localeCompare(b.part_label || '');
+          });
+          grandchildren.forEach(gc => addWithDescendants(gc));
+        };
+        children.forEach(c => addWithDescendants(c));
+        
+        const totalMarks = allParts.reduce((sum, p) => sum + (p.marks || 0), 0);
+        if (totalMarks > 0 || allParts.some(p => p.stem_markdown || p.stem_md)) {
           result.push({ 
             question: parent, 
-            parts: answerableParts, 
+            parts: allParts, 
             totalMarks 
           });
         }
@@ -583,7 +629,74 @@ export default function TestBuilderPage() {
   // Calculate totals
   const totals = useMemo(() => {
     const totalMarks = testQuestions.reduce((sum, q) => sum + q.marks, 0);
-    return { totalMarks, totalQuestions: testQuestions.length };
+    // Count unique question groups (by question_number)
+    const questionGroups = new Set<string>();
+    testQuestions.forEach(tq => {
+      const qNum = tq.question?.question_number || tq.questionId;
+      questionGroups.add(qNum);
+    });
+    return { totalMarks, totalQuestions: questionGroups.size };
+  }, [testQuestions]);
+  
+  // Group test questions by question_number for display
+  const groupedTestQuestions = useMemo(() => {
+    const groups = new Map<string, TestQuestion[]>();
+    
+    testQuestions.forEach(tq => {
+      if (!tq.question) return;
+      const qNum = tq.question.question_number || `standalone_${tq.questionId}`;
+      if (!groups.has(qNum)) {
+        groups.set(qNum, []);
+      }
+      groups.get(qNum)!.push(tq);
+    });
+    
+    // Sort questions within each group by parent_question_id hierarchy
+    groups.forEach((questions, qNum) => {
+      // Build parent-child relationships
+      const questionsById = new Map(questions.map(q => [q.question!.id, q]));
+      const childrenByParent = new Map<string, TestQuestion[]>();
+      const rootQuestions: TestQuestion[] = [];
+
+      questions.forEach(q => {
+        const parentId = q.question?.parent_question_id;
+        if (parentId && questionsById.has(parentId)) {
+          if (!childrenByParent.has(parentId)) {
+            childrenByParent.set(parentId, []);
+          }
+          childrenByParent.get(parentId)!.push(q);
+        } else {
+          rootQuestions.push(q);
+        }
+      });
+
+      // Sort root questions: context (no part_label) first, then by part_label
+      rootQuestions.sort((a, b) => {
+        const labelA = a.question?.part_label || '';
+        const labelB = b.question?.part_label || '';
+        if (!labelA && labelB) return -1;
+        if (labelA && !labelB) return 1;
+        return labelA.localeCompare(labelB);
+      });
+
+      // Flatten with children after their parents
+      const sorted: TestQuestion[] = [];
+      const addWithChildren = (q: TestQuestion) => {
+        sorted.push(q);
+        const children = childrenByParent.get(q.question!.id) || [];
+        children.sort((a, b) => {
+          const labelA = a.question?.part_label || '';
+          const labelB = b.question?.part_label || '';
+          return labelA.localeCompare(labelB);
+        });
+        children.forEach(child => addWithChildren(child));
+      };
+      rootQuestions.forEach(q => addWithChildren(q));
+      
+      groups.set(qNum, sorted);
+    });
+    
+    return Array.from(groups.values());
   }, [testQuestions]);
 
   // Add question to test (including all related parts)
@@ -618,13 +731,24 @@ export default function TestBuilderPage() {
   }
   
   // Get all related parts of a question (same question_number from same source, or parent-child relationship)
+  // This includes context questions, all children, and nested children (level 3)
   function getRelatedQuestionParts(question: Question): Question[] {
+    // Helper to recursively get all descendants
+    const getAllDescendants = (parentId: string): Question[] => {
+      const children = questions.filter(q => q.parent_question_id === parentId);
+      const descendants: Question[] = [...children];
+      children.forEach(child => {
+        descendants.push(...getAllDescendants(child.id));
+      });
+      return descendants;
+    };
+    
     // If question has no question_number or part_label, and no parent_question_id, it's standalone
     if (!question.question_number && !question.parent_question_id) {
-      // But check if this question IS a parent with children
-      const children = questions.filter(q => q.parent_question_id === question.id);
-      if (children.length > 0) {
-        return [question, ...children].sort((a, b) => {
+      // But check if this question IS a parent with children (including grandchildren)
+      const descendants = getAllDescendants(question.id);
+      if (descendants.length > 0) {
+        return [question, ...descendants].sort((a, b) => {
           if (a.display_order !== undefined && b.display_order !== undefined) {
             return a.display_order - b.display_order;
           }
@@ -640,10 +764,27 @@ export default function TestBuilderPage() {
     const relatedParts = questions.filter(q => {
       // Check parent-child relationship first
       if (question.parent_question_id) {
-        // This question is a child - find parent, self, and siblings
-        return q.id === question.parent_question_id || // parent
-               q.id === question.id || // self
-               q.parent_question_id === question.parent_question_id; // siblings
+        // This question is a child - find root parent first
+        let rootParentId = question.parent_question_id;
+        let rootParent = questions.find(p => p.id === rootParentId);
+        while (rootParent?.parent_question_id) {
+          rootParentId = rootParent.parent_question_id;
+          rootParent = questions.find(p => p.id === rootParentId);
+        }
+        
+        // Include root parent, self, and all descendants of root parent
+        if (q.id === rootParentId) return true;
+        if (q.id === question.id) return true;
+        
+        // Check if q is a descendant of root parent
+        let current = q;
+        while (current.parent_question_id) {
+          if (current.parent_question_id === rootParentId) return true;
+          const parent = questions.find(p => p.id === current.parent_question_id);
+          if (!parent) break;
+          current = parent;
+        }
+        return false;
       }
       
       // Check if q is this question itself
@@ -651,9 +792,13 @@ export default function TestBuilderPage() {
         return true;
       }
       
-      // Check if q is a child of this question
-      if (q.parent_question_id === question.id) {
-        return true;
+      // Check if q is a descendant of this question (any level)
+      let current = q;
+      while (current.parent_question_id) {
+        if (current.parent_question_id === question.id) return true;
+        const parent = questions.find(p => p.id === current.parent_question_id);
+        if (!parent) break;
+        current = parent;
       }
       
       // Must have the same question_number
@@ -756,18 +901,82 @@ export default function TestBuilderPage() {
     }
   }
 
-  // Load test for editing
+  // Load test for editing - loads from assessments table
   async function loadTestForEditing(testId: string) {
     setLoadingTest(true);
     try {
-      const { data: test, error } = await supabase
+      // First try assessments table (new tests)
+      const { data: assessment, error: assessmentError } = await supabase
+        .from('assessments')
+        .select('*')
+        .eq('id', testId)
+        .eq('created_by', user?.id)
+        .single();
+
+      if (assessmentError && assessmentError.code !== 'PGRST116') {
+        throw assessmentError;
+      }
+
+      if (assessment) {
+        // Load from assessments table
+        setSettings({
+          title: assessment.title || '',
+          description: assessment.description || '',
+          subjectId: assessment.subject_id || '',
+          durationMinutes: assessment.duration_minutes,
+          allowCalculator: assessment.calculator_allowed ?? true,
+          randomizeQuestions: assessment.randomize_questions ?? false,
+          randomizeChoices: assessment.randomize_answers ?? false,
+        });
+
+        // Load questions from assessment_questions table
+        const { data: aqData, error: aqError } = await supabase
+          .from('assessment_questions')
+          .select('*')
+          .eq('assessment_id', testId)
+          .order('question_order', { ascending: true });
+
+        if (aqError) throw aqError;
+
+        if (aqData && aqData.length > 0) {
+          const questionIds = aqData.map(aq => aq.question_id).filter(Boolean);
+          
+          const { data: questionsData, error: questionsError } = await supabase
+            .from('questions')
+            .select('*')
+            .in('id', questionIds);
+
+          if (questionsError) throw questionsError;
+
+          const loadedQuestions: TestQuestion[] = aqData.map((aq: any) => {
+            const questionData = questionsData?.find(qd => qd.id === aq.question_id);
+            return {
+              questionId: aq.question_id,
+              marks: aq.custom_marks || questionData?.marks || 1,
+              order: aq.question_order || 0,
+              question: questionData ? {
+                ...questionData,
+                stem_md: questionData.stem_markdown || questionData.stem_md,
+              } : undefined,
+            };
+          }).filter((q: TestQuestion) => q.question !== undefined);
+
+          setTestQuestions(loadedQuestions);
+        }
+
+        toast({ title: 'Test loaded', description: 'You can now edit your test' });
+        return;
+      }
+
+      // Fallback: try legacy tests table
+      const { data: test, error: testError } = await supabase
         .from('tests')
         .select('*')
         .eq('id', testId)
         .eq('created_by', user?.id)
         .single();
 
-      if (error) throw error;
+      if (testError) throw testError;
 
       if (!test) {
         toast({ variant: 'destructive', title: 'Error', description: 'Test not found' });
@@ -775,7 +984,7 @@ export default function TestBuilderPage() {
         return;
       }
 
-      // Load test settings
+      // Load from legacy tests table
       setSettings({
         title: test.title || '',
         description: test.description || '',
@@ -786,13 +995,12 @@ export default function TestBuilderPage() {
         randomizeChoices: test.randomize_choices ?? false,
       });
 
-      // Load test questions
+      // Load test questions from sections JSON
       if (test.sections && Array.isArray(test.sections) && test.sections.length > 0) {
         const section = test.sections[0];
         if (section.questions && Array.isArray(section.questions)) {
           const questionIds = section.questions.map((q: any) => q.questionId);
           
-          // Fetch full question data
           const { data: questionsData, error: questionsError } = await supabase
             .from('questions')
             .select('*')
@@ -800,12 +1008,11 @@ export default function TestBuilderPage() {
 
           if (questionsError) throw questionsError;
 
-          // Map questions with their marks and order
           const loadedQuestions: TestQuestion[] = section.questions.map((q: any) => {
             const questionData = questionsData?.find(qd => qd.id === q.questionId);
             return {
               questionId: q.questionId,
-              marks: q.marks || 1,
+              marks: q.marks || questionData?.marks || 1,
               order: q.order || 0,
               question: questionData ? {
                 ...questionData,
@@ -847,6 +1054,17 @@ export default function TestBuilderPage() {
     }
 
     setSaving(true);
+    
+    // Add timeout to prevent indefinite loading
+    const timeoutId = setTimeout(() => {
+      setSaving(false);
+      toast({ 
+        variant: 'destructive', 
+        title: 'Timeout', 
+        description: 'Save operation timed out. Please try again.' 
+      });
+    }, 30000); // 30 second timeout
+    
     try {
       console.log('=== saveTest called ===');
       
@@ -859,8 +1077,13 @@ export default function TestBuilderPage() {
 
       console.log('Assessment type:', assessmentType, typeError);
 
+      if (typeError) {
+        console.error('Error fetching assessment type:', typeError);
+        throw new Error(`Failed to fetch assessment type: ${typeError.message}`);
+      }
+
       if (!assessmentType) {
-        throw new Error('Assessment type not found');
+        throw new Error('Assessment type not found. Please ensure the database is properly configured.');
       }
 
       // Calculate total marks
@@ -1000,6 +1223,7 @@ export default function TestBuilderPage() {
         description: error?.message || 'Failed to save test' 
       });
     } finally {
+      clearTimeout(timeoutId);
       setSaving(false);
     }
   }
@@ -1527,32 +1751,156 @@ export default function TestBuilderPage() {
                       </div>
                     </div>
 
-                    {/* Questions with Drag & Drop */}
-                    <DndContext
-                      sensors={sensors}
-                      collisionDetection={closestCenter}
-                      onDragEnd={handleDragEnd}
-                    >
-                      <SortableContext
-                        items={testQuestions.map(q => q.questionId)}
-                        strategy={verticalListSortingStrategy}
-                      >
-                        <div className="space-y-4">
-                          {testQuestions.map((tq, index) => (
-                            <SortableQuestionCard
-                              key={tq.questionId}
-                              id={tq.questionId}
-                              question={tq.question!}
-                              questionNumber={index + 1}
-                              marks={tq.marks}
-                              onMarksChange={(newMarks) => updateQuestionMarks(tq.questionId, newMarks)}
-                              onRemove={() => removeQuestion(tq.questionId)}
-                              showAnswerKey={showAnswerKey}
-                            />
-                          ))}
-                        </div>
-                      </SortableContext>
-                    </DndContext>
+                    {/* Questions - Grouped by question_number */}
+                    <div className="space-y-6">
+                      {groupedTestQuestions.map((groupQuestions, groupIndex) => {
+                        const firstQuestion = groupQuestions[0]?.question;
+                        const totalGroupMarks = groupQuestions.reduce((sum, q) => sum + q.marks, 0);
+                        const isMultiPart = groupQuestions.length > 1;
+                        
+                        return (
+                          <div 
+                            key={groupQuestions[0]?.questionId || groupIndex}
+                            className="border-2 rounded-lg bg-white shadow-md border-slate-400 hover:border-primary hover:shadow-lg transition-all ring-1 ring-slate-200"
+                          >
+                            {/* Question Group Header */}
+                            <div className="flex items-start gap-3 p-4 border-b bg-slate-50/50">
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                <GripVertical className="h-5 w-5" />
+                              </div>
+                              
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <span className="font-bold text-lg">{groupIndex + 1}.</span>
+                                    {isMultiPart && (
+                                      <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                        {groupQuestions.length} parts
+                                      </Badge>
+                                    )}
+                                    <Badge variant="outline" className="text-xs">
+                                      {formatQuestionType(firstQuestion?.question_type || '')}
+                                    </Badge>
+                                    <Badge 
+                                      variant="outline" 
+                                      className={`text-xs ${getDifficultyColor(firstQuestion?.difficulty || '')}`}
+                                    >
+                                      {firstQuestion?.difficulty}
+                                    </Badge>
+                                  </div>
+                                  
+                                  {/* Total Marks */}
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm text-muted-foreground">Total:</span>
+                                    <div className="w-8 h-8 border-2 border-slate-300 rounded flex items-center justify-center font-bold text-slate-600">
+                                      [{totalGroupMarks}]
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                  onClick={() => removeQuestion(groupQuestions[0]?.questionId)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            {/* Question Parts */}
+                            <div className="p-4 space-y-4">
+                              {groupQuestions.map((tq, partIndex) => {
+                                const question = tq.question;
+                                if (!question) return null;
+                                
+                                const isContext = tq.marks === 0 && !question.part_label;
+                                const hasParent = !!question.parent_question_id;
+                                const parentQuestion = hasParent ? groupQuestions.find(q => q.question?.id === question.parent_question_id)?.question : null;
+                                const isNestedPart = hasParent && parentQuestion?.part_label;
+                                const questionText = question.stem_markdown || question.stem_md || '';
+                                
+                                return (
+                                  <div 
+                                    key={tq.questionId}
+                                    className={`${isContext ? 'bg-muted/30 border-l-4 border-primary rounded-r-lg p-3' : isNestedPart ? 'ml-8 border-l-2 border-muted pl-4' : question.part_label ? 'ml-4 border-l-2 border-muted pl-4' : ''}`}
+                                  >
+                                    {/* Part label and marks */}
+                                    {question.part_label && (
+                                      <div className="flex items-center justify-between mb-2">
+                                        <span className="font-semibold text-sm">({question.part_label})</span>
+                                        {tq.marks > 0 && (
+                                          <span className="text-xs text-muted-foreground">[{tq.marks}]</span>
+                                        )}
+                                      </div>
+                                    )}
+                                    
+                                    {/* Question content */}
+                                    {questionText && (
+                                      <div className="prose prose-sm max-w-none dark:prose-invert">
+                                        <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                                          {questionText}
+                                        </ReactMarkdown>
+                                      </div>
+                                    )}
+                                    
+                                    {/* Image */}
+                                    {(question.image_url || question.question_image_url) && (
+                                      <img 
+                                        src={question.question_image_url || question.image_url} 
+                                        alt="Question" 
+                                        className="max-h-40 rounded border object-contain mt-2"
+                                      />
+                                    )}
+                                    
+                                    {/* MCQ Options */}
+                                    {(question.question_type === 'mcq' || question.question_type === 'multiple_choice') && question.options && (
+                                      <div className="mt-2 space-y-1 pl-4">
+                                        {(Array.isArray(question.options) 
+                                          ? question.options 
+                                          : Object.entries(question.options).map(([key, value]) => ({ label: key, text: value }))
+                                        ).map((opt: any, optIdx: number) => (
+                                          <div key={optIdx} className="flex items-start gap-2 text-sm">
+                                            <span className="font-semibold text-muted-foreground min-w-[20px]">
+                                              {opt.label || String.fromCharCode(65 + optIdx)}.
+                                            </span>
+                                            <span>{typeof opt === 'string' ? opt : (opt.text || opt.value || '')}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                    
+                                    {/* Answer lines for non-MCQ */}
+                                    {!isContext && question.question_type !== 'mcq' && question.question_type !== 'multiple_choice' && tq.marks > 0 && (
+                                      <div className="mt-2 space-y-1">
+                                        {Array.from({ length: Math.min(tq.marks, 3) }).map((_, i) => (
+                                          <div key={i} className="border-b border-dashed border-muted-foreground/30 h-5" />
+                                        ))}
+                                      </div>
+                                    )}
+                                    
+                                    {/* Answer key */}
+                                    {showAnswerKey && question.correct_answer && (
+                                      <div className="mt-2 p-2 bg-green-50 dark:bg-green-950 rounded text-sm">
+                                        <span className="font-medium text-green-700 dark:text-green-300">Answer: </span>
+                                        <span className="text-green-600 dark:text-green-400">
+                                          {typeof question.correct_answer === 'string' 
+                                            ? question.correct_answer 
+                                            : JSON.stringify(question.correct_answer)}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
 
                     {/* End of Test */}
                     <div className="text-center py-4 border-t border-dashed border-slate-300 mt-6">

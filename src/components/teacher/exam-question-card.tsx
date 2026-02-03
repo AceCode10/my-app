@@ -67,8 +67,8 @@ export function ExamQuestionCard({
 
   return (
     <div 
-      className={`border rounded-lg bg-white transition-all ${
-        isDragging ? 'shadow-lg ring-2 ring-primary' : 'shadow-sm'
+      className={`border-2 rounded-lg bg-white transition-all ${
+        isDragging ? 'shadow-lg ring-2 ring-primary border-primary' : 'shadow-sm border-slate-300 hover:border-slate-400'
       }`}
     >
       {/* Question Header - Exam Style */}

@@ -222,12 +222,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginTop: 4,
     marginBottom: 4,
-    marginLeft: 25,
+    marginLeft: 0,
   },
   subQuestionLabel: {
-    width: 35,
+    width: 50,
     fontWeight: 'bold',
     fontSize: 11,
+    textAlign: 'left',
+  },
+  // For subsequent parts like (b), (c) - align with (a) by adding left padding
+  subQuestionLabelIndented: {
+    width: 50,
+    fontWeight: 'bold',
+    fontSize: 11,
+    textAlign: 'left',
+    paddingLeft: 18,
   },
   subQuestionContent: {
     flex: 1,
@@ -237,6 +246,25 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 11,
     marginRight: 8,
+  },
+  // Nested sub-parts (e.g., b(i), b(ii)) - more indentation
+  nestedSubQuestionRow: {
+    flexDirection: 'row',
+    marginTop: 4,
+    marginBottom: 4,
+    marginLeft: 55,
+  },
+  nestedSubQuestionLabel: {
+    width: 35,
+    fontWeight: 'bold',
+    fontSize: 11,
+  },
+  // Context row for sub-parts (e.g., context for part b)
+  subContextRow: {
+    flexDirection: 'row',
+    marginTop: 4,
+    marginBottom: 4,
+    marginLeft: 30,
   },
   // Answer lines - dotted style like Cambridge exams
   answerLineRow: {
@@ -589,136 +617,213 @@ function QuestionPaperPDF({ test, options }: { test: TestData; options: PDFOptio
       {/* Questions Pages */}
       <Page size="A4" style={styles.page}>
         {test.sections && Array.isArray(test.sections) && test.sections.map((section, sectionIndex) => {
-          // Group questions by question_number for proper display
-          let lastQuestionNumber: string | null = null;
+          // Group questions by question_number for proper hierarchical display
+          const questionGroups = new Map<string, typeof section.questions>();
           
+          section.questions.forEach(tq => {
+            if (!tq.question) return;
+            const qNum = tq.question.question_number || `standalone_${tq.questionId}`;
+            if (!questionGroups.has(qNum)) {
+              questionGroups.set(qNum, []);
+            }
+            questionGroups.get(qNum)!.push(tq);
+          });
+
+          // Sort questions within each group by parent_question_id hierarchy and part_label
+          questionGroups.forEach((questions, qNum) => {
+            // Build parent-child relationships
+            const questionsById = new Map(questions.map(q => [q.question!.id, q]));
+            const childrenByParent = new Map<string, typeof questions>();
+            const rootQuestions: typeof questions = [];
+
+            questions.forEach(q => {
+              const parentId = q.question?.parent_question_id;
+              if (parentId && questionsById.has(parentId)) {
+                if (!childrenByParent.has(parentId)) {
+                  childrenByParent.set(parentId, []);
+                }
+                childrenByParent.get(parentId)!.push(q);
+              } else {
+                rootQuestions.push(q);
+              }
+            });
+
+            // Sort root questions: context (no part_label) first, then by part_label
+            rootQuestions.sort((a, b) => {
+              const labelA = a.question?.part_label || '';
+              const labelB = b.question?.part_label || '';
+              if (!labelA && labelB) return -1;
+              if (labelA && !labelB) return 1;
+              return labelA.localeCompare(labelB);
+            });
+
+            // Flatten with children after their parents
+            const sorted: typeof questions = [];
+            const addWithChildren = (q: typeof questions[0]) => {
+              sorted.push(q);
+              const children = childrenByParent.get(q.question!.id) || [];
+              children.sort((a, b) => {
+                const labelA = a.question?.part_label || '';
+                const labelB = b.question?.part_label || '';
+                return labelA.localeCompare(labelB);
+              });
+              children.forEach(child => addWithChildren(child));
+            };
+            rootQuestions.forEach(q => addWithChildren(q));
+            
+            questionGroups.set(qNum, sorted);
+          });
+
           return (
           <View key={sectionIndex}>
-            {section.questions.map((tq, qIndex) => {
-              const question = tq.question;
-              if (!question) return null;
-
-              // Determine if this is a new main question or a sub-part
-              const currentQNum = question.question_number;
-              const isNewMainQuestion = !currentQNum || currentQNum !== lastQuestionNumber;
-              const hasPart = !!question.part_label;
+            {Array.from(questionGroups.entries()).map(([qNum, groupQuestions], groupIdx) => {
+              questionNumber++;
+              const displayQNum = String(questionNumber);
               
-              // Only increment question number for new main questions
-              if (isNewMainQuestion) {
-                questionNumber++;
-                lastQuestionNumber = currentQNum || null;
-              }
-
-              const rawQuestionText = stripMarkdown(question.stem_markdown || question.stem_md || '');
-              // Don't show [Image Question] placeholder if we have an actual image
-              const hasImageUrl = !!(question.image_url || question.question_image_url);
-              const questionText = (rawQuestionText === '[Image Question]' && hasImageUrl) ? '' : rawQuestionText;
-              const lineCount = getAnswerLineCount(tq.marks, question.question_type);
-              const isLastLine = qIndex === section.questions.length - 1;
-
-              // Format display number: "5" for main, "5(a)" for parts
-              const displayNumber = hasPart && !isNewMainQuestion 
-                ? '' // Sub-parts don't show main number again
-                : String(questionNumber);
-
-              // Context questions (0 marks, no part label) should have less bottom margin
-              const isContextQuestion = tq.marks === 0 && !hasPart;
-              const bottomMargin = isContextQuestion ? 4 : (hasPart && !isNewMainQuestion ? 12 : 20);
-
               return (
-                <View key={tq.questionId} style={{ marginBottom: bottomMargin }} wrap={false}>
-                  {/* Question Row: Number | Content | (marks on last line) */}
-                  <View style={hasPart && !isNewMainQuestion ? styles.subQuestionRow : styles.questionRow}>
-                    {hasPart ? (
-                      <Text style={styles.subQuestionLabel}>({question.part_label})</Text>
-                    ) : (
-                      <Text style={styles.questionNumberCol}>{displayNumber}</Text>
-                    )}
-                    <View style={styles.questionContentCol}>
-                      {/* Show question text if available (not placeholder text) */}
-                      {questionText && (
-                        <Text style={styles.questionText}>{questionText}</Text>
-                      )}
-                      
-                      {/* Show question image if available - use larger style for picture mode */}
-                      {hasImageUrl && (
-                        <Image 
-                          src={(question.question_image_url || question.image_url)!} 
-                          style={question.use_image_question ? styles.fullQuestionImage : styles.questionImage} 
-                        />
-                      )}
-                      
-                      {/* Show placeholder if no text and no image */}
-                      {!questionText && !hasImageUrl && (
-                        <Text style={styles.questionText}>[Question content not available]</Text>
-                      )}
-                      
-                      {/* MCQ Options */}
-                      {(question.question_type === 'mcq' || question.question_type === 'multiple_choice' || question.question_type === 'Multiple Choice') && question.options && (
-                        <View style={styles.optionsContainer}>
-                          {parseOptionsForPDF(question.options).map((opt: any, idx: number) => (
-                            <View key={idx} style={styles.optionRow}>
-                              <Text style={styles.optionLabel}>
-                                {opt.label || String.fromCharCode(65 + idx)}
-                              </Text>
-                              <Text style={styles.optionText}>{opt.text}</Text>
-                            </View>
-                          ))}
-                        </View>
-                      )}
+                <View key={qNum} style={{ marginBottom: 20 }}>
+                  {groupQuestions.map((tq, qIndex) => {
+                    const question = tq.question;
+                    if (!question) return null;
 
-                      {/* True/False Options */}
-                      {question.question_type === 'tf' && (
-                        <View style={styles.optionsContainer}>
-                          <View style={styles.optionRow}>
-                            <Text style={styles.optionLabel}>A</Text>
-                            <Text style={styles.optionText}>True</Text>
+                    const rawQuestionText = stripMarkdown(question.stem_markdown || question.stem_md || '');
+                    const hasImageUrl = !!(question.image_url || question.question_image_url);
+                    const questionText = (rawQuestionText === '[Image Question]' && hasImageUrl) ? '' : rawQuestionText;
+                    const lineCount = getAnswerLineCount(tq.marks, question.question_type);
+                    
+                    const hasPart = !!question.part_label;
+                    const isFirstInGroup = qIndex === 0;
+                    const isContextQuestion = tq.marks === 0;
+                    
+                    // Check if this is a nested sub-part (e.g., i, ii under b)
+                    const hasParent = !!question.parent_question_id;
+                    const parentQuestion = hasParent ? groupQuestions.find(q => q.question?.id === question.parent_question_id)?.question : null;
+                    const isNestedSubPart = hasParent && parentQuestion?.part_label;
+                    
+                    // Determine the row style based on hierarchy level
+                    let rowStyle = styles.questionRow;
+                    let labelStyle = styles.questionNumberCol;
+                    let displayLabel = displayQNum;
+                    
+                    if (hasPart) {
+                      if (isNestedSubPart) {
+                        // Nested sub-part like b(i), b(ii) - show with indentation
+                        rowStyle = styles.nestedSubQuestionRow;
+                        labelStyle = styles.nestedSubQuestionLabel;
+                        displayLabel = `(${question.part_label})`;
+                      } else {
+                        // Direct sub-part like (a), (b) - show with main question number
+                        rowStyle = styles.subQuestionRow;
+                        // Show question number with part label for first part, just part label (indented) for others
+                        if (isFirstInGroup) {
+                          labelStyle = styles.subQuestionLabel;
+                          displayLabel = `${displayQNum} (${question.part_label})`;
+                        } else {
+                          labelStyle = styles.subQuestionLabelIndented;
+                          displayLabel = `(${question.part_label})`;
+                        }
+                      }
+                    } else if (!isFirstInGroup) {
+                      // Context for a sub-part (has parent but no part_label)
+                      if (hasParent) {
+                        rowStyle = styles.subContextRow;
+                        displayLabel = '';
+                      }
+                    } else if (isFirstInGroup && !hasPart) {
+                      // Main question or context at top level - show question number
+                      displayLabel = displayQNum;
+                    }
+                    
+                    const bottomMargin = isContextQuestion ? 4 : (hasPart ? 12 : 8);
+
+                    return (
+                      <View key={tq.questionId} style={{ marginBottom: bottomMargin }} wrap={false}>
+                        <View style={rowStyle}>
+                          <Text style={labelStyle}>{displayLabel}</Text>
+                          <View style={styles.questionContentCol}>
+                            {questionText && (
+                              <Text style={styles.questionText}>{questionText}</Text>
+                            )}
+                            
+                            {hasImageUrl && (
+                              <Image 
+                                src={(question.question_image_url || question.image_url)!} 
+                                style={question.use_image_question ? styles.fullQuestionImage : styles.questionImage} 
+                              />
+                            )}
+                            
+                            {!questionText && !hasImageUrl && (
+                              <Text style={styles.questionText}>[Question content not available]</Text>
+                            )}
+                            
+                            {/* MCQ Options */}
+                            {(question.question_type === 'mcq' || question.question_type === 'multiple_choice' || question.question_type === 'Multiple Choice') && question.options && (
+                              <View style={styles.optionsContainer}>
+                                {parseOptionsForPDF(question.options).map((opt: any, idx: number) => (
+                                  <View key={idx} style={styles.optionRow}>
+                                    <Text style={styles.optionLabel}>
+                                      {opt.label || String.fromCharCode(65 + idx)}
+                                    </Text>
+                                    <Text style={styles.optionText}>{opt.text}</Text>
+                                  </View>
+                                ))}
+                              </View>
+                            )}
+
+                            {/* True/False Options */}
+                            {question.question_type === 'tf' && (
+                              <View style={styles.optionsContainer}>
+                                <View style={styles.optionRow}>
+                                  <Text style={styles.optionLabel}>A</Text>
+                                  <Text style={styles.optionText}>True</Text>
+                                </View>
+                                <View style={styles.optionRow}>
+                                  <Text style={styles.optionLabel}>B</Text>
+                                  <Text style={styles.optionText}>False</Text>
+                                </View>
+                              </View>
+                            )}
+
+                            {/* Answer Lines - only for questions with marks > 0 */}
+                            {lineCount > 0 && tq.marks > 0 && (
+                              <View style={{ marginTop: 6 }}>
+                                {Array.from({ length: lineCount }).map((_, lineIdx) => (
+                                  <View key={lineIdx} style={styles.answerLineRow}>
+                                    <View style={styles.answerLine} />
+                                    <Text style={styles.lineMarks}>
+                                      {lineIdx === lineCount - 1 ? `[${tq.marks}]` : ''}
+                                    </Text>
+                                  </View>
+                                ))}
+                              </View>
+                            )}
+
+                            {/* For MCQ/TF - show marks only */}
+                            {(question.question_type === 'mcq' || question.question_type === 'multiple_choice' || question.question_type === 'Multiple Choice' || question.question_type === 'tf') && tq.marks > 0 && (
+                              <View style={{ marginTop: 8, alignItems: 'flex-end' }}>
+                                <Text style={{ fontSize: 11 }}>[{tq.marks}]</Text>
+                              </View>
+                            )}
+
+                            {/* Answer Key (if included) */}
+                            {options.includeAnswers && question.correct_answer && (
+                              <View style={styles.answerKeySection}>
+                                <Text style={styles.answerKeyTitle}>Answer:</Text>
+                                <Text style={styles.answerKeyText}>
+                                  {formatAnswerForPDF(question.correct_answer, question.question_type)}
+                                </Text>
+                                {question.examiner_comment && (
+                                  <Text style={styles.examinerComment}>
+                                    Examiner's Notes: {question.examiner_comment}
+                                  </Text>
+                                )}
+                              </View>
+                            )}
                           </View>
-                          <View style={styles.optionRow}>
-                            <Text style={styles.optionLabel}>B</Text>
-                            <Text style={styles.optionText}>False</Text>
-                          </View>
                         </View>
-                      )}
-
-                      {/* Answer Lines - Cambridge style solid lines (only for questions with marks > 0) */}
-                      {lineCount > 0 && tq.marks > 0 && (
-                        <View style={{ marginTop: 6 }}>
-                          {Array.from({ length: lineCount }).map((_, lineIdx) => (
-                            <View key={lineIdx} style={styles.answerLineRow}>
-                              <View style={styles.answerLine} />
-                              {/* Show marks only on the last line */}
-                              <Text style={styles.lineMarks}>
-                                {lineIdx === lineCount - 1 ? `[${tq.marks}]` : ''}
-                              </Text>
-                            </View>
-                          ))}
-                        </View>
-                      )}
-
-                      {/* For MCQ/TF - show marks only (no answer line - students circle the letter) */}
-                      {(question.question_type === 'mcq' || question.question_type === 'multiple_choice' || question.question_type === 'Multiple Choice' || question.question_type === 'tf') && tq.marks > 0 && (
-                        <View style={{ marginTop: 8, alignItems: 'flex-end' }}>
-                          <Text style={{ fontSize: 11 }}>[{tq.marks}]</Text>
-                        </View>
-                      )}
-
-                      {/* Answer Key (if included) */}
-                      {options.includeAnswers && question.correct_answer && (
-                        <View style={styles.answerKeySection}>
-                          <Text style={styles.answerKeyTitle}>Answer:</Text>
-                          <Text style={styles.answerKeyText}>
-                            {formatAnswerForPDF(question.correct_answer, question.question_type)}
-                          </Text>
-                          {question.examiner_comment && (
-                            <Text style={styles.examinerComment}>
-                              Examiner's Notes: {question.examiner_comment}
-                            </Text>
-                          )}
-                        </View>
-                      )}
-                    </View>
-                  </View>
+                      </View>
+                    );
+                  })}
                 </View>
               );
             })}
