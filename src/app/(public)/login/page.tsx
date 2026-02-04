@@ -65,13 +65,11 @@ function LoginContent() {
             if (data.user) {
                 const { data: profile } = await supabase
                     .from('users')
-                    .select('role, onboarding_completed')
+                    .select('role')
                     .eq('id', data.user.id)
                     .single();
                 
-                if (profile && !profile.onboarding_completed) {
-                    router.push('/onboarding');
-                } else if (profile?.role === 'super_admin' || profile?.role === 'content_moderator') {
+                if (profile?.role === 'super_admin' || profile?.role === 'content_moderator') {
                     router.push('/admin');
                 } else if (profile?.role === 'teacher') {
                     router.push('/teacher');
