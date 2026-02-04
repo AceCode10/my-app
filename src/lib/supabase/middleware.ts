@@ -13,6 +13,21 @@ const PROTECTED_ROUTES = [
 // Auth pages that authenticated users should be redirected away from
 const AUTH_PAGES = ["/login", "/signup"];
 
+// Cookie options for production - ensures cookies work across HTTPS
+const getCookieOptions = (options: Record<string, unknown> = {}) => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const maxAge = typeof options.maxAge === 'number' ? options.maxAge : 60 * 60 * 24 * 7; // 7 days default
+  return {
+    ...options,
+    // CRITICAL: These settings ensure cookies persist in production
+    path: '/',
+    sameSite: 'lax' as const,
+    secure: isProduction, // Only require secure in production (HTTPS)
+    httpOnly: true,
+    maxAge,
+  };
+};
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
@@ -39,9 +54,11 @@ export async function updateSession(request: NextRequest) {
         supabaseResponse = NextResponse.next({
           request,
         });
-        cookiesToSet.forEach(({ name, value, options }) =>
-          supabaseResponse.cookies.set(name, value, options)
-        );
+        cookiesToSet.forEach(({ name, value, options }) => {
+          // Apply production-safe cookie options
+          const safeOptions = getCookieOptions(options as Record<string, unknown>);
+          supabaseResponse.cookies.set(name, value, safeOptions);
+        });
       },
     },
   });

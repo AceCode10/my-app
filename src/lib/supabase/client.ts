@@ -30,15 +30,17 @@ let authListenerSetup = false;
 export function createClient() {
   if (!supabaseClient) {
     const { supabaseUrl, supabaseKey } = validateEnv();
+    
+    // CRITICAL: Use default cookie-based storage for SSR compatibility
+    // This ensures client and server share the same session via cookies
     supabaseClient = createBrowserClient(supabaseUrl, supabaseKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
-        storageKey: 'igaprep-auth',
         flowType: 'pkce',
-        // Use localStorage for better persistence across refreshes
-        storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+        // Let Supabase SSR handle storage via cookies (default behavior)
+        // DO NOT override storage - this breaks SSR session sync
       },
       global: {
         headers: {

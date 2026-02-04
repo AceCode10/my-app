@@ -1,4 +1,10 @@
 /** @type {import('next').NextConfig} */
+
+// Generate build ID from timestamp for cache busting on deployments
+const generateBuildId = () => {
+  return `build-${Date.now()}`;
+};
+
 const nextConfig = {
   /* config options here */
   eslint: {
@@ -11,6 +17,9 @@ const nextConfig = {
     // your project has type errors.
     ignoreBuildErrors: true,
   },
+  
+  // Generate unique build ID for cache invalidation on new deployments
+  generateBuildId: async () => generateBuildId(),
   
   // Performance optimizations
   reactStrictMode: true,
@@ -69,9 +78,9 @@ const nextConfig = {
           },
         ],
       },
-      // Prevent HTML pages from being cached to avoid stale content
+      // Prevent HTML pages from being cached to avoid stale content after deployments
       {
-        source: '/(teacher|student|admin|resources)(.*)',
+        source: '/(teacher|student|admin|resources|login|signup)(.*)',
         headers: [
           {
             key: 'Cache-Control',

@@ -99,19 +99,37 @@ function LoginContent() {
             
             // On success, manually redirect based on role to avoid race condition
             if (data.user) {
-                const { data: profile } = await supabase
-                    .from('users')
-                    .select('role')
-                    .eq('id', data.user.id)
-                    .single();
-                
-                if (profile?.role === 'super_admin' || profile?.role === 'content_moderator') {
-                    router.push('/admin');
-                } else if (profile?.role === 'teacher') {
-                    router.push('/teacher');
-                } else {
-                    router.push('/student');
+                try {
+                    const { data: profile } = await supabase
+                        .from('users')
+                        .select('role')
+                        .eq('id', data.user.id)
+                        .single();
+                    
+                    // Clear timeout since we're about to redirect
+                    if (loginTimeoutRef.current) {
+                        clearTimeout(loginTimeoutRef.current);
+                    }
+                    
+                    // Use window.location for a full page reload to ensure cookies are set
+                    // This is more reliable than router.push for auth state changes
+                    if (profile?.role === 'super_admin' || profile?.role === 'content_moderator') {
+                        window.location.href = '/admin';
+                    } else if (profile?.role === 'teacher') {
+                        window.location.href = '/teacher';
+                    } else {
+                        window.location.href = '/student';
+                    }
+                    return; // Don't reset isSubmitting - we're navigating away
+                } catch (profileError) {
+                    // If profile fetch fails, still redirect to student dashboard
+                    console.error('Profile fetch error:', profileError);
+                    window.location.href = '/student';
+                    return;
                 }
+            } else {
+                // No user returned but no error - unusual state
+                setIsSubmitting(false);
             }
         } catch (error: unknown) {
             if (loginTimeoutRef.current) {
