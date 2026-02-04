@@ -80,8 +80,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-primary/10 flex items-center justify-center">
             <LogOut className="h-8 w-8 text-primary" />
           </div>
-          <h2 className="text-xl font-semibold mb-2">Please log in to view your dashboard</h2>
-          <p className="text-muted-foreground mb-6">Access your subjects, progress, and more by logging in.</p>
+          <h2 className="text-xl font-semibold mb-2">Please Log In</h2>
+          
           <Button asChild size="lg" className="w-full">
             <Link href="/login">Go to Login</Link>
           </Button>

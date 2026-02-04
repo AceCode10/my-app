@@ -1,10 +1,10 @@
 
 'use client';
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useRef } from 'react';
 import { Mail, KeyRound } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useUser } from '@/hooks/use-user';
+import { useUser, invalidateUserCache } from '@/hooks/use-user';
 import { useToast } from "@/hooks/use-toast";
 import { createClient } from '@/lib/supabase/client';
 import { KodiLoadingGif } from '@/components/ui/kodi-loading-gif';
@@ -20,13 +20,24 @@ function LoginContent() {
     const [password, setPassword] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isTeacher, setIsTeacher] = useState(false);
+    const redirectingRef = useRef(false);
+    const loginTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
         setIsTeacher(searchParams.get('plan') === 'teacher');
     }, [searchParams]);
     
+    // Clear any stale cache when login page loads
     useEffect(() => {
-        if (!loading && user) {
+        if (!loading && !user) {
+            // User is not logged in - ensure cache is clear
+            invalidateUserCache();
+        }
+    }, [loading, user]);
+    
+    useEffect(() => {
+        if (!loading && user && !redirectingRef.current) {
+            redirectingRef.current = true;
             // Redirect based on role
             if (user.role === 'super_admin' || user.role === 'content_moderator') {
                 router.push('/admin');
@@ -38,18 +49,43 @@ function LoginContent() {
         }
     }, [user, loading, router]);
 
-    // Google OAuth is handled by Supabase Auth automatically
-
+    // Cleanup timeout on unmount
+    useEffect(() => {
+        return () => {
+            if (loginTimeoutRef.current) {
+                clearTimeout(loginTimeoutRef.current);
+            }
+        };
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
         
+        // Set a timeout to reset submitting state if login takes too long
+        loginTimeoutRef.current = setTimeout(() => {
+            if (isSubmitting) {
+                setIsSubmitting(false);
+                toast({
+                    variant: "destructive",
+                    title: "Login Timeout",
+                    description: "Login is taking too long. Please try again.",
+                });
+            }
+        }, 15000); // 15 second timeout
+        
         try {
+            // Clear any existing cache before login
+            invalidateUserCache();
+            
             const { data, error } = await supabase.auth.signInWithPassword({
                 email,
                 password,
             });
+            
+            if (loginTimeoutRef.current) {
+                clearTimeout(loginTimeoutRef.current);
+            }
             
             if (error) {
                 toast({
@@ -77,7 +113,10 @@ function LoginContent() {
                     router.push('/student');
                 }
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
+            if (loginTimeoutRef.current) {
+                clearTimeout(loginTimeoutRef.current);
+            }
             toast({
                 variant: "destructive",
                 title: "Login Failed",
@@ -89,6 +128,9 @@ function LoginContent() {
 
     const handleGoogleSignIn = async () => {
         setIsSubmitting(true);
+        // Clear cache before OAuth login
+        invalidateUserCache();
+        
         try {
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
@@ -105,7 +147,7 @@ function LoginContent() {
                 });
                 setIsSubmitting(false);
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error("Error during Google sign-in:", error);
             toast({
                 variant: "destructive",

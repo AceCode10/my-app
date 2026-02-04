@@ -25,18 +25,29 @@ export interface UserProfile {
 
 // Global cache for user profile to avoid refetching on every component mount
 let cachedUser: UserProfile | null = null;
+let cachedUserId: string | null = null; // Track which user the cache belongs to
 let cacheTimestamp = 0;
 let globalFetchPromise: Promise<UserProfile | null> | null = null;
 let globalFetchResolve: ((user: UserProfile | null) => void) | null = null;
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache for better performance
-const FETCH_TIMEOUT = 15000; // 15 second timeout for slow connections
+const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes cache - shorter for better consistency
+const FETCH_TIMEOUT = 10000; // 10 second timeout
 
 const supabase = createClient();
 
 // Helper to invalidate cache (can be called from other modules)
 export function invalidateUserCache() {
   cachedUser = null;
+  cachedUserId = null;
   cacheTimestamp = 0;
+  globalFetchPromise = null;
+  globalFetchResolve = null;
+}
+
+// Listen for auth events globally to clear cache on sign out
+if (typeof window !== 'undefined') {
+  window.addEventListener('auth_signed_out', () => {
+    invalidateUserCache();
+  });
 }
 
 export function useUser() {
@@ -47,8 +58,13 @@ export function useUser() {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchUserProfile = useCallback(async (userId: string, forceRefresh = false): Promise<UserProfile | null> => {
-    // Check cache first
-    if (!forceRefresh && cachedUser && cachedUser.id === userId && Date.now() - cacheTimestamp < CACHE_DURATION) {
+    // Clear cache if user ID changed (switching accounts)
+    if (cachedUserId && cachedUserId !== userId) {
+      invalidateUserCache();
+    }
+
+    // Check cache first - must match user ID
+    if (!forceRefresh && cachedUser && cachedUserId === userId && Date.now() - cacheTimestamp < CACHE_DURATION) {
       if (mountedRef.current) {
         setUser(cachedUser);
         setLoading(false);
@@ -56,8 +72,8 @@ export function useUser() {
       return cachedUser;
     }
 
-    // If another fetch is in progress globally, wait for it
-    if (globalFetchPromise) {
+    // If another fetch is in progress globally for the SAME user, wait for it
+    if (globalFetchPromise && cachedUserId === userId) {
       const result = await globalFetchPromise;
       if (mountedRef.current) {
         setUser(result);
@@ -69,6 +85,7 @@ export function useUser() {
     // Prevent duplicate fetches
     if (fetchingRef.current) return cachedUser;
     fetchingRef.current = true;
+    cachedUserId = userId; // Track which user we're fetching
 
     // Create global promise with proper typing
     globalFetchPromise = new Promise<UserProfile | null>((resolve) => {
@@ -199,39 +216,68 @@ export function useUser() {
     mountedRef.current = true;
     let isSubscribed = true;
 
-    // Get initial session with timeout for mobile
-    const sessionPromise = supabase.auth.getSession();
-    const timeoutPromise = new Promise<null>((resolve) => 
-      setTimeout(() => resolve(null), FETCH_TIMEOUT)
-    );
+    // Use getUser() instead of getSession() - it validates with the server
+    // This prevents issues where stale session data causes logout on refresh
+    const initializeAuth = async () => {
+      try {
+        // First try to get and validate the user with the server
+        const { data: { user: authUser }, error } = await supabase.auth.getUser();
+        
+        if (!isSubscribed || !mountedRef.current) return;
+        
+        if (error) {
+          // Session is invalid or expired
+          console.log('[Auth] Session validation failed:', error.message);
+          invalidateUserCache();
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+        
+        if (authUser) {
+          await fetchUserProfile(authUser.id);
+        } else {
+          setLoading(false);
+        }
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        console.error('[Auth] Init error:', errorMessage);
+        if (isSubscribed && mountedRef.current) {
+          setLoading(false);
+        }
+      }
+    };
 
-    Promise.race([sessionPromise, timeoutPromise]).then((result) => {
-      if (!isSubscribed || !mountedRef.current) return;
-      
-      if (result && 'data' in result && result.data.session?.user) {
-        fetchUserProfile(result.data.session.user.id);
-      } else {
+    // Add timeout wrapper for slow connections
+    const timeoutId = setTimeout(() => {
+      if (isSubscribed && mountedRef.current && loading) {
+        console.warn('[Auth] Init timeout - setting loading false');
         setLoading(false);
       }
-    }).catch((err: unknown) => {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      console.error('Session fetch error:', errorMessage);
-      if (isSubscribed && mountedRef.current) {
-        setLoading(false);
-      }
+    }, FETCH_TIMEOUT);
+
+    initializeAuth().finally(() => {
+      clearTimeout(timeoutId);
     });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
       if (!isSubscribed || !mountedRef.current) return;
       
+      console.log('[Auth] State change:', event);
+      
       if (event === 'SIGNED_OUT') {
         invalidateUserCache();
         setUser(null);
         setLoading(false);
-      } else if (session?.user) {
-        // Force refresh on sign in
-        await fetchUserProfile(session.user.id, event === 'SIGNED_IN');
+      } else if (event === 'SIGNED_IN' && session?.user) {
+        // Force refresh on sign in to get fresh user data
+        await fetchUserProfile(session.user.id, true);
+      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+        // Token refreshed - validate cache is still valid
+        if (cachedUserId !== session.user.id) {
+          await fetchUserProfile(session.user.id, true);
+        }
       }
     });
 
