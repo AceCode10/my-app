@@ -46,7 +46,7 @@ function LoginContent() {
         setIsSubmitting(true);
         
         try {
-            const { error } = await supabase.auth.signInWithPassword({
+            const { data, error } = await supabase.auth.signInWithPassword({
                 email,
                 password,
             });
@@ -58,8 +58,27 @@ function LoginContent() {
                     description: error.message || "Invalid email or password. Please try again.",
                 });
                 setIsSubmitting(false);
+                return;
             }
-            // Success is handled by useUser hook redirect
+            
+            // On success, manually redirect based on role to avoid race condition
+            if (data.user) {
+                const { data: profile } = await supabase
+                    .from('users')
+                    .select('role, onboarding_completed')
+                    .eq('id', data.user.id)
+                    .single();
+                
+                if (profile && !profile.onboarding_completed) {
+                    router.push('/onboarding');
+                } else if (profile?.role === 'super_admin' || profile?.role === 'content_moderator') {
+                    router.push('/admin');
+                } else if (profile?.role === 'teacher') {
+                    router.push('/teacher');
+                } else {
+                    router.push('/student');
+                }
+            }
         } catch (error: any) {
             toast({
                 variant: "destructive",
@@ -121,10 +140,10 @@ function LoginContent() {
             <div className="max-w-md w-full mx-auto">
                 <div className="p-6 sm:p-8 bg-card rounded-2xl shadow-lg">
                     <h2 className="text-xl sm:text-2xl font-bold text-card-foreground text-center mb-2">
-                        {isTeacher ? 'Welcome Back, Teacher!' : 'Welcome Back!'}
+                        {isTeacher ? 'Welcome Back!' : 'Welcome Back!'}
                     </h2>
                     <p className="text-center text-sm sm:text-base text-muted-foreground mb-6">
-                        {isTeacher ? 'Log in to access your teacher dashboard.' : 'Log in to continue your learning journey.'}
+                        {isTeacher ? 'Log in to access your dashboard.' : 'Log in to access your dashboard.'}
                     </p>
                     <form className="space-y-4" onSubmit={handleSubmit}>
                         <div className="relative">

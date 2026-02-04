@@ -9,17 +9,9 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -255,12 +247,15 @@ export default function TeacherTestsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">My Tests</h1>
-          <p className="text-muted-foreground">Create and manage your custom tests</p>
+          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+            <FileText className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
+            My Tests
+          </h1>
+          <p className="text-muted-foreground mt-1">Create and manage your custom tests</p>
         </div>
-        <Button asChild>
+        <Button asChild className="bg-primary hover:bg-primary/90">
           <Link href="/teacher/test-builder">
             <Plus className="h-4 w-4 mr-2" />
             Create New Test
@@ -268,148 +263,134 @@ export default function TeacherTestsPage() {
         </Button>
       </div>
 
-      {/* Search */}
-      <Card className="rounded-xl">
-        <CardHeader className="pb-0">
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search tests..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <div className="text-sm text-muted-foreground">
-              {filteredTests.length} test{filteredTests.length !== 1 ? 's' : ''}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-4">
+      {/* Search & Stats Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search tests..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 bg-card"
+          />
+        </div>
+        <Badge variant="secondary" className="px-3 py-1.5 text-sm w-fit">
+          {filteredTests.length} test{filteredTests.length !== 1 ? 's' : ''}
+        </Badge>
+      </div>
+
+      {/* Tests List */}
+      <Card className="rounded-xl border-0 shadow-sm">
+        <CardContent className="p-0">
           {loading ? (
-            <div className="space-y-3">
+            <div className="p-4 space-y-3">
               {[1, 2, 3].map(i => (
-                <Skeleton key={i} className="h-16 w-full" />
+                <Skeleton key={i} className="h-20 w-full rounded-lg" />
               ))}
             </div>
           ) : filteredTests.length === 0 ? (
-            <div className="text-center py-12">
-              <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-              <h3 className="text-lg font-medium mb-1">No tests found</h3>
-              <p className="text-muted-foreground mb-4">
-                {searchQuery ? 'Try a different search term' : 'Create your first test to get started'}
+            <div className="text-center py-16">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-muted flex items-center justify-center">
+                <FileText className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-semibold mb-2">No tests found</h3>
+              <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
+                {searchQuery ? 'Try a different search term' : 'Create your first test to get started with assessments'}
               </p>
               {!searchQuery && (
-                <Button asChild>
+                <Button asChild size="lg">
                   <Link href="/teacher/test-builder">
                     <Plus className="h-4 w-4 mr-2" />
-                    Create Test
+                    Create Your First Test
                   </Link>
                 </Button>
               )}
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead className="hidden md:table-cell">Subject</TableHead>
-                  <TableHead className="text-center">Questions</TableHead>
-                  <TableHead className="text-center">Marks</TableHead>
-                  <TableHead className="text-center hidden sm:table-cell">Duration</TableHead>
-                  <TableHead className="hidden lg:table-cell">Status</TableHead>
-                  <TableHead className="hidden lg:table-cell">Last Updated</TableHead>
-                  <TableHead className="w-[50px]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredTests.map(test => (
-                  <TableRow key={test.id}>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{test.title}</p>
-                        {test.description && (
-                          <p className="text-sm text-muted-foreground line-clamp-1">
-                            {test.description}
-                          </p>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      {test.subject ? (test.subject as any).name : '-'}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {test.total_questions}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {test.total_marks}
-                    </TableCell>
-                    <TableCell className="text-center hidden sm:table-cell">
-                      {test.duration_minutes ? (
-                        <span className="flex items-center justify-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {test.duration_minutes}m
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell">
+            <div className="divide-y">
+              {filteredTests.map(test => (
+                <div 
+                  key={test.id} 
+                  className="flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors group"
+                >
+                  {/* Test Icon */}
+                  <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <FileText className="h-5 w-5 text-primary" />
+                  </div>
+                  
+                  {/* Test Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                        {test.title}
+                      </h3>
                       {getVisibilityBadge(test.visibility)}
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">
-                      {formatDistanceToNow(new Date(test.updated_at), { addSuffix: true })}
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem asChild>
-                            <Link href={`/teacher/test-builder/${test.id}/edit`}>
-                              <Edit className="h-4 w-4 mr-2" />
-                              Edit
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => duplicateTest(test)}>
-                            <Copy className="h-4 w-4 mr-2" />
-                            Duplicate
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={`/teacher/tests/${test.id}/assign`}>
-                              <Send className="h-4 w-4 mr-2" />
-                              Assign to Class
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => {
-                            setTestToExport(test);
-                            setShowPDFExport(true);
-                          }}>
-                            <Download className="h-4 w-4 mr-2" />
-                            Export PDF
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-destructive"
-                            onClick={() => {
-                              setTestToDelete(test);
-                              setDeleteDialogOpen(true);
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                    </div>
+                    <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <FileText className="h-3 w-3" />
+                        {test.total_questions} questions
+                      </span>
+                      <span>{test.total_marks} marks</span>
+                      {test.duration_minutes && (
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {test.duration_minutes} min
+                        </span>
+                      )}
+                      <span className="hidden sm:inline">
+                        Updated {formatDistanceToNow(new Date(test.updated_at), { addSuffix: true })}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* Actions */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="flex-shrink-0">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem asChild>
+                        <Link href={`/teacher/test-builder/${test.id}/edit`}>
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => duplicateTest(test)}>
+                        <Copy className="h-4 w-4 mr-2" />
+                        Duplicate
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href={`/teacher/tests/${test.id}/assign`}>
+                          <Send className="h-4 w-4 mr-2" />
+                          Assign to Class
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => {
+                        setTestToExport(test);
+                        setShowPDFExport(true);
+                      }}>
+                        <Download className="h-4 w-4 mr-2" />
+                        Export PDF
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive"
+                        onClick={() => {
+                          setTestToDelete(test);
+                          setDeleteDialogOpen(true);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              ))}
+            </div>
           )}
         </CardContent>
       </Card>

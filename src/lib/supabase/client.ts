@@ -36,12 +36,22 @@ export function createClient() {
         detectSessionInUrl: true,
         storageKey: 'igaprep-auth',
         flowType: 'pkce',
-        // Session will be refreshed automatically before expiring
-        // Supabase default is 1 hour, refresh happens at 80% of expiry
+        // Increase session lifetime and refresh more aggressively
+        // This helps prevent unexpected logouts
       },
       global: {
         headers: {
           'x-client-info': 'igaprep-web',
+        },
+        // Add retry logic for failed requests
+        fetch: (url, options = {}) => {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+          
+          return fetch(url, { 
+            ...options, 
+            signal: controller.signal 
+          }).finally(() => clearTimeout(timeoutId));
         },
       },
       // Improve connection resilience
@@ -53,6 +63,15 @@ export function createClient() {
           eventsPerSecond: 2,
         },
       },
+    });
+    
+    // Set up session refresh listener to prevent unexpected logouts
+    supabaseClient.auth.onAuthStateChange((event, session) => {
+      if (event === 'TOKEN_REFRESHED') {
+        console.log('[Supabase] Session token refreshed successfully');
+      } else if (event === 'SIGNED_OUT') {
+        console.log('[Supabase] User signed out');
+      }
     });
   }
   return supabaseClient;

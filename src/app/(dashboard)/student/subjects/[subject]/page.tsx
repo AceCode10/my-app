@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Progress } from '@/components/ui/progress';
 
 const supabase = createClient();
 
@@ -23,7 +22,7 @@ export default function SubjectPage({ params }: SubjectPageProps) {
   const resolvedParams = use(params);
   const subjectSlug = resolvedParams.subject;
 
-  // Fetch subject from database
+  // Fetch subject from database - with caching
   const { data: subjectData, isLoading, error } = useQuery({
     queryKey: ['subject', subjectSlug],
     queryFn: async () => {
@@ -47,9 +46,11 @@ export default function SubjectPage({ params }: SubjectPageProps) {
       if (error) throw error;
       return data;
     },
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    gcTime: 15 * 60 * 1000, // Keep in cache for 15 minutes
   });
 
-  // Fetch topics for this subject
+  // Fetch topics for this subject - with caching
   const { data: topics = [] } = useQuery({
     queryKey: ['subject-topics', subjectData?.id],
     queryFn: async () => {
@@ -65,50 +66,35 @@ export default function SubjectPage({ params }: SubjectPageProps) {
       return data || [];
     },
     enabled: !!subjectData?.id,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    gcTime: 15 * 60 * 1000, // Keep in cache for 15 minutes
   });
 
-  // Fetch resource counts - use subject_id directly for more reliable counts
+  // Fetch resource counts - use subject_id directly for more reliable counts - with caching
   const { data: resourceData } = useQuery({
     queryKey: ['subject-resources', subjectData?.id],
     queryFn: async () => {
       if (!subjectData?.id) return { notes: 0, questions: 0, papers: 0 };
       
-      // Count notes by subject_id directly (more reliable)
-      const { count: notesCount, error: notesError } = await supabase
-        .from('notes')
-        .select('*', { count: 'exact', head: true })
-        .eq('subject_id', subjectData.id)
-        .in('visibility', ['public', 'registered'])
-        .not('published_at', 'is', null);
-
-      if (notesError) console.error('Notes count error:', notesError);
-
-      // Count questions by subject_id directly
-      const { count: questionsCount, error: questionsError } = await supabase
-        .from('questions')
-        .select('*', { count: 'exact', head: true })
-        .eq('subject_id', subjectData.id);
-
-      if (questionsError) console.error('Questions count error:', questionsError);
-
-      // Count past papers
-      const { count: papersCount, error: papersError } = await supabase
-        .from('past_papers')
-        .select('*', { count: 'exact', head: true })
-        .eq('subject_id', subjectData.id)
-        .eq('status', 'published');
-
-      if (papersError) console.error('Papers count error:', papersError);
-
-      console.log('[SubjectPage] Resource counts:', { notes: notesCount, questions: questionsCount, papers: papersCount });
+      // Batch all count queries in parallel for better performance
+      const [notesResult, questionsResult, papersResult] = await Promise.all([
+        supabase.from('notes').select('*', { count: 'exact', head: true })
+          .eq('subject_id', subjectData.id).in('visibility', ['public', 'registered']).not('published_at', 'is', null),
+        supabase.from('questions').select('*', { count: 'exact', head: true })
+          .eq('subject_id', subjectData.id),
+        supabase.from('past_papers').select('*', { count: 'exact', head: true })
+          .eq('subject_id', subjectData.id).eq('status', 'published')
+      ]);
 
       return {
-        notes: notesCount || 0,
-        questions: questionsCount || 0,
-        papers: papersCount || 0
+        notes: notesResult.count || 0,
+        questions: questionsResult.count || 0,
+        papers: papersResult.count || 0
       };
     },
     enabled: !!subjectData?.id,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    gcTime: 15 * 60 * 1000, // Keep in cache for 15 minutes
   });
 
   // Fetch user progress for this subject (real-time with refetch)
@@ -204,27 +190,22 @@ export default function SubjectPage({ params }: SubjectPageProps) {
         )}
       </div>
 
-      {/* Resource Cards with Progress */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Resource Cards - Modern Design without Progress */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Notes Card */}
         <Link href={`/resources/revision-notes/${subjectSlug}`}>
-          <div className="bg-card p-6 rounded-2xl border hover:border-blue-500 hover:shadow-lg transition-all group h-full">
-            <div className="flex items-center justify-between mb-4">
-              <div className="text-4xl">📖</div>
+          <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 p-5 rounded-2xl border-0 hover:from-blue-500/15 hover:to-blue-600/10 hover:shadow-lg transition-all duration-300 group h-full">
+            <div className="flex items-start justify-between">
+              <div className="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center mb-4">
+                <BookOpen className="w-6 h-6 text-blue-600" />
+              </div>
               <div className="text-right">
-                <div className="text-2xl font-bold text-foreground">{resourceData?.notes || 0}</div>
+                <div className="text-2xl font-bold text-blue-600">{resourceData?.notes || 0}</div>
                 <div className="text-xs text-muted-foreground">notes</div>
               </div>
             </div>
-            <h3 className="font-semibold text-lg mb-2 group-hover:text-blue-500 transition-colors">Revision Notes</h3>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Progress</span>
-                <span className="font-medium">{Math.min(notesProgress, 100)}%</span>
-              </div>
-              <Progress value={Math.min(notesProgress, 100)} className="h-2" />
-            </div>
-            <div className="mt-4 flex items-center text-sm text-blue-500 font-medium">
+            <h3 className="font-semibold text-lg text-foreground group-hover:text-blue-600 transition-colors">Revision Notes</h3>
+            <div className="mt-4 flex items-center text-sm text-blue-600 font-medium">
               View Notes
               <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
             </div>
@@ -233,23 +214,18 @@ export default function SubjectPage({ params }: SubjectPageProps) {
 
         {/* Topical Questions Card */}
         <Link href={`/resources/topical-questions/${subjectSlug}`}>
-          <div className="bg-card p-6 rounded-2xl border hover:border-emerald-500 hover:shadow-lg transition-all group h-full">
-            <div className="flex items-center justify-between mb-4">
-              <div className="text-4xl">📝</div>
+          <div className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 p-5 rounded-2xl border-0 hover:from-emerald-500/15 hover:to-emerald-600/10 hover:shadow-lg transition-all duration-300 group h-full">
+            <div className="flex items-start justify-between">
+              <div className="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center mb-4">
+                <BookOpen className="w-6 h-6 text-emerald-600" />
+              </div>
               <div className="text-right">
-                <div className="text-2xl font-bold text-foreground">{resourceData?.questions || 0}</div>
+                <div className="text-2xl font-bold text-emerald-600">{resourceData?.questions || 0}</div>
                 <div className="text-xs text-muted-foreground">questions</div>
               </div>
             </div>
-            <h3 className="font-semibold text-lg mb-2 group-hover:text-emerald-500 transition-colors">Topical Questions</h3>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Progress</span>
-                <span className="font-medium">{Math.min(questionsProgress, 100)}%</span>
-              </div>
-              <Progress value={Math.min(questionsProgress, 100)} className="h-2" />
-            </div>
-            <div className="mt-4 flex items-center text-sm text-emerald-500 font-medium">
+            <h3 className="font-semibold text-lg text-foreground group-hover:text-emerald-600 transition-colors">Topical Questions</h3>
+            <div className="mt-4 flex items-center text-sm text-emerald-600 font-medium">
               Practice Questions
               <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
             </div>
@@ -258,23 +234,18 @@ export default function SubjectPage({ params }: SubjectPageProps) {
 
         {/* Past Papers Card */}
         <Link href={`/resources/past-papers/${subjectSlug}`}>
-          <div className="bg-card p-6 rounded-2xl border hover:border-purple-500 hover:shadow-lg transition-all group h-full">
-            <div className="flex items-center justify-between mb-4">
-              <div className="text-4xl">📄</div>
+          <div className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 p-5 rounded-2xl border-0 hover:from-purple-500/15 hover:to-purple-600/10 hover:shadow-lg transition-all duration-300 group h-full">
+            <div className="flex items-start justify-between">
+              <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center mb-4">
+                <BookOpen className="w-6 h-6 text-purple-600" />
+              </div>
               <div className="text-right">
-                <div className="text-2xl font-bold text-foreground">{resourceData?.papers || 0}</div>
+                <div className="text-2xl font-bold text-purple-600">{resourceData?.papers || 0}</div>
                 <div className="text-xs text-muted-foreground">papers</div>
               </div>
             </div>
-            <h3 className="font-semibold text-lg mb-2 group-hover:text-purple-500 transition-colors">Past Papers</h3>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Progress</span>
-                <span className="font-medium">{Math.min(papersProgress, 100)}%</span>
-              </div>
-              <Progress value={Math.min(papersProgress, 100)} className="h-2" />
-            </div>
-            <div className="mt-4 flex items-center text-sm text-purple-500 font-medium">
+            <h3 className="font-semibold text-lg text-foreground group-hover:text-purple-600 transition-colors">Past Papers</h3>
+            <div className="mt-4 flex items-center text-sm text-purple-600 font-medium">
               View Papers
               <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
             </div>

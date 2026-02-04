@@ -165,12 +165,6 @@ export default function PublicLayout({
                                             <span>Revision Notes</span>
                                         </Link>
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem asChild>
-                                        <Link href="/resources/quizzes">
-                                            <Layers className="mr-2 h-4 w-4" />
-                                            <span>Quizzes</span>
-                                        </Link>
-                                    </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         )}

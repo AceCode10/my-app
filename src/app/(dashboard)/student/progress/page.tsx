@@ -196,7 +196,7 @@ export default function ProgressPage() {
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-purple-100 text-sm font-medium">Total XP</p>
-                                <p className="text-3xl font-bold mt-1">{(gamification?.xp ?? totalXP).toLocaleString()}</p>
+                                <p className="text-3xl font-bold mt-1">{(gamification?.total_xp ?? user?.xp ?? totalXP ?? 0).toLocaleString()}</p>
                                 <p className="text-purple-100 text-xs mt-1">
                                     Level {gamification?.xp_level ?? 1} • {getLevelTitle()}
                                 </p>

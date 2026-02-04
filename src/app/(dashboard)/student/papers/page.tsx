@@ -100,7 +100,7 @@ export default function StudentPapersPage() {
 
   async function fetchPapers() {
     try {
-      // Fetch published papers with subjects in a single query
+      // Fetch published papers with subjects in a single query - order ascending by year
       const { data: papersData, error } = await supabase
         .from('past_papers')
         .select(`
@@ -108,8 +108,10 @@ export default function StudentPapersPage() {
           subjects(id, name, slug)
         `)
         .eq('status', 'published')
-        .order('year', { ascending: false })
-        .order('session', { ascending: true });
+        .order('year', { ascending: true })
+        .order('session', { ascending: true })
+        .order('paper_number', { ascending: true })
+        .order('variant', { ascending: true });
 
       if (error) throw error;
 
@@ -352,22 +354,23 @@ export default function StudentPapersPage() {
               {/* Year Badge */}
               <div className="flex-shrink-0 w-14 h-14 rounded-xl bg-primary/10 flex flex-col items-center justify-center">
                 <span className="text-lg font-bold text-primary">{paper.year}</span>
-                <span className="text-[10px] text-muted-foreground uppercase">Paper</span>
+                <span className="text-[10px] text-muted-foreground uppercase">{paper.session?.substring(0, 3) || 'P'}{paper.paper_number}</span>
               </div>
               
               {/* Paper Info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <h3 className="font-semibold text-foreground truncate group-hover:text-primary transition-colors">
-                    {paper.title}
+                    {/* Short title format: Subject P1 V12 Session Year */}
+                    {paper.subject?.name || 'Paper'} P{paper.paper_number || '1'} V{paper.variant || '1'} {paper.session} {paper.year}
                   </h3>
                   {getAttemptBadge(paper.id)}
                 </div>
                 <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                  <span>{paper.subject_name}</span>
+                  <span>{paper.subject?.name}</span>
                   <span className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />
-                    {paper.duration} min
+                    {paper.duration_minutes || 90} min
                   </span>
                   <span>{paper.question_count || 0} Q</span>
                 </div>

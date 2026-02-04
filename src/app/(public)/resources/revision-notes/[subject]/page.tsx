@@ -2,9 +2,8 @@
 
 import React, { useEffect, useState, use } from 'react';
 import Link from 'next/link';
-import { ChevronRight, BookOpen, FileText, Eye } from 'lucide-react';
+import { ChevronRight, ChevronDown, BookOpen, FileText, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { createClient } from '@/lib/supabase/client';
 
@@ -77,7 +76,7 @@ export default function SubjectRevisionNotesPage({
 
       // Fetch note counts per topic
       if (topicsData && topicsData.length > 0) {
-        const topicIds = topicsData.map(t => t.id);
+        const topicIds = topicsData.map((t: Topic) => t.id);
         const { data: noteCounts, error: countError } = await supabase
           .from('notes')
           .select('topic_id')
@@ -116,7 +115,7 @@ export default function SubjectRevisionNotesPage({
   }
 
   return (
-    <div className="py-8">
+    <div className="py-8 max-w-4xl mx-auto">
       {/* Breadcrumb */}
       <div className="flex items-center text-sm text-muted-foreground mb-6">
         <Link href="/resources/revision-notes" className="hover:text-primary">
@@ -128,19 +127,21 @@ export default function SubjectRevisionNotesPage({
         </span>
       </div>
 
-
-      {/* Topics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Topics List - Modern Clean Design (Similar to Topical Questions) */}
+      <div className="bg-card rounded-xl border divide-y overflow-hidden">
         {isLoading ? (
           Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="bg-card p-6 rounded-xl border">
-              <Skeleton className="h-6 w-3/4 mb-2" />
-              <Skeleton className="h-4 w-full mb-4" />
-              <Skeleton className="h-10 w-full" />
+            <div key={i} className="flex items-center gap-4 p-4">
+              <Skeleton className="h-11 w-11 rounded-full" />
+              <div className="flex-1">
+                <Skeleton className="h-5 w-3/4 mb-2" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+              <Skeleton className="h-5 w-5" />
             </div>
           ))
         ) : topics.length === 0 ? (
-          <div className="col-span-full text-center py-12 bg-card rounded-xl border">
+          <div className="text-center py-12">
             <BookOpen className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-foreground">No Topics Available</h3>
             <p className="text-muted-foreground mt-2">
@@ -148,39 +149,50 @@ export default function SubjectRevisionNotesPage({
             </p>
           </div>
         ) : (
-          topics.map((topic) => {
+          topics.map((topic, index) => {
             const noteCount = topicNoteCounts[topic.id] || 0;
             const topicSlug = topic.slug || topic.name.toLowerCase().replace(/ /g, '-');
+            const hasNotes = noteCount > 0;
             
             return (
-              <div
+              <Link
                 key={topic.id}
-                className="bg-card p-6 rounded-xl border hover:border-primary hover:shadow-lg transition-all duration-200 flex flex-col"
+                href={`/resources/revision-notes/${subjectSlug}/${topicSlug}`}
+                className="flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors group"
               >
-                <div className="flex-grow">
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="font-bold text-lg text-foreground">{topic.name}</h3>
-                    {noteCount > 0 && (
-                      <span className="ml-2 flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-semibold flex items-center justify-center">
-                        {noteCount}
-                      </span>
+                {/* Topic Number Circle */}
+                <div className="flex-shrink-0 w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center">
+                  <span className="text-sm font-bold text-primary">{index + 1}</span>
+                </div>
+                
+                {/* Topic Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
+                      {topic.name}
+                    </h3>
+                  </div>
+                  <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                    {hasNotes ? (
+                      <>
+                        <span className="flex items-center gap-1">
+                          <FileText className="w-3 h-3" />
+                          {noteCount} note{noteCount !== 1 ? 's' : ''}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          ~{Math.max(5, noteCount * 10)} min read
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground/70">Coming soon</span>
                     )}
                   </div>
-                  {topic.description && (
-                    <p className="text-sm text-muted-foreground mb-4">{topic.description}</p>
-                  )}
                 </div>
-
-                <Link href={`/resources/revision-notes/${subjectSlug}/${topicSlug}`}>
-                  <Button 
-                    className="w-full" 
-                    variant={noteCount > 0 ? "default" : "secondary"}
-                  >
-                    <FileText className="w-4 h-4 mr-2" />
-                    {noteCount > 0 ? 'View Notes' : 'Coming Soon'}
-                  </Button>
-                </Link>
-              </div>
+                
+                {/* Chevron */}
+                <ChevronDown className="w-5 h-5 text-muted-foreground -rotate-90 group-hover:text-primary transition-colors" />
+              </Link>
             );
           })
         )}

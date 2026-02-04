@@ -191,6 +191,28 @@ export function useGamification() {
     return success;
   }, [user]);
 
+  // Award XP to the user - only works for authenticated users with 'student' role
+  const awardXP = useCallback(async (amount: number, source: string): Promise<boolean> => {
+    if (!user) {
+      console.log('[useGamification] Cannot award XP - no user logged in');
+      return false;
+    }
+    
+    try {
+      const success = await xpService.awardXP(user.id, amount, source);
+      if (success) {
+        // Refresh gamification data after awarding XP
+        loadData();
+        // Dispatch event for other components to react
+        window.dispatchEvent(new CustomEvent('xp_earned', { detail: { amount, source } }));
+      }
+      return success;
+    } catch (error) {
+      console.error('[useGamification] Error awarding XP:', error);
+      return false;
+    }
+  }, [user, xpService, loadData]);
+
   return {
     // Data
     gamification,
@@ -209,6 +231,9 @@ export function useGamification() {
     markAllNotificationsAsRead,
 
     // Refresh function
-    refresh: loadData
+    refresh: loadData,
+    
+    // XP awarding function
+    awardXP
   };
 }

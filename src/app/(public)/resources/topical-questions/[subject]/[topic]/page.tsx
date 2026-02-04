@@ -417,7 +417,7 @@ export default function TopicPracticePage({
       );
     });
 
-  const handleFinishSession = useCallback(() => {
+  const handleFinishSession = useCallback(async () => {
     setViewMode('summary');
     // Clear saved session
     localStorage.removeItem(`practice-${subjectSlug}-${topicSlug}`);
@@ -448,12 +448,18 @@ export default function TopicPracticePage({
       
       const totalXP = baseXP + correctBonus + accuracyBonus;
       
-      if (totalXP > 0) {
-        gamification.awardXP(totalXP, 'topical_questions_completed');
-        setXpAwarded(true);
+      // Only award XP to authenticated users (students)
+      if (totalXP > 0 && user && gamification?.awardXP) {
+        try {
+          await gamification.awardXP(totalXP, 'topical_questions_completed');
+          setXpAwarded(true);
+        } catch (error) {
+          console.error('Error awarding XP:', error);
+        }
+      }
         
-        // Update topic progress in database
-        if (topic) {
+      // Update topic progress in database for authenticated users
+      if (user && topic) {
           supabase
             .from('user_topic_progress')
             .upsert({
@@ -465,8 +471,7 @@ export default function TopicPracticePage({
               last_practiced_at: new Date().toISOString()
             }, { onConflict: 'user_id,topic_id' })
             .then(() => console.log('Topic progress updated'))
-            .catch((err) => console.error('Error updating topic progress:', err));
-        }
+            .catch((err: Error) => console.error('Error updating topic progress:', err));
       }
     }
   }, [subjectSlug, topicSlug, user, gamification, xpAwarded, questionGroups, questionStatuses, topic, supabase]);

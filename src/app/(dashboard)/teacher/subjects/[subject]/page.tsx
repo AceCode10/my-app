@@ -153,94 +153,75 @@ export default function TeacherSubjectPage({ params }: SubjectPageProps) {
         )}
       </div>
 
-      {/* Teacher Quick Actions */}
-      <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Teacher Actions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-3 gap-4">
-            <Link href={`/teacher/notes?subject=${subjectSlug}`}>
-              <div className="bg-card p-4 rounded-xl border hover:border-primary hover:shadow-lg transition-all duration-200 text-center group">
-                <div className="text-2xl mb-1 group-hover:scale-110 transition-transform">✏️</div>
-                <div className="font-medium text-xs">Manage Notes</div>
-              </div>
-            </Link>
-            
-            <Link href={`/teacher/questions?subject=${subjectSlug}`}>
-              <div className="bg-card p-4 rounded-xl border hover:border-primary hover:shadow-lg transition-all duration-200 text-center group">
-                <div className="text-2xl mb-1 group-hover:scale-110 transition-transform">📝</div>
-                <div className="font-medium text-xs">Manage Questions</div>
-              </div>
-            </Link>
-            
-            <Link href={`/teacher/test-builder/new?subject=${subjectSlug}`}>
-              <div className="bg-card p-4 rounded-xl border hover:border-primary hover:shadow-lg transition-all duration-200 text-center group">
-                <div className="text-2xl mb-1 group-hover:scale-110 transition-transform">📋</div>
-                <div className="font-medium text-xs">Create Test</div>
-              </div>
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Resource Cards - Same as student view but without progress tracking */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Resource Cards - Modern Design */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Notes Card */}
         <Link href={`/resources/revision-notes/${subjectSlug}`}>
-          <div className="bg-card p-6 rounded-2xl border hover:border-blue-500 hover:shadow-lg transition-all group h-full">
-            <div className="flex items-center justify-between mb-4">
-              <div className="text-4xl">📖</div>
-              <div className="text-right">
-                <div className="text-2xl font-bold text-foreground">{resourceData?.notes || 0}</div>
-                <div className="text-xs text-muted-foreground">notes</div>
+          <Card className="group hover:shadow-lg transition-all duration-300 border-0 bg-gradient-to-br from-blue-500/10 to-blue-600/5 hover:from-blue-500/15 hover:to-blue-600/10">
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between">
+                <div className="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center mb-4">
+                  <BookOpen className="w-6 h-6 text-blue-600" />
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-blue-600">{resourceData?.notes || 0}</div>
+                  <div className="text-xs text-muted-foreground">notes</div>
+                </div>
               </div>
-            </div>
-            <h3 className="font-semibold text-lg mb-2 group-hover:text-blue-500 transition-colors">Revision Notes</h3>
-            <p className="text-sm text-muted-foreground mb-4">Access revision notes for teaching and reference</p>
-            <div className="flex items-center text-sm text-blue-500 font-medium">
-              View Notes
-              <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
-            </div>
-          </div>
+              <h3 className="font-semibold text-lg text-foreground group-hover:text-blue-600 transition-colors">Revision Notes</h3>
+              <p className="text-sm text-muted-foreground mt-1 mb-3">Access revision notes for teaching and reference</p>
+              <div className="flex items-center text-sm text-blue-600 font-medium">
+                View Notes
+                <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+              </div>
+            </CardContent>
+          </Card>
         </Link>
 
         {/* Topical Questions Card */}
         <Link href={`/resources/topical-questions/${subjectSlug}`}>
-          <div className="bg-card p-6 rounded-2xl border hover:border-emerald-500 hover:shadow-lg transition-all group h-full">
-            <div className="flex items-center justify-between mb-4">
-              <div className="text-4xl">📝</div>
-              <div className="text-right">
-                <div className="text-2xl font-bold text-foreground">{resourceData?.questions || 0}</div>
-                <div className="text-xs text-muted-foreground">questions</div>
+          <Card className="group hover:shadow-lg transition-all duration-300 border-0 bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 hover:from-emerald-500/15 hover:to-emerald-600/10">
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between">
+                <div className="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center mb-4">
+                  <FileText className="w-6 h-6 text-emerald-600" />
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-emerald-600">{resourceData?.questions || 0}</div>
+                  <div className="text-xs text-muted-foreground">questions</div>
+                </div>
               </div>
-            </div>
-            <h3 className="font-semibold text-lg mb-2 group-hover:text-emerald-500 transition-colors">Topical Questions</h3>
-            <p className="text-sm text-muted-foreground mb-4">Browse questions by topic for class practice</p>
-            <div className="flex items-center text-sm text-emerald-500 font-medium">
-              View Questions
-              <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
-            </div>
-          </div>
+              <h3 className="font-semibold text-lg text-foreground group-hover:text-emerald-600 transition-colors">Topical Questions</h3>
+              <p className="text-sm text-muted-foreground mt-1 mb-3">Browse questions by topic for class practice</p>
+              <div className="flex items-center text-sm text-emerald-600 font-medium">
+                View Questions
+                <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+              </div>
+            </CardContent>
+          </Card>
         </Link>
 
         {/* Past Papers Card */}
         <Link href={`/resources/past-papers/${subjectSlug}`}>
-          <div className="bg-card p-6 rounded-2xl border hover:border-purple-500 hover:shadow-lg transition-all group h-full">
-            <div className="flex items-center justify-between mb-4">
-              <div className="text-4xl">📄</div>
-              <div className="text-right">
-                <div className="text-2xl font-bold text-foreground">{resourceData?.papers || 0}</div>
-                <div className="text-xs text-muted-foreground">papers</div>
+          <Card className="group hover:shadow-lg transition-all duration-300 border-0 bg-gradient-to-br from-purple-500/10 to-purple-600/5 hover:from-purple-500/15 hover:to-purple-600/10">
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between">
+                <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center mb-4">
+                  <List className="w-6 h-6 text-purple-600" />
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-purple-600">{resourceData?.papers || 0}</div>
+                  <div className="text-xs text-muted-foreground">papers</div>
+                </div>
               </div>
-            </div>
-            <h3 className="font-semibold text-lg mb-2 group-hover:text-purple-500 transition-colors">Past Papers</h3>
-            <p className="text-sm text-muted-foreground mb-4">Access past exam papers with mark schemes</p>
-            <div className="flex items-center text-sm text-purple-500 font-medium">
-              View Papers
-              <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
-            </div>
-          </div>
+              <h3 className="font-semibold text-lg text-foreground group-hover:text-purple-600 transition-colors">Past Papers</h3>
+              <p className="text-sm text-muted-foreground mt-1 mb-3">Access past exam papers with mark schemes</p>
+              <div className="flex items-center text-sm text-purple-600 font-medium">
+                View Papers
+                <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+              </div>
+            </CardContent>
+          </Card>
         </Link>
       </div>
 

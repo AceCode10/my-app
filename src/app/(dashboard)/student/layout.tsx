@@ -72,6 +72,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
+  // Show centered login prompt when user is not authenticated
+  if (!user) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background">
+        <div className="text-center p-8 bg-card rounded-xl border shadow-lg max-w-md mx-4">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-primary/10 flex items-center justify-center">
+            <LogOut className="h-8 w-8 text-primary" />
+          </div>
+          <h2 className="text-xl font-semibold mb-2">Please log in to view your dashboard</h2>
+          <p className="text-muted-foreground mb-6">Access your subjects, progress, and more by logging in.</p>
+          <Button asChild size="lg" className="w-full">
+            <Link href="/login">Go to Login</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   const username = user?.display_name || user?.email || 'Student';
   const isSubscribed = user?.subscription_tier === 'pro' || user?.subscription_tier === 'essential';
 

@@ -66,6 +66,24 @@ function TeacherDashboardLayout({ children }: { children: React.ReactNode }) {
         );
     }
 
+    // Show centered login prompt when user is not authenticated
+    if (!user) {
+        return (
+            <div className="flex h-screen w-full items-center justify-center bg-background">
+                <div className="text-center p-8 bg-card rounded-xl border shadow-lg max-w-md mx-4">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-primary/10 flex items-center justify-center">
+                        <LogOut className="h-8 w-8 text-primary" />
+                    </div>
+                    <h2 className="text-xl font-semibold mb-2">Please log in to view your dashboard</h2>
+                    <p className="text-muted-foreground mb-6">Access your teacher dashboard by logging in.</p>
+                    <Button asChild size="lg" className="w-full">
+                        <Link href="/login?plan=teacher">Go to Login</Link>
+                    </Button>
+                </div>
+            </div>
+        );
+    }
+
     const username = user?.display_name || user?.email || 'Teacher';
 
     return (
@@ -199,7 +217,7 @@ function TeacherDashboardLayout({ children }: { children: React.ReactNode }) {
                                         />
                                         <div className="flex-1 min-w-0">
                                             <p className="text-sm font-medium text-foreground truncate">{username}</p>
-                                            <p className="text-xs text-muted-foreground">Teacher Account</p>
+                                            <p className="text-xs text-muted-foreground">Teacher</p>
                                         </div>
                                     </div>
                                     <Button onClick={handleLogout} variant="outline" size="sm" className="w-full">

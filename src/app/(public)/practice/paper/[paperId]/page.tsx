@@ -82,12 +82,11 @@ export default function PracticePaperPage({
       setPaper(data);
       setError(null);
       
-      // Check if this paper has extracted questions
+      // Check if this paper has extracted questions (count all questions, not just answerable ones)
       const { count } = await supabase
         .from('paper_questions')
         .select('*', { count: 'exact', head: true })
-        .eq('paper_id', paperId)
-        .gt('marks', 0); // Only count answerable questions
+        .eq('paper_id', paperId);
       
       setHasQuestions((count || 0) > 0);
       setQuestionCount(count || 0);
@@ -251,34 +250,19 @@ export default function PracticePaperPage({
             {/* Take Exam Options */}
             <div className="border-t pt-6">
               <div className="space-y-3">
-                {/* Interactive Questions - Primary option if available */}
-                {hasQuestions ? (
-                  <Button
-                    className="w-full h-14 text-lg"
-                    onClick={() => handleStartPractice('questions')}
-                    disabled={isStarting}
-                  >
-                    {isStarting ? (
-                      <Timer className="w-5 h-5 mr-2 animate-spin" />
-                    ) : (
-                      <Play className="w-5 h-5 mr-2" />
-                    )}
-                    Take Exam ({questionCount} questions)
-                  </Button>
-                ) : (
-                  <Button
-                    className="w-full h-14 text-lg"
-                    onClick={() => handleStartPractice('pdf')}
-                    disabled={isStarting || !paperUrl}
-                  >
-                    {isStarting ? (
-                      <Timer className="w-5 h-5 mr-2 animate-spin" />
-                    ) : (
-                      <Play className="w-5 h-5 mr-2" />
-                    )}
-                    Take Exam (PDF Mode)
-                  </Button>
-                )}
+                {/* Interactive Questions - Always go to interactive mode */}
+                <Button
+                  className="w-full h-14 text-lg"
+                  onClick={() => handleStartPractice('questions')}
+                  disabled={isStarting || !hasQuestions}
+                >
+                  {isStarting ? (
+                    <Timer className="w-5 h-5 mr-2 animate-spin" />
+                  ) : (
+                    <Play className="w-5 h-5 mr-2" />
+                  )}
+                  {hasQuestions ? `Take Exam (${questionCount} questions)` : 'Questions Not Available'}
+                </Button>
                 
                 {/* Info about exam */}
                 <p className="text-center text-sm text-muted-foreground">

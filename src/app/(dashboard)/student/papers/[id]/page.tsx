@@ -323,7 +323,10 @@ export default function PaperDetailPage() {
         <CardHeader>
           <div className="flex items-start justify-between">
             <div>
-              <CardTitle className="text-2xl">{paper.title}</CardTitle>
+              <CardTitle className="text-2xl">
+                {/* Short title format: Subject P1 V12 Session Year */}
+                {(paper as any).subjects?.name || 'Paper'} P{paper.paper_number || '1'} V{paper.variant || '1'} {paper.session} {paper.year}
+              </CardTitle>
               <CardDescription className="mt-2">
                 {(paper as any).subjects?.name || 'General'}
               </CardDescription>

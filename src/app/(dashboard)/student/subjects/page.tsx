@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { SubjectCard } from '@/components/subject-card';
 import Link from 'next/link';
@@ -43,6 +43,22 @@ export default function SubjectsPage() {
     const userLevel = user?.level;
     const userCountry = user?.country;
     const selectedBoardsInfo = EXAM_BOARDS.filter(b => userExamBoards.includes(b.id));
+
+    // Listen for progress updates to refresh subject progress
+    useEffect(() => {
+        const handleProgressUpdate = () => {
+            queryClient.invalidateQueries({ queryKey: ['subject-progress'] });
+        };
+
+        if (typeof window !== 'undefined') {
+            window.addEventListener('progress_updated', handleProgressUpdate);
+            window.addEventListener('xp_earned', handleProgressUpdate);
+            return () => {
+                window.removeEventListener('progress_updated', handleProgressUpdate);
+                window.removeEventListener('xp_earned', handleProgressUpdate);
+            };
+        }
+    }, [queryClient]);
 
     // Cached user subjects query - filtered by user's preferences
     const { data: userSubjects = [], isLoading } = useQuery({
@@ -295,8 +311,8 @@ export default function SubjectsPage() {
                                     icon={subject.icon_url}
                                     path={editMode ? '' : `/student/subjects/${subject.slug}`}
                                     color={subject.color}
-                                    showProgress={!editMode}
-                                    progress={subjectProgress[subject.id] || 0}
+                                    showProgress={false}
+                                    progress={0}
                                 />
                             </div>
                         ))}

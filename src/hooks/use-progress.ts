@@ -94,6 +94,19 @@ export function useProgress() {
 
       // Refresh the recent progress list
       fetchRecentProgress();
+      
+      // Dispatch global event so other components can update their progress displays
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('progress_updated', { 
+          detail: { 
+            activityType, 
+            subjectId: options.subjectId, 
+            topicId: options.topicId,
+            completionPercentage: options.completionPercentage 
+          } 
+        }));
+      }
+      
       return data;
     } catch (error) {
       console.error('Error in trackProgress:', error);
