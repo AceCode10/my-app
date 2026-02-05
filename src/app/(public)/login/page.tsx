@@ -1,11 +1,10 @@
 
 'use client';
 import { useState, useEffect, Suspense, useRef } from 'react';
-import { Mail, KeyRound } from 'lucide-react';
+import { Mail, KeyRound, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useUser, invalidateUserCache } from '@/hooks/use-user';
-import { useToast } from "@/hooks/use-toast";
 import { createClient } from '@/lib/supabase/client';
 import { KodiLoadingGif } from '@/components/ui/kodi-loading-gif';
 
@@ -13,18 +12,25 @@ function LoginContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { user, loading } = useUser();
-    const { toast } = useToast();
     const supabase = createClient();
     
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isTeacher, setIsTeacher] = useState(false);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const redirectingRef = useRef(false);
     const loginTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
         setIsTeacher(searchParams.get('plan') === 'teacher');
+        // Check for error params from auth callback
+        const error = searchParams.get('error');
+        if (error === 'auth_failed') {
+            setErrorMessage('Authentication failed. Please try again.');
+        } else if (error === 'no_code') {
+            setErrorMessage('Login session expired. Please try again.');
+        }
     }, [searchParams]);
     
     // Clear any stale cache when login page loads
@@ -61,17 +67,12 @@ function LoginContent() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
+        setErrorMessage(null);
         
         // Set a timeout to reset submitting state if login takes too long
         loginTimeoutRef.current = setTimeout(() => {
-            if (isSubmitting) {
-                setIsSubmitting(false);
-                toast({
-                    variant: "destructive",
-                    title: "Login Timeout",
-                    description: "Login is taking too long. Please try again.",
-                });
-            }
+            setIsSubmitting(false);
+            setErrorMessage('Login is taking too long. Please check your connection and try again.');
         }, 15000); // 15 second timeout
         
         try {
@@ -88,11 +89,16 @@ function LoginContent() {
             }
             
             if (error) {
-                toast({
-                    variant: "destructive",
-                    title: "Login Failed",
-                    description: error.message || "Invalid email or password. Please try again.",
-                });
+                // Map error messages to user-friendly text
+                let friendlyMessage = 'Invalid email or password. Please try again.';
+                if (error.message.includes('Invalid login credentials')) {
+                    friendlyMessage = 'Invalid email or password. Please check your credentials.';
+                } else if (error.message.includes('Email not confirmed')) {
+                    friendlyMessage = 'Please verify your email address before logging in.';
+                } else if (error.message.includes('Too many requests')) {
+                    friendlyMessage = 'Too many login attempts. Please wait a moment and try again.';
+                }
+                setErrorMessage(friendlyMessage);
                 setIsSubmitting(false);
                 return;
             }
@@ -129,23 +135,21 @@ function LoginContent() {
                 }
             } else {
                 // No user returned but no error - unusual state
+                setErrorMessage('Login failed. Please try again.');
                 setIsSubmitting(false);
             }
         } catch (error: unknown) {
             if (loginTimeoutRef.current) {
                 clearTimeout(loginTimeoutRef.current);
             }
-            toast({
-                variant: "destructive",
-                title: "Login Failed",
-                description: "An unexpected error occurred. Please try again.",
-            });
+            setErrorMessage('An unexpected error occurred. Please try again.');
             setIsSubmitting(false);
         }
     };
 
     const handleGoogleSignIn = async () => {
         setIsSubmitting(true);
+        setErrorMessage(null);
         // Clear cache before OAuth login
         invalidateUserCache();
         
@@ -158,20 +162,12 @@ function LoginContent() {
             });
             
             if (error) {
-                toast({
-                    variant: "destructive",
-                    title: "Google Sign-In Failed",
-                    description: error.message || "Could not start sign-in with Google. Please try again.",
-                });
+                setErrorMessage(error.message || 'Could not start sign-in with Google. Please try again.');
                 setIsSubmitting(false);
             }
         } catch (error: unknown) {
             console.error("Error during Google sign-in:", error);
-            toast({
-                variant: "destructive",
-                title: "Google Sign-In Failed",
-                description: "Could not start sign-in with Google. Please try again.",
-            });
+            setErrorMessage('Could not start sign-in with Google. Please try again.');
             setIsSubmitting(false);
         }
     };
@@ -203,6 +199,15 @@ function LoginContent() {
                     <p className="text-center text-sm sm:text-base text-muted-foreground mb-6">
                         {isTeacher ? 'Log in to access your dashboard.' : 'Log in to access your dashboard.'}
                     </p>
+                    
+                    {/* Inline error message */}
+                    {errorMessage && (
+                        <div className="flex items-center gap-2 p-3 mb-4 text-sm text-red-600 bg-red-50 dark:bg-red-950/30 dark:text-red-400 rounded-lg border border-red-200 dark:border-red-800">
+                            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                            <span>{errorMessage}</span>
+                        </div>
+                    )}
+                    
                     <form className="space-y-4" onSubmit={handleSubmit}>
                         <div className="relative">
                             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />

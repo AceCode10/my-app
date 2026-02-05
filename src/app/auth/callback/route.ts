@@ -1,13 +1,40 @@
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get('code');
+  const origin = requestUrl.origin;
 
   if (code) {
-    const supabase = await createClient();
-    await supabase.auth.exchangeCodeForSession(code);
+    const cookieStore = await cookies();
+    
+    // Create Supabase client with proper cookie handling for the response
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll();
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options);
+            });
+          },
+        },
+      }
+    );
+    
+    // Exchange the code for a session - this sets the cookies
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    
+    if (error) {
+      console.error('Auth callback error:', error.message);
+      return NextResponse.redirect(new URL('/login?error=auth_failed', origin));
+    }
     
     // Get user role to redirect to appropriate dashboard
     const { data: { user } } = await supabase.auth.getUser();
@@ -21,15 +48,15 @@ export async function GET(request: Request) {
       
       // Redirect based on role
       if (userRecord?.role === 'super_admin' || userRecord?.role === 'content_moderator') {
-        return NextResponse.redirect(new URL('/admin', request.url));
+        return NextResponse.redirect(new URL('/admin', origin));
       } else if (userRecord?.role === 'teacher') {
-        return NextResponse.redirect(new URL('/teacher', request.url));
+        return NextResponse.redirect(new URL('/teacher', origin));
       } else {
-        return NextResponse.redirect(new URL('/student', request.url));
+        return NextResponse.redirect(new URL('/student', origin));
       }
     }
   }
 
-  // Fallback redirect to student dashboard
-  return NextResponse.redirect(new URL('/student', request.url));
+  // Fallback redirect to login with error
+  return NextResponse.redirect(new URL('/login?error=no_code', origin));
 }

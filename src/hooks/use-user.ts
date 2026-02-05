@@ -32,8 +32,6 @@ let globalFetchResolve: ((user: UserProfile | null) => void) | null = null;
 const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes cache - shorter for better consistency
 const FETCH_TIMEOUT = 10000; // 10 second timeout
 
-const supabase = createClient();
-
 // Helper to invalidate cache (can be called from other modules)
 export function invalidateUserCache() {
   cachedUser = null;
@@ -56,6 +54,9 @@ export function useUser() {
   const fetchingRef = useRef(false);
   const mountedRef = useRef(true);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Create supabase client inside hook - singleton pattern ensures same instance
+  const supabase = createClient();
 
   const fetchUserProfile = useCallback(async (userId: string, forceRefresh = false): Promise<UserProfile | null> => {
     // Clear cache if user ID changed (switching accounts)
@@ -210,7 +211,7 @@ export function useUser() {
     }
 
     return fetchedUser;
-  }, []);
+  }, [supabase]);
 
   useEffect(() => {
     mountedRef.current = true;
