@@ -20,6 +20,7 @@ function LoginContent() {
     const [isTeacher, setIsTeacher] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const redirectingRef = useRef(false);
+    const loginTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
         setIsTeacher(searchParams.get('plan') === 'teacher');
@@ -54,11 +55,25 @@ function LoginContent() {
         }
     }, [user, loading, router]);
 
+    // Cleanup timeout on unmount
+    useEffect(() => {
+        return () => {
+            if (loginTimeoutRef.current) {
+                clearTimeout(loginTimeoutRef.current);
+            }
+        };
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
         setErrorMessage(null);
+        
+        // Set a timeout to reset submitting state if login takes too long
+        loginTimeoutRef.current = setTimeout(() => {
+            setIsSubmitting(false);
+            setErrorMessage('Login is taking longer than expected. Please wait a moment and try again.');
+        }, 30000); // 30 second timeout - profile fetch can be slow
         
         try {
             // Clear any existing cache before login
@@ -68,6 +83,10 @@ function LoginContent() {
                 email,
                 password,
             });
+            
+            if (loginTimeoutRef.current) {
+                clearTimeout(loginTimeoutRef.current);
+            }
             
             if (error) {
                 // Map error messages to user-friendly text
@@ -84,47 +103,45 @@ function LoginContent() {
                 return;
             }
             
-            // Login succeeded - redirect immediately
-            // Don't wait for profile fetch - let the dashboard handle role-based routing
+            // On success, manually redirect based on role to avoid race condition
             if (data.user) {
-                // Try to get role with a short timeout, but redirect regardless
-                let redirectPath = '/student'; // Default fallback
-                
                 try {
-                    // Race between profile fetch and timeout
-                    const profilePromise = supabase
+                    const { data: profile } = await supabase
                         .from('users')
                         .select('role')
                         .eq('id', data.user.id)
                         .single();
                     
-                    const timeoutPromise = new Promise<null>((resolve) => 
-                        setTimeout(() => resolve(null), 5000) // 5 second timeout for profile
-                    );
-                    
-                    const result = await Promise.race([profilePromise, timeoutPromise]);
-                    
-                    if (result && 'data' in result && result.data?.role) {
-                        const role = result.data.role;
-                        if (role === 'super_admin' || role === 'content_moderator') {
-                            redirectPath = '/admin';
-                        } else if (role === 'teacher') {
-                            redirectPath = '/teacher';
-                        }
+                    // Clear timeout since we're about to redirect
+                    if (loginTimeoutRef.current) {
+                        clearTimeout(loginTimeoutRef.current);
                     }
+                    
+                    // Use window.location for a full page reload to ensure cookies are set
+                    // This is more reliable than router.push for auth state changes
+                    if (profile?.role === 'super_admin' || profile?.role === 'content_moderator') {
+                        window.location.href = '/admin';
+                    } else if (profile?.role === 'teacher') {
+                        window.location.href = '/teacher';
+                    } else {
+                        window.location.href = '/student';
+                    }
+                    return; // Don't reset isSubmitting - we're navigating away
                 } catch (profileError) {
-                    console.log('Profile fetch failed, using default redirect:', profileError);
+                    // If profile fetch fails, still redirect to student dashboard
+                    console.error('Profile fetch error:', profileError);
+                    window.location.href = '/student';
+                    return;
                 }
-                
-                // Redirect with full page reload to ensure cookies are properly set
-                window.location.href = redirectPath;
-                return;
             } else {
+                // No user returned but no error - unusual state
                 setErrorMessage('Login failed. Please try again.');
                 setIsSubmitting(false);
             }
         } catch (error: unknown) {
-            console.error('Login error:', error);
+            if (loginTimeoutRef.current) {
+                clearTimeout(loginTimeoutRef.current);
+            }
             setErrorMessage('An unexpected error occurred. Please try again.');
             setIsSubmitting(false);
         }
