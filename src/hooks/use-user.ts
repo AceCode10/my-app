@@ -30,7 +30,7 @@ let cacheTimestamp = 0;
 let globalFetchPromise: Promise<UserProfile | null> | null = null;
 let globalFetchResolve: ((user: UserProfile | null) => void) | null = null;
 const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes cache - shorter for better consistency
-const FETCH_TIMEOUT = 30000; // 30 second timeout - production can be slow
+const FETCH_TIMEOUT = 10000; // 10 second timeout for user profile fetch - use fallback after this
 const INIT_TIMEOUT = 20000; // 20 second timeout for initial auth check
 
 // Helper to invalidate cache (can be called from other modules)
@@ -97,7 +97,28 @@ export function useUser() {
     // Set a timeout to prevent infinite loading on slow connections
     timeoutRef.current = setTimeout(() => {
       if (mountedRef.current && fetchingRef.current) {
-        console.warn('User fetch timeout - using cached data or null');
+        console.warn(`User fetch timeout after ${FETCH_TIMEOUT/1000}s - database query is very slow, need index on users table`);
+        
+        // Check if there's auth metadata we can use as fallback
+        supabase.auth.getUser().then(({ data }) => {
+          if (data?.user) {
+            // Create minimal profile from auth data as fallback
+            const fallbackProfile = {
+              id: data.user.id,
+              email: data.user.email || '',
+              display_name: data.user.user_metadata?.display_name || data.user.email?.split('@')[0] || 'User',
+              role: data.user.user_metadata?.role || 'student',
+              subscription_tier: 'basic',
+              onboarding_completed: true,
+              created_at: new Date().toISOString()
+            };
+            console.log('Created fallback profile from auth metadata', fallbackProfile);
+            setUser(fallbackProfile);
+          } else {
+            setUser(null);
+          }
+        }).catch(() => setUser(null));
+        
         setLoading(false);
         fetchingRef.current = false;
         // Resolve global promise on timeout
