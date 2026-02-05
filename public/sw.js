@@ -1,5 +1,5 @@
 // Service Worker for IGCSE Simplified PWA
-const CACHE_NAME = 'igcse-simplified-v1';
+const CACHE_NAME = 'igcse-simplified-v2';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -35,21 +35,33 @@ self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
 
-  // Skip API requests and Supabase calls
   const url = new URL(event.request.url);
+
+  // Skip non-http(s) schemes (e.g. chrome-extension://)
+  if (!url.protocol.startsWith('http')) return;
+
+  // Skip API requests, Supabase calls, and auth-related paths
   if (url.pathname.startsWith('/api/') || 
+      url.pathname.startsWith('/auth/') ||
       url.hostname.includes('supabase') ||
       url.hostname.includes('googleapis')) {
     return;
   }
 
+  // Skip navigation requests (HTML pages) - these depend on auth state
+  // and must always go to the server so middleware can validate/refresh tokens
+  if (event.request.mode === 'navigate') {
+    return;
+  }
+
+  // Only cache static assets (JS, CSS, images, fonts)
   event.respondWith(
     fetch(event.request)
       .then((response) => {
         // Clone the response before caching
         const responseClone = response.clone();
         
-        // Cache successful responses
+        // Cache successful responses for static assets only
         if (response.status === 200) {
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, responseClone);
@@ -63,11 +75,6 @@ self.addEventListener('fetch', (event) => {
         return caches.match(event.request).then((cachedResponse) => {
           if (cachedResponse) {
             return cachedResponse;
-          }
-          
-          // Return offline page for navigation requests
-          if (event.request.mode === 'navigate') {
-            return caches.match('/');
           }
           
           return new Response('Offline', { status: 503 });

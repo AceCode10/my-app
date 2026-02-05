@@ -1,15 +1,14 @@
 
 'use client';
-import { useState, useEffect, Suspense, useRef } from 'react';
+import { useState, useEffect, Suspense, useRef, useCallback } from 'react';
 import { Mail, KeyRound, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useUser, invalidateUserCache } from '@/hooks/use-user';
 import { createClient } from '@/lib/supabase/client';
 import { KodiLoadingGif } from '@/components/ui/kodi-loading-gif';
 
 function LoginContent() {
-    const router = useRouter();
     const searchParams = useSearchParams();
     const { user, loading } = useUser();
     const supabase = createClient();
@@ -22,6 +21,29 @@ function LoginContent() {
     const redirectingRef = useRef(false);
     const loginTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+    const redirectToRole = useCallback((role?: string) => {
+        if (redirectingRef.current) {
+            return;
+        }
+
+        redirectingRef.current = true;
+
+        if (loginTimeoutRef.current) {
+            clearTimeout(loginTimeoutRef.current);
+            loginTimeoutRef.current = null;
+        }
+
+        if (role === 'super_admin' || role === 'content_moderator') {
+            window.location.href = '/admin';
+        } else if (role === 'teacher') {
+            window.location.href = '/teacher';
+        } else if (role === 'student') {
+            window.location.href = '/student';
+        } else {
+            window.location.href = '/';
+        }
+    }, []);
+
     useEffect(() => {
         setIsTeacher(searchParams.get('plan') === 'teacher');
         // Check for error params from auth callback
@@ -33,34 +55,18 @@ function LoginContent() {
         }
     }, [searchParams]);
     
-    // Clear any stale cache when login page loads
+    // Clear any stale cache once when login page first loads
+    // Using empty deps to avoid racing with useUser's auth initialization
     useEffect(() => {
-        if (!loading && !user) {
-            // User is not logged in - ensure cache is clear
-            invalidateUserCache();
-        }
-    }, [loading, user]);
+        invalidateUserCache();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
     
     useEffect(() => {
-        if (!loading && user && !redirectingRef.current) {
-            redirectingRef.current = true;
-            
-            // Clear any pending timeout since we're about to redirect
-            if (loginTimeoutRef.current) {
-                clearTimeout(loginTimeoutRef.current);
-            }
-            
-            // Use window.location for full page reload to ensure cookies are synced
-            // This is more reliable than router.push for auth state changes
-            if (user.role === 'super_admin' || user.role === 'content_moderator') {
-                window.location.href = '/admin';
-            } else if (user.role === 'teacher') {
-                window.location.href = '/teacher';
-            } else {
-                window.location.href = '/student';
-            }
+        if (!loading && user) {
+            redirectToRole(user.role);
         }
-    }, [user, loading]);
+    }, [user, loading, redirectToRole]);
 
     // Cleanup timeout on unmount
     useEffect(() => {
@@ -86,7 +92,7 @@ function LoginContent() {
             // Clear any existing cache before login
             invalidateUserCache();
             
-            const { error } = await supabase.auth.signInWithPassword({
+            const { data, error } = await supabase.auth.signInWithPassword({
                 email,
                 password,
             });
@@ -110,9 +116,34 @@ function LoginContent() {
                 return;
             }
             
-            // On success, the SIGNED_IN event will fire and useUser hook will update
-            // The useEffect watching user state will handle the redirect
-            // Keep isSubmitting true to show loading state during redirect
+            if (data.user) {
+                const metadataRole = typeof data.user.user_metadata?.role === 'string'
+                    ? data.user.user_metadata.role
+                    : undefined;
+
+                if (metadataRole) {
+                    redirectToRole(metadataRole);
+                    return;
+                }
+
+                try {
+                    const { data: profile } = await supabase
+                        .from('users')
+                        .select('role')
+                        .eq('id', data.user.id)
+                        .maybeSingle();
+
+                    redirectToRole(profile?.role);
+                    return;
+                } catch {
+                    redirectToRole();
+                    return;
+                }
+            }
+
+            // If no auth user returned, let useUser handle state and unlock UI
+            setIsSubmitting(false);
+            setErrorMessage('Login succeeded but session was not available. Please refresh and try again.');
             
         } catch (error: unknown) {
             if (loginTimeoutRef.current) {

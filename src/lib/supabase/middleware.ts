@@ -53,6 +53,13 @@ export async function updateSession(request: NextRequest) {
   // supabase.auth.getUser(). A simple mistake could make it very hard to debug
   // issues with users being randomly logged out.
 
+  // IMPORTANT: Do NOT use getSession() or getClaims() here.
+  // getUser() is the ONLY method that:
+  // 1. Validates the token with the Supabase Auth server
+  // 2. Refreshes expired tokens using the refresh token
+  // 3. Writes updated cookies via the setAll callback above
+  // Using getClaims()/getSession() skips token refresh, causing sessions
+  // to silently expire and users to be logged out on page refresh.
   const {
     data: { user },
   } = await supabase.auth.getUser();
