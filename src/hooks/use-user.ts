@@ -30,7 +30,8 @@ let cacheTimestamp = 0;
 let globalFetchPromise: Promise<UserProfile | null> | null = null;
 let globalFetchResolve: ((user: UserProfile | null) => void) | null = null;
 const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes cache - shorter for better consistency
-const FETCH_TIMEOUT = 10000; // 10 second timeout
+const FETCH_TIMEOUT = 30000; // 30 second timeout - production can be slow
+const INIT_TIMEOUT = 20000; // 20 second timeout for initial auth check
 
 // Helper to invalidate cache (can be called from other modules)
 export function invalidateUserCache() {
@@ -216,10 +217,12 @@ export function useUser() {
   useEffect(() => {
     mountedRef.current = true;
     let isSubscribed = true;
+    let retryCount = 0;
+    const MAX_RETRIES = 2;
 
     // Use getUser() instead of getSession() - it validates with the server
     // This prevents issues where stale session data causes logout on refresh
-    const initializeAuth = async () => {
+    const initializeAuth = async (): Promise<void> => {
       try {
         // First try to get and validate the user with the server
         const { data: { user: authUser }, error } = await supabase.auth.getUser();
@@ -227,6 +230,15 @@ export function useUser() {
         if (!isSubscribed || !mountedRef.current) return;
         
         if (error) {
+          // Check if it's a network error - retry if so
+          if (error.message.includes('fetch') || error.message.includes('network') || error.message.includes('timeout')) {
+            if (retryCount < MAX_RETRIES) {
+              retryCount++;
+              console.log(`[Auth] Network error, retrying (${retryCount}/${MAX_RETRIES})...`);
+              await new Promise(r => setTimeout(r, 1000 * retryCount));
+              return initializeAuth();
+            }
+          }
           // Session is invalid or expired
           console.log('[Auth] Session validation failed:', error.message);
           invalidateUserCache();
@@ -242,6 +254,13 @@ export function useUser() {
         }
       } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        // Retry on network errors
+        if (retryCount < MAX_RETRIES && (errorMessage.includes('fetch') || errorMessage.includes('network'))) {
+          retryCount++;
+          console.log(`[Auth] Error, retrying (${retryCount}/${MAX_RETRIES})...`);
+          await new Promise(r => setTimeout(r, 1000 * retryCount));
+          return initializeAuth();
+        }
         console.error('[Auth] Init error:', errorMessage);
         if (isSubscribed && mountedRef.current) {
           setLoading(false);
@@ -249,13 +268,15 @@ export function useUser() {
       }
     };
 
-    // Add timeout wrapper for slow connections
+    // Add timeout wrapper for slow connections - but don't set user to null
+    // Just stop the loading indicator so UI is responsive
     const timeoutId = setTimeout(() => {
       if (isSubscribed && mountedRef.current && loading) {
-        console.warn('[Auth] Init timeout - setting loading false');
+        console.warn('[Auth] Init timeout - but keeping any existing user state');
+        // Only set loading false, don't clear user - auth state change will handle it
         setLoading(false);
       }
-    }, FETCH_TIMEOUT);
+    }, INIT_TIMEOUT);
 
     initializeAuth().finally(() => {
       clearTimeout(timeoutId);

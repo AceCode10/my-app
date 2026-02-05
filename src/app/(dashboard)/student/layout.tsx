@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -40,7 +40,7 @@ const searchItems = [
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useUser();
+  const { user, loading, refresh } = useUser();
   const router = useRouter();
   const pathname = usePathname();
   const supabase = createClient();
@@ -52,6 +52,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
     return false;
   });
+  const [checkingSession, setCheckingSession] = useState(false);
+  const sessionCheckDone = useRef(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -59,12 +61,33 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [sidebarCollapsed]);
 
+  // If loading is done but no user, double-check with Supabase directly
+  // This handles the case where useUser times out but session actually exists
+  useEffect(() => {
+    if (!loading && !user && !sessionCheckDone.current) {
+      sessionCheckDone.current = true;
+      setCheckingSession(true);
+      
+      // Check if there's actually a session
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user) {
+          console.log('[Layout] Session exists but user was null - refreshing');
+          // Session exists, try to refresh user data
+          refresh?.();
+        }
+        setCheckingSession(false);
+      }).catch(() => {
+        setCheckingSession(false);
+      });
+    }
+  }, [loading, user, supabase, refresh]);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push('/');
   };
 
-  if (loading) {
+  if (loading || checkingSession) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <KodiLoadingGif />
