@@ -82,7 +82,7 @@ export function ExamBoardProvider({ children, initialExamBoards = [] }: ExamBoar
     }
   }, [supabase, examBoards]);
 
-  // Initialize
+  // Initialize - only fetch exam boards, auth state comes from onAuthStateChange
   useEffect(() => {
     const initialize = async () => {
       setIsLoading(true);
@@ -92,12 +92,9 @@ export function ExamBoardProvider({ children, initialExamBoards = [] }: ExamBoar
         await fetchExamBoards();
       }
 
-      // Check authentication
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setUserId(user.id);
-        await fetchUserPreference(user.id);
-      }
+      // Don't call getUser() here - let onAuthStateChange handle auth state
+      // This prevents race condition with use-user hook
+      // The INITIAL_SESSION event will fire if user is already logged in
 
       setIsLoading(false);
     };
@@ -112,12 +109,15 @@ export function ExamBoardProvider({ children, initialExamBoards = [] }: ExamBoar
     }
   }, [userId, examBoards, userPreference, fetchUserPreference]);
 
-  // Listen for auth changes
+  // Listen for auth changes - handles INITIAL_SESSION for page loads with existing session
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        setUserId(session.user.id);
-        await fetchUserPreference(session.user.id);
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
+        // Only fetch if userId changed to avoid duplicate fetches
+        if (userId !== session.user.id) {
+          setUserId(session.user.id);
+          await fetchUserPreference(session.user.id);
+        }
       } else if (event === 'SIGNED_OUT') {
         setUserId(null);
         setUserPreference(null);
@@ -129,7 +129,7 @@ export function ExamBoardProvider({ children, initialExamBoards = [] }: ExamBoar
     return () => {
       subscription.unsubscribe();
     };
-  }, [supabase, fetchUserPreference]);
+  }, [supabase, fetchUserPreference, userId]);
 
   // Update user preference in database
   const updateUserPreference = useCallback(async (boardId: string | null) => {

@@ -44,16 +44,23 @@ function LoginContent() {
     useEffect(() => {
         if (!loading && user && !redirectingRef.current) {
             redirectingRef.current = true;
-            // Redirect based on role
+            
+            // Clear any pending timeout since we're about to redirect
+            if (loginTimeoutRef.current) {
+                clearTimeout(loginTimeoutRef.current);
+            }
+            
+            // Use window.location for full page reload to ensure cookies are synced
+            // This is more reliable than router.push for auth state changes
             if (user.role === 'super_admin' || user.role === 'content_moderator') {
-                router.push('/admin');
+                window.location.href = '/admin';
             } else if (user.role === 'teacher') {
-                router.push('/teacher');
+                window.location.href = '/teacher';
             } else {
-                router.push('/student');
+                window.location.href = '/student';
             }
         }
-    }, [user, loading, router]);
+    }, [user, loading]);
 
     // Cleanup timeout on unmount
     useEffect(() => {
@@ -73,13 +80,13 @@ function LoginContent() {
         loginTimeoutRef.current = setTimeout(() => {
             setIsSubmitting(false);
             setErrorMessage('Login is taking longer than expected. Please wait a moment and try again.');
-        }, 30000); // 30 second timeout - profile fetch can be slow
+        }, 15000); // 15 second timeout
         
         try {
             // Clear any existing cache before login
             invalidateUserCache();
             
-            const { data, error } = await supabase.auth.signInWithPassword({
+            const { error } = await supabase.auth.signInWithPassword({
                 email,
                 password,
             });
@@ -103,41 +110,10 @@ function LoginContent() {
                 return;
             }
             
-            // On success, manually redirect based on role to avoid race condition
-            if (data.user) {
-                try {
-                    const { data: profile } = await supabase
-                        .from('users')
-                        .select('role')
-                        .eq('id', data.user.id)
-                        .single();
-                    
-                    // Clear timeout since we're about to redirect
-                    if (loginTimeoutRef.current) {
-                        clearTimeout(loginTimeoutRef.current);
-                    }
-                    
-                    // Use window.location for a full page reload to ensure cookies are set
-                    // This is more reliable than router.push for auth state changes
-                    if (profile?.role === 'super_admin' || profile?.role === 'content_moderator') {
-                        window.location.href = '/admin';
-                    } else if (profile?.role === 'teacher') {
-                        window.location.href = '/teacher';
-                    } else {
-                        window.location.href = '/student';
-                    }
-                    return; // Don't reset isSubmitting - we're navigating away
-                } catch (profileError) {
-                    // If profile fetch fails, still redirect to student dashboard
-                    console.error('Profile fetch error:', profileError);
-                    window.location.href = '/student';
-                    return;
-                }
-            } else {
-                // No user returned but no error - unusual state
-                setErrorMessage('Login failed. Please try again.');
-                setIsSubmitting(false);
-            }
+            // On success, the SIGNED_IN event will fire and useUser hook will update
+            // The useEffect watching user state will handle the redirect
+            // Keep isSubmitting true to show loading state during redirect
+            
         } catch (error: unknown) {
             if (loginTimeoutRef.current) {
                 clearTimeout(loginTimeoutRef.current);
