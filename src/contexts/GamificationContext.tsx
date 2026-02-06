@@ -84,14 +84,20 @@ interface GamificationProviderProps {
 
 export function GamificationProvider({ children }: GamificationProviderProps) {
   const { user } = useUser();
-  const store = useGamificationStore();
+  // Only subscribe to the specific store values we need for rendering.
+  // Using useGamificationStore() without a selector causes re-render on ANY state change,
+  // which cascades to ALL children and amplifies the infinite polling bug.
+  const level = useGamificationStore((s) => s.level);
+  const totalXP = useGamificationStore((s) => s.totalXP);
+  const soundEnabled = useGamificationStore((s) => s.soundEnabled);
+  const animationsEnabled = useGamificationStore((s) => s.animationsEnabled);
   
   // Reward breakdown state
   const [rewardBreakdown, setRewardBreakdown] = useState<RewardBreakdown | null>(null);
   const [rewardActivityName, setRewardActivityName] = useState('Activity');
   const [showBreakdown, setShowBreakdown] = useState(false);
   
-  // Initialize services
+  // Initialize services (stable refs — these are stateless service classes)
   const xpService = new XPService();
   const streakService = new StreakService();
   const badgeService = new BadgeService();
@@ -111,11 +117,11 @@ export function GamificationProvider({ children }: GamificationProviderProps) {
         console.log('Realtime not initialized, fetching gamification data directly');
         const gamData = await xpService.getUserGamification(user.id);
         if (gamData) {
-          const { level, title } = calculateLevel(gamData.total_xp);
-          store.setStats({
+          const calcResult = calculateLevel(gamData.total_xp);
+          useGamificationStore.getState().setStats({
             totalXP: gamData.total_xp,
-            level,
-            levelTitle: title,
+            level: calcResult.level,
+            levelTitle: calcResult.title,
             currentStreak: gamData.current_streak,
             longestStreak: gamData.longest_streak,
           });
@@ -129,13 +135,14 @@ export function GamificationProvider({ children }: GamificationProviderProps) {
   // Initialize sound manager
   useEffect(() => {
     soundManager.init();
-    soundManager.setEnabled(store.soundEnabled);
-  }, [store.soundEnabled]);
+    soundManager.setEnabled(soundEnabled);
+  }, [soundEnabled]);
 
   // Award XP with animation
   const awardXP = useCallback((amount: number, source: string, position?: { x: number; y: number }) => {
     if (!user?.id) return;
     
+    const store = useGamificationStore.getState();
     // Add visual XP gain
     store.addXPGain(amount, source, position);
     
@@ -147,27 +154,28 @@ export function GamificationProvider({ children }: GamificationProviderProps) {
     if (newLevel > oldLevel) {
       // Delay level up to let XP animation play first
       setTimeout(() => {
-        store.triggerLevelUp(oldLevel, newLevel, newTitle);
+        useGamificationStore.getState().triggerLevelUp(oldLevel, newLevel, newTitle);
       }, 1000);
     }
     
     // Award XP on server
     xpService.awardXP(user.id, amount, source);
-  }, [user?.id, store.level, store.totalXP]);
+  }, [user?.id]);
 
   // Check for level up
   const checkLevelUp = useCallback((newXP: number) => {
+    const store = useGamificationStore.getState();
     const oldLevel = store.level;
     const { level: newLevel, title: newTitle } = calculateLevel(newXP);
     
     if (newLevel > oldLevel) {
       store.triggerLevelUp(oldLevel, newLevel, newTitle);
     }
-  }, [store.level]);
+  }, []);
 
   // Unlock badge with animation
   const unlockBadge = useCallback((badge: { id: string; name: string; description: string; icon: string; rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' }) => {
-    store.triggerBadgeUnlock(badge);
+    useGamificationStore.getState().triggerBadgeUnlock(badge);
     
     // Award on server
     if (user?.id) {
@@ -177,7 +185,7 @@ export function GamificationProvider({ children }: GamificationProviderProps) {
 
   // Celebrate streak milestone
   const celebrateStreak = useCallback((days: number, title: string, xpReward: number) => {
-    store.triggerStreakMilestone(days, title, xpReward);
+    useGamificationStore.getState().triggerStreakMilestone(days, title, xpReward);
     
     // Award XP for streak (with delay to not overlap celebrations)
     if (user?.id && xpReward > 0) {
@@ -189,20 +197,22 @@ export function GamificationProvider({ children }: GamificationProviderProps) {
 
   // Sound controls
   const toggleSound = useCallback((enabled?: boolean) => {
+    const store = useGamificationStore.getState();
     const newValue = enabled ?? !store.soundEnabled;
     store.setSoundEnabled(newValue);
     soundManager.setEnabled(newValue);
-  }, [store.soundEnabled]);
+  }, []);
 
   const isSoundEnabled = useCallback(() => {
-    return store.soundEnabled;
-  }, [store.soundEnabled]);
+    return useGamificationStore.getState().soundEnabled;
+  }, []);
 
   // Animation controls
   const toggleAnimations = useCallback((enabled?: boolean) => {
+    const store = useGamificationStore.getState();
     const newValue = enabled ?? !store.animationsEnabled;
     store.setAnimationsEnabled(newValue);
-  }, [store.animationsEnabled]);
+  }, []);
 
   // Show reward breakdown modal
   const showRewardBreakdown = useCallback((breakdown: RewardBreakdown, activityName?: string) => {

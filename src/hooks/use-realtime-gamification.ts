@@ -14,6 +14,8 @@ import { triggerConfetti } from '@/components/gamification/animations/confetti-b
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000;
+// Singleton supabase client — stable reference, safe outside component
+const supabase = createClient();
 
 interface RealtimeGamificationOptions {
   userId: string | null;
@@ -25,11 +27,12 @@ interface RealtimeGamificationOptions {
 }
 
 export function useRealtimeGamification(options: RealtimeGamificationOptions) {
-  const { userId, onXPChange, onLevelUp, onBadgeUnlock, onStreakUpdate, onLeagueRankChange } = options;
-  const store = useGamificationStore();
-  const supabase = createClient();
+  const { userId } = options;
   const [isInitialized, setIsInitialized] = useState(false);
   const mountedRef = useRef(true);
+  // Store callbacks and options in refs so they don't trigger effect re-runs
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
   
   // Track previous values for change detection
   const prevValues = useRef({
@@ -40,6 +43,9 @@ export function useRealtimeGamification(options: RealtimeGamificationOptions) {
   });
 
   // Subscribe to user_gamification changes
+  // IMPORTANT: Only depend on `userId`. Using `store` here caused an infinite loop
+  // because useGamificationStore() returns a new object on every state change.
+  // We use useGamificationStore.getState() inside the effect instead.
   useEffect(() => {
     if (!userId) return;
     mountedRef.current = true;
@@ -122,7 +128,8 @@ export function useRealtimeGamification(options: RealtimeGamificationOptions) {
             leagueRank: 0,
           };
           
-          store.setStats({
+          // Use getState() to avoid making `store` a dependency
+          useGamificationStore.getState().setStats({
             totalXP: data.total_xp || 0,
             level: data.xp_level || 1,
             currentStreak: data.current_streak || 0,
@@ -157,28 +164,30 @@ export function useRealtimeGamification(options: RealtimeGamificationOptions) {
           table: 'user_gamification',
           filter: `user_id=eq.${userId}`,
         },
-        (payload) => {
+        (payload: { new: Record<string, unknown> }) => {
           const newData = payload.new as {
             total_xp: number;
             xp_level: number;
             current_streak: number;
             longest_streak: number;
           };
+          const opts = optionsRef.current;
+          const storeActions = useGamificationStore.getState();
 
           // Check for XP change
           const xpChange = newData.total_xp - prevValues.current.xp;
           if (xpChange > 0) {
             // XP increased - show animation
-            store.addXPGain(xpChange, 'Activity completed');
+            storeActions.addXPGain(xpChange, 'Activity completed');
             soundManager.playXPGain(xpChange);
-            onXPChange?.(newData.total_xp, xpChange);
+            opts.onXPChange?.(newData.total_xp, xpChange);
           }
 
           // Check for level up
           if (newData.xp_level > prevValues.current.level) {
             const title = getLevelTitle(newData.xp_level);
-            store.triggerLevelUp(prevValues.current.level, newData.xp_level, title);
-            onLevelUp?.(newData.xp_level, title);
+            storeActions.triggerLevelUp(prevValues.current.level, newData.xp_level, title);
+            opts.onLevelUp?.(newData.xp_level, title);
           }
 
           // Check for streak change
@@ -190,7 +199,7 @@ export function useRealtimeGamification(options: RealtimeGamificationOptions) {
               // Check milestones
               const milestones = [3, 7, 14, 30, 60, 100, 365];
               if (milestones.includes(newData.current_streak)) {
-                store.triggerStreakMilestone(
+                storeActions.triggerStreakMilestone(
                   newData.current_streak,
                   getStreakMilestoneTitle(newData.current_streak),
                   getStreakMilestoneXP(newData.current_streak)
@@ -205,11 +214,11 @@ export function useRealtimeGamification(options: RealtimeGamificationOptions) {
                 '💔'
               );
             }
-            onStreakUpdate?.(newData.current_streak);
+            opts.onStreakUpdate?.(newData.current_streak);
           }
 
           // Update store
-          store.setStats({
+          storeActions.setStats({
             totalXP: newData.total_xp,
             level: newData.xp_level,
             currentStreak: newData.current_streak,
@@ -238,23 +247,23 @@ export function useRealtimeGamification(options: RealtimeGamificationOptions) {
           table: 'user_badges',
           filter: `user_id=eq.${userId}`,
         },
-        async (payload) => {
+        async (payload: { new: Record<string, unknown> }) => {
           // Fetch badge details
           const { data: badge } = await supabase
             .from('badges')
             .select('*')
-            .eq('id', payload.new.badge_id)
+            .eq('id', payload.new.badge_id as string)
             .single();
 
           if (badge) {
-            store.triggerBadgeUnlock({
+            useGamificationStore.getState().triggerBadgeUnlock({
               id: badge.id,
               name: badge.name,
               description: badge.description,
               icon: badge.icon,
               rarity: badge.rarity || 'common',
             });
-            onBadgeUnlock?.({ name: badge.name, icon: badge.icon });
+            optionsRef.current.onBadgeUnlock?.({ name: badge.name, icon: badge.icon });
           }
         }
       )
@@ -271,7 +280,7 @@ export function useRealtimeGamification(options: RealtimeGamificationOptions) {
           table: 'league_members',
           filter: `user_id=eq.${userId}`,
         },
-        (payload) => {
+        (payload: { new: Record<string, unknown> }) => {
           const newRank = (payload.new as { rank: number }).rank;
           const oldRank = prevValues.current.leagueRank;
 
@@ -299,7 +308,7 @@ export function useRealtimeGamification(options: RealtimeGamificationOptions) {
               }
             }
 
-            onLeagueRankChange?.(newRank, direction);
+            optionsRef.current.onLeagueRankChange?.(newRank, direction);
           }
 
           prevValues.current.leagueRank = newRank;
@@ -314,7 +323,8 @@ export function useRealtimeGamification(options: RealtimeGamificationOptions) {
       supabase.removeChannel(badgeChannel);
       supabase.removeChannel(leagueChannel);
     };
-  }, [userId, store, supabase, onXPChange, onLevelUp, onBadgeUnlock, onStreakUpdate, onLeagueRankChange]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 
   // Manual refresh function with retry logic
   const refresh = useCallback(async () => {
@@ -350,7 +360,7 @@ export function useRealtimeGamification(options: RealtimeGamificationOptions) {
       }
 
       if (data) {
-        store.setStats({
+        useGamificationStore.getState().setStats({
           totalXP: data.total_xp || 0,
           level: data.xp_level || 1,
           currentStreak: data.current_streak || 0,
@@ -360,7 +370,7 @@ export function useRealtimeGamification(options: RealtimeGamificationOptions) {
     } catch (err) {
       console.error('Error refreshing gamification data:', err);
     }
-  }, [userId, supabase, store]);
+  }, [userId]);
 
   return { refresh, isInitialized };
 }

@@ -2,7 +2,6 @@
 
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
 const supabase = createClient();
@@ -13,7 +12,6 @@ const supabase = createClient();
  */
 export function PrefetchProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
-  const router = useRouter();
 
   useEffect(() => {
     // Prefetch subjects (used across many pages)
@@ -44,24 +42,11 @@ export function PrefetchProvider({ children }: { children: React.ReactNode }) {
       staleTime: 30 * 60 * 1000,
     });
 
-    // Prefetch common routes after initial load (with delay to not block main content)
-    const prefetchRoutes = () => {
-      const commonRoutes = [
-        '/student/subjects',
-        '/student/progress',
-        '/student/practice',
-      ];
-      
-      commonRoutes.forEach(route => {
-        router.prefetch(route);
-      });
-    };
-
-    // Delay route prefetching to prioritize initial content
-    const timeoutId = setTimeout(prefetchRoutes, 2000);
-    
-    return () => clearTimeout(timeoutId);
-  }, [queryClient, router]);
+    // NOTE: Route prefetching removed. Prefetching /student/practice caused a 404
+    // on production (route doesn't exist), which triggered a Next.js render loop
+    // that blocked Supabase auth initialization and caused login hangs.
+    // Next.js automatically prefetches <Link> targets, so manual prefetching is unnecessary.
+  }, [queryClient]);
 
   return <>{children}</>;
 }
