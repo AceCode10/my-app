@@ -46,30 +46,24 @@ export function createClient() {
         headers: {
           'x-client-info': 'igaprep-web',
         },
-        // Add retry logic for failed requests with better error handling
+        // Retry on network errors only. Do NOT add custom AbortController
+        // or override options.signal — Supabase manages its own signals internally.
+        // Overriding the signal breaks token refresh and causes requests to hang.
         fetch: async (url, options = {}) => {
-          const maxRetries = 2;
+          const maxRetries = 1;
           let lastError: Error | null = null;
           
           for (let attempt = 0; attempt <= maxRetries; attempt++) {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
-            
             try {
-              const response = await fetch(url, { 
-                ...options, 
-                signal: controller.signal 
-              });
-              clearTimeout(timeoutId);
+              const response = await fetch(url, options);
               return response;
             } catch (err) {
-              clearTimeout(timeoutId);
               lastError = err as Error;
-              // Only retry on network errors, not on aborts
+              // Don't retry intentional aborts
               if (err instanceof Error && err.name === 'AbortError') {
                 throw err;
               }
-              // Wait before retry
+              // Retry network errors after a delay
               if (attempt < maxRetries) {
                 await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
               }

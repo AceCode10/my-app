@@ -32,8 +32,8 @@ let globalFetchResolve: ((user: UserProfile | null) => void) | null = null;
 let globalAuthInitialized = false; // Track if auth has been initialized globally
 let globalAuthPromise: Promise<void> | null = null; // Shared promise for initial auth
 const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes cache - shorter for better consistency
-const FETCH_TIMEOUT = 30000; // 30 second timeout - production can be slow
-const INIT_TIMEOUT = 15000; // 15 second timeout for initial auth check
+const FETCH_TIMEOUT = 10000; // 10 second timeout for profile fetch
+const INIT_TIMEOUT = 8000; // 8 second timeout for initial auth check
 
 // Helper to invalidate cache (can be called from other modules)
 export function invalidateUserCache() {
@@ -114,14 +114,20 @@ export function useUser() {
     }, FETCH_TIMEOUT);
 
     let fetchedUser: UserProfile | null = null;
+    const fetchStart = Date.now();
 
     try {
+      console.log('[Auth] Profile fetch start for:', userId.substring(0, 8) + '...');
+      
       // Select only essential fields for faster query
       const { data, error } = await supabase
         .from('users')
         .select('id, email, display_name, avatar_url, role, subscription_tier, leaderboard_opt_out, country, exam_boards, level, levels, subjects_of_interest, onboarding_completed, xp, streak_days, created_at')
         .eq('id', userId)
         .single();
+
+      const elapsed = Date.now() - fetchStart;
+      console.log(`[Auth] Profile query completed in ${elapsed}ms`, error ? `error: ${error.code} ${error.message}` : 'success');
 
       // Clear timeout on successful response
       if (timeoutRef.current) {
@@ -137,6 +143,7 @@ export function useUser() {
       if (error) {
         if (error.code === 'PGRST116') {
           // Profile doesn't exist, create it
+          console.log('[Auth] Profile not found, creating...');
           const { data: { user: authUser } } = await supabase.auth.getUser();
           if (authUser && mountedRef.current) {
             const { error: insertError } = await supabase
@@ -171,7 +178,7 @@ export function useUser() {
         }
         // Log non-404 errors
         if (error.code !== 'PGRST116') {
-          console.error('Error fetching user profile:', error.message);
+          console.error('[Auth] Profile fetch error:', error.code, error.message);
         }
         if (mountedRef.current) {
           setUser(null);
@@ -191,11 +198,10 @@ export function useUser() {
         setUser(null);
       }
     } catch (err: unknown) {
+      const elapsed = Date.now() - fetchStart;
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      // Only log non-auth errors
-      if (!errorMessage.includes('JWT')) {
-        console.error('Error fetching user profile:', errorMessage);
-      }
+      const errorName = err instanceof Error ? err.name : 'Unknown';
+      console.error(`[Auth] Profile fetch threw after ${elapsed}ms:`, errorName, errorMessage);
       if (mountedRef.current) {
         setUser(null);
       }
@@ -255,7 +261,10 @@ export function useUser() {
 
       try {
         // First check local session (fast) to avoid showing loading state unnecessarily
+        const sessionStart = Date.now();
+        console.log('[Auth] Calling getSession()...');
         const { data: { session } } = await supabase.auth.getSession();
+        console.log(`[Auth] getSession() completed in ${Date.now() - sessionStart}ms, session: ${!!session?.user}`);
         
         if (!isSubscribed || !mountedRef.current) {
           resolveGlobalAuth!();
@@ -385,12 +394,15 @@ export function useUser() {
           setUser(cachedUser);
           setLoading(false);
         } else {
-          await fetchUserProfile(session.user.id, forceRefresh);
+          // IMPORTANT: Do NOT await here. Awaiting blocks the auth state change
+          // listener, which prevents subsequent events from being processed.
+          // If the profile fetch hangs, it jams the entire auth pipeline.
+          fetchUserProfile(session.user.id, forceRefresh);
         }
       } else if (event === 'TOKEN_REFRESHED' && session?.user) {
         // Token refreshed - validate cache is still valid
         if (cachedUserId !== session.user.id) {
-          await fetchUserProfile(session.user.id, true);
+          fetchUserProfile(session.user.id, true);
         }
       }
     });

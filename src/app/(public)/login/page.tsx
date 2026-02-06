@@ -55,12 +55,9 @@ function LoginContent() {
         }
     }, [searchParams]);
     
-    // Clear any stale cache once when login page first loads
-    // Using empty deps to avoid racing with useUser's auth initialization
-    useEffect(() => {
-        invalidateUserCache();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    // NOTE: Do NOT call invalidateUserCache() on mount here.
+    // It races with useUser's initializeAuth() and corrupts global auth state.
+    // Cache is cleared in handleSubmit before login and on SIGNED_OUT events.
     
     useEffect(() => {
         if (!loading && user) {
@@ -126,6 +123,13 @@ function LoginContent() {
                     return;
                 }
 
+                // Query DB for role with a 5s fallback timeout.
+                // If the query hangs, redirect to default role instead of staying stuck.
+                const fallbackTimeout = setTimeout(() => {
+                    console.warn('[Login] Role query timeout - redirecting with default role');
+                    redirectToRole('student');
+                }, 5000);
+
                 try {
                     const { data: profile } = await supabase
                         .from('users')
@@ -133,10 +137,12 @@ function LoginContent() {
                         .eq('id', data.user.id)
                         .maybeSingle();
 
-                    redirectToRole(profile?.role);
+                    clearTimeout(fallbackTimeout);
+                    redirectToRole(profile?.role || 'student');
                     return;
                 } catch {
-                    redirectToRole();
+                    clearTimeout(fallbackTimeout);
+                    redirectToRole('student');
                     return;
                 }
             }
