@@ -67,18 +67,36 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (!loading && !user && !sessionCheckDone.current) {
       sessionCheckDone.current = true;
       setCheckingSession(true);
+      console.log('[StudentLayout] loading=false, user=null — checking session with getUser()...');
       
       // Check if there's actually a valid session with server validation
-      supabase.auth.getUser().then(({ data: { user: authUser }, error }) => {
+      const checkStart = Date.now();
+      supabase.auth.getUser().then((result: { data: { user: unknown }; error: { message: string } | null }) => {
+        const authUser = result.data.user;
+        const error = result.error;
+        console.log(`[StudentLayout] getUser() returned in ${Date.now() - checkStart}ms, authUser: ${!!authUser}, error: ${error?.message || 'none'}`);
         if (authUser && !error) {
-          console.log('[Layout] Valid session exists but user was null - refreshing');
+          console.log('[StudentLayout] Valid session exists but user profile was null — calling refresh()');
           // Session exists and is valid, try to refresh user data
-          refresh?.();
+          // Note: refresh() checks user?.id internally. If user state is null,
+          // refresh() returns Promise.resolve(null) — it does nothing.
+          console.log(`[StudentLayout] Calling refresh() (user state is ${user ? 'set' : 'null'})`);
+          const refreshPromise = refresh?.() ?? Promise.resolve(null);
+          refreshPromise.then((profile: unknown) => {
+            console.log(`[StudentLayout] refresh() resolved: ${profile ? 'got profile' : 'null (no-op)'}`);
+            if (!profile) {
+              console.warn('[StudentLayout] refresh() resolved to null — setting checkingSession=false');
+              setCheckingSession(false);
+            }
+            // If profile is returned, useUser will update state and re-render
+          });
         } else {
           // No valid session - user truly not logged in
+          console.log('[StudentLayout] No valid session — setting checkingSession=false');
           setCheckingSession(false);
         }
-      }).catch(() => {
+      }).catch((err: unknown) => {
+        console.error('[StudentLayout] getUser() threw:', err);
         setCheckingSession(false);
       });
     }

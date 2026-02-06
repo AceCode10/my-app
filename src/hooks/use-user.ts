@@ -46,9 +46,15 @@ export function invalidateUserCache() {
   globalAuthPromise = null;
 }
 
+// Diagnostic: snapshot all global state for debugging
+function logState(label: string) {
+  console.log(`[Auth State] ${label}: cached=${!!cachedUser} cachedId=${cachedUserId?.substring(0, 8) || 'null'} fetchPromise=${!!globalFetchPromise} authInit=${globalAuthInitialized} authPromise=${!!globalAuthPromise}`);
+}
+
 // Listen for auth events globally to clear cache on sign out
 if (typeof window !== 'undefined') {
   window.addEventListener('auth_signed_out', () => {
+    console.log('[Auth] auth_signed_out event received — invalidating cache');
     invalidateUserCache();
   });
 }
@@ -231,6 +237,9 @@ export function useUser() {
     let retryCount = 0;
     const MAX_RETRIES = 2;
     let authStateReceived = false; // Track if we've received an auth state event
+    const effectId = Math.random().toString(36).substring(2, 6); // Unique ID for this effect run
+    console.log(`[Auth] useUser effect mounted (id=${effectId})`);
+    logState('effect-mount');
 
     // Initialize auth - uses session first (fast, local), then validates with getUser if needed
     const initializeAuth = async (): Promise<void> => {
@@ -262,9 +271,15 @@ export function useUser() {
       try {
         // First check local session (fast) to avoid showing loading state unnecessarily
         const sessionStart = Date.now();
-        console.log('[Auth] Calling getSession()...');
+        console.log(`[Auth] (${effectId}) Calling getSession()...`);
+        // Diagnostic: warn if getSession() takes more than 5s (indicates _initializePromise is blocked)
+        const sessionWarn = setTimeout(() => {
+          console.error(`[Auth] ⚠️ (${effectId}) getSession() STILL PENDING after 5s — Supabase _initialize is likely blocked`);
+          logState('getSession-stuck');
+        }, 5000);
         const { data: { session } } = await supabase.auth.getSession();
-        console.log(`[Auth] getSession() completed in ${Date.now() - sessionStart}ms, session: ${!!session?.user}`);
+        clearTimeout(sessionWarn);
+        console.log(`[Auth] (${effectId}) getSession() completed in ${Date.now() - sessionStart}ms, session: ${!!session?.user}`);
         
         if (!isSubscribed || !mountedRef.current) {
           resolveGlobalAuth!();
@@ -274,10 +289,11 @@ export function useUser() {
         
         if (session?.user) {
           // Session exists locally - fetch profile while validating in background
+          console.log(`[Auth] (${effectId}) Session found, fetching profile for ${session.user.id.substring(0, 8)}...`);
           const profilePromise = fetchUserProfile(session.user.id);
           
           // Also validate with server in background (don't block UI)
-          supabase.auth.getUser().then(({ error }) => {
+          supabase.auth.getUser().then(({ error }: { error: { message: string } | null }) => {
             if (error && isSubscribed && mountedRef.current) {
               // Session was invalid - clear state
               console.log('[Auth] Session validation failed:', error.message);
@@ -292,7 +308,14 @@ export function useUser() {
           globalAuthInitialized = true;
         } else {
           // No session - try getUser as fallback (handles edge cases)
+          console.log(`[Auth] (${effectId}) No session, trying getUser() fallback...`);
+          const getUserStart = Date.now();
+          const getUserWarn = setTimeout(() => {
+            console.error(`[Auth] ⚠️ (${effectId}) getUser() STILL PENDING after 5s`);
+          }, 5000);
           const { data: { user: authUser }, error } = await supabase.auth.getUser();
+          clearTimeout(getUserWarn);
+          console.log(`[Auth] (${effectId}) getUser() completed in ${Date.now() - getUserStart}ms, user: ${!!authUser}, error: ${error?.message || 'none'}`);
           
           if (!isSubscribed || !mountedRef.current) {
             resolveGlobalAuth!();
@@ -349,12 +372,27 @@ export function useUser() {
       }
     };
 
+    // Diagnostic probe: after 3s, independently test if getSession() works
+    // This bypasses our initializeAuth flow and tests the Supabase client directly
+    const probeId = setTimeout(async () => {
+      if (!isSubscribed || !mountedRef.current) return;
+      try {
+        console.log(`[Diag] (${effectId}) Probe: calling getSession() independently...`);
+        const probeStart = Date.now();
+        const { data: { session: probeSession } } = await supabase.auth.getSession();
+        console.log(`[Diag] (${effectId}) Probe: getSession() returned in ${Date.now() - probeStart}ms, session: ${!!probeSession?.user}`);
+      } catch (err) {
+        console.error(`[Diag] (${effectId}) Probe: getSession() threw:`, (err as Error).message);
+      }
+    }, 3000);
+
     // Timeout that only fires if no auth state received and still loading
     const timeoutId = setTimeout(() => {
       if (isSubscribed && mountedRef.current && loading && !authStateReceived) {
-        console.warn('[Auth] Init timeout - checking session directly');
+        console.warn(`[Auth] (${effectId}) Init timeout - authStateReceived=${authStateReceived}`);
+        logState('init-timeout');
         // On timeout, do a quick session check before giving up
-        supabase.auth.getSession().then(({ data: { session } }) => {
+        supabase.auth.getSession().then(({ data: { session } }: { data: { session: Session | null } }) => {
           if (session?.user && isSubscribed && mountedRef.current) {
             console.log('[Auth] Found session on timeout - recovering');
             fetchUserProfile(session.user.id);
@@ -408,8 +446,10 @@ export function useUser() {
     });
 
     return () => {
+      console.log(`[Auth] useUser effect cleanup (id=${effectId})`);
       isSubscribed = false;
       mountedRef.current = false;
+      clearTimeout(probeId);
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
         timeoutRef.current = null;

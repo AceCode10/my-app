@@ -78,21 +78,28 @@ function LoginContent() {
         e.preventDefault();
         setIsSubmitting(true);
         setErrorMessage(null);
+        const loginStart = Date.now();
+        console.log('[Login] handleSubmit start');
         
         // Set a timeout to reset submitting state if login takes too long
         loginTimeoutRef.current = setTimeout(() => {
+            console.warn(`[Login] 15s timeout fired (${Date.now() - loginStart}ms elapsed)`);
             setIsSubmitting(false);
             setErrorMessage('Login is taking longer than expected. Please wait a moment and try again.');
         }, 15000); // 15 second timeout
         
         try {
             // Clear any existing cache before login
+            console.log('[Login] Calling invalidateUserCache()...');
             invalidateUserCache();
             
+            console.log('[Login] Calling signInWithPassword()...');
+            const signInStart = Date.now();
             const { data, error } = await supabase.auth.signInWithPassword({
                 email,
                 password,
             });
+            console.log(`[Login] signInWithPassword completed in ${Date.now() - signInStart}ms, user: ${!!data?.user}, error: ${error?.message || 'none'}`);
             
             if (loginTimeoutRef.current) {
                 clearTimeout(loginTimeoutRef.current);
@@ -114,19 +121,24 @@ function LoginContent() {
             }
             
             if (data.user) {
+                console.log(`[Login] User authenticated: ${data.user.id.substring(0, 8)}...`);
                 const metadataRole = typeof data.user.user_metadata?.role === 'string'
                     ? data.user.user_metadata.role
                     : undefined;
+                console.log(`[Login] Metadata role: ${metadataRole || 'not set'}`);
 
                 if (metadataRole) {
+                    console.log(`[Login] Redirecting via metadata role: ${metadataRole}`);
                     redirectToRole(metadataRole);
                     return;
                 }
 
                 // Query DB for role with a 5s fallback timeout.
                 // If the query hangs, redirect to default role instead of staying stuck.
+                console.log('[Login] Querying DB for role...');
+                const roleQueryStart = Date.now();
                 const fallbackTimeout = setTimeout(() => {
-                    console.warn('[Login] Role query timeout - redirecting with default role');
+                    console.warn(`[Login] Role query timeout after ${Date.now() - roleQueryStart}ms - redirecting with default role`);
                     redirectToRole('student');
                 }, 5000);
 
@@ -138,10 +150,12 @@ function LoginContent() {
                         .maybeSingle();
 
                     clearTimeout(fallbackTimeout);
+                    console.log(`[Login] Role query completed in ${Date.now() - roleQueryStart}ms, role: ${profile?.role || 'none'}`);
                     redirectToRole(profile?.role || 'student');
                     return;
-                } catch {
+                } catch (roleErr) {
                     clearTimeout(fallbackTimeout);
+                    console.error(`[Login] Role query threw after ${Date.now() - roleQueryStart}ms:`, roleErr);
                     redirectToRole('student');
                     return;
                 }
