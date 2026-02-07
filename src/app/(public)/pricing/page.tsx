@@ -68,9 +68,6 @@ const PricingPage = () => {
     });
   };
 
-  const generatePaymentReference = (plan: string) => {
-    return `${plan}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  };
 
   return (
     <div className="bg-background text-foreground py-16">
@@ -164,11 +161,13 @@ const PricingPage = () => {
             {isYearly && <p className="text-sm text-green-600 mb-4">Billed as $95.88/year</p>}
             {user ? (
               <LencoPayment
+                plan="essential"
+                billingCycle={isYearly ? 'yearly' : 'monthly'}
                 amount={isYearly ? 7.99 : 9.99}
                 currency="USD"
                 email={user.email || ''}
+                userId={user.id}
                 customerName={user.display_name || ''}
-                reference={generatePaymentReference('essential')}
                 onSuccess={handlePaymentSuccess}
                 onClose={handlePaymentClose}
                 onConfirmationPending={handlePaymentPending}
@@ -220,14 +219,17 @@ const PricingPage = () => {
             {isYearly && <p className="text-sm text-green-600 mb-4">Billed as $119.88/year</p>}
             {user ? (
               <LencoPayment
+                plan="pro"
+                billingCycle={isYearly ? 'yearly' : 'monthly'}
                 amount={isYearly ? 9.99 : 12.99}
                 currency="USD"
                 email={user.email || ''}
+                userId={user.id}
                 customerName={user.display_name || ''}
-                reference={generatePaymentReference('pro')}
                 onSuccess={handlePaymentSuccess}
                 onClose={handlePaymentClose}
                 onConfirmationPending={handlePaymentPending}
+                variant="gradient"
               />
             ) : (
               <Button asChild className="w-full mb-8 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-lg">
