@@ -37,10 +37,14 @@ export function createClient() {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
-        detectSessionInUrl: true,
+        detectSessionInUrl: false,
         flowType: 'pkce',
-        // Let Supabase SSR handle storage via cookies (default behavior)
-        // DO NOT override storage - this breaks SSR session sync
+        // detectSessionInUrl is FALSE because we handle the OAuth code exchange
+        // SERVER-SIDE via /auth/callback route. When true, the client's _initialize()
+        // tries to exchange ?code= from the URL, which blocks _initializePromise
+        // and deadlocks getSession() + all REST calls that need auth headers.
+        // The server callback exchanges the code, sets cookies, and redirects to
+        // the dashboard. The client then finds the session in cookies normally.
       },
       global: {
         headers: {

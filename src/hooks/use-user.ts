@@ -437,6 +437,19 @@ export function useUser() {
           // If the profile fetch hangs, it jams the entire auth pipeline.
           fetchUserProfile(session.user.id, forceRefresh);
         }
+
+        // Recovery: if SIGNED_IN fires but _initializePromise is stuck,
+        // the profile fetch will also hang (REST calls need auth headers from getSession).
+        // After a short delay, if auth is still not initialized, force a page reload.
+        // On reload, the session is in cookies and _initialize resolves normally.
+        if (event === 'SIGNED_IN' && !globalAuthInitialized) {
+          setTimeout(() => {
+            if (!globalAuthInitialized && isSubscribed && mountedRef.current) {
+              console.warn('[Auth] Recovery: SIGNED_IN received but auth still stuck after 3s — forcing reload');
+              window.location.reload();
+            }
+          }, 3000);
+        }
       } else if (event === 'TOKEN_REFRESHED' && session?.user) {
         // Token refreshed - validate cache is still valid
         if (cachedUserId !== session.user.id) {

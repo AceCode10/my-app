@@ -26,6 +26,13 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Skip full middleware auth for /auth/callback — let the route handler
+  // exchange the PKCE code without interference from getUser() which could
+  // modify cookies or consume the code verifier
+  if (pathname === '/auth/callback') {
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   });
