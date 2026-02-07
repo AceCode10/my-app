@@ -15,6 +15,17 @@ const AUTH_PAGES = ["/login", "/signup"];
 
 
 export async function updateSession(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+
+  // Intercept OAuth callback codes landing on the homepage
+  // When Supabase redirects to /?code=... instead of /auth/callback?code=...,
+  // forward to the server-side callback route for proper code exchange
+  if (pathname === '/' && request.nextUrl.searchParams.has('code')) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/auth/callback';
+    return NextResponse.redirect(url);
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -63,8 +74,6 @@ export async function updateSession(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const pathname = request.nextUrl.pathname;
 
   // Protected routes - redirect to login if not authenticated
   const isProtectedRoute = PROTECTED_ROUTES.some(route => pathname.startsWith(route));

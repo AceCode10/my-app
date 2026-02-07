@@ -2,12 +2,75 @@
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Check, Sparkles, Zap, Crown, BookOpen, Brain, Target, Trophy, Clock, Users, Shield, Star, TrendingUp } from "lucide-react";
+import { Check, Sparkles, Zap, Crown, BookOpen, Brain, Target, Trophy, Clock, Users, Shield, Star, TrendingUp, CreditCard } from "lucide-react";
 import { PricingSwitch } from '@/components/pricing-switch';
 import { Badge } from "@/components/ui/badge";
+import { LencoPayment } from '@/components/payment/lenco-payment';
+import { useUser } from '@/hooks/use-user';
+import { useToast } from '@/hooks/use-toast';
 
 const PricingPage = () => {
   const [isYearly, setIsYearly] = useState(true);
+  const { user } = useUser();
+  const { toast } = useToast();
+
+  const handlePaymentSuccess = async (response: any) => {
+    // Verify payment on server
+    try {
+      const verifyResponse = await fetch('/api/payments/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reference: response.reference }),
+      });
+
+      const result = await verifyResponse.json();
+
+      if (result.status === 'success') {
+        toast({
+          title: 'Payment Successful!',
+          description: 'Your subscription has been activated. Redirecting to dashboard...',
+        });
+        
+        // Redirect to dashboard after a short delay
+        setTimeout(() => {
+          window.location.href = '/student';
+        }, 2000);
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Payment Verification Failed',
+          description: 'Please contact support if the issue persists.',
+        });
+      }
+    } catch (error) {
+      console.error('Payment verification error:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Verification Error',
+        description: 'Unable to verify payment. Please contact support.',
+      });
+    }
+  };
+
+  const handlePaymentClose = () => {
+    toast({
+      title: 'Payment Cancelled',
+      description: 'You can try again anytime.',
+    });
+  };
+
+  const handlePaymentPending = () => {
+    toast({
+      title: 'Payment Processing',
+      description: 'Your payment is being confirmed. We\'ll notify you once it\'s complete.',
+    });
+  };
+
+  const generatePaymentReference = (plan: string) => {
+    return `${plan}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  };
 
   return (
     <div className="bg-background text-foreground py-16">
@@ -99,12 +162,25 @@ const PricingPage = () => {
               <span className="text-lg font-medium text-muted-foreground">/mo</span>
             </p>
             {isYearly && <p className="text-sm text-green-600 mb-4">Billed as $95.88/year</p>}
-            <Button asChild className="w-full mb-8 bg-primary hover:bg-primary/90 shadow-lg">
-              <Link href="/signup?plan=essential">
-                <Sparkles className="w-4 h-4 mr-2" />
-                Start 7-Day Free Trial
-              </Link>
-            </Button>
+            {user ? (
+              <LencoPayment
+                amount={isYearly ? 7.99 : 9.99}
+                currency="USD"
+                email={user.email || ''}
+                customerName={user.display_name || ''}
+                reference={generatePaymentReference('essential')}
+                onSuccess={handlePaymentSuccess}
+                onClose={handlePaymentClose}
+                onConfirmationPending={handlePaymentPending}
+              />
+            ) : (
+              <Button asChild className="w-full mb-8 bg-primary hover:bg-primary/90 shadow-lg">
+                <Link href="/login?redirect=/pricing&plan=essential">
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Start 7-Day Free Trial
+                </Link>
+              </Button>
+            )}
             <ul className="space-y-4 text-sm flex-grow">
               <li className="flex items-start gap-3">
                 <Check className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
@@ -142,12 +218,25 @@ const PricingPage = () => {
               <span className="text-lg font-medium text-muted-foreground">/mo</span>
             </p>
             {isYearly && <p className="text-sm text-green-600 mb-4">Billed as $119.88/year</p>}
-            <Button asChild className="w-full mb-8 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-lg">
-              <Link href="/signup?plan=pro">
-                <Crown className="w-4 h-4 mr-2" />
-                Start 7-Day Free Trial
-              </Link>
-            </Button>
+            {user ? (
+              <LencoPayment
+                amount={isYearly ? 9.99 : 12.99}
+                currency="USD"
+                email={user.email || ''}
+                customerName={user.display_name || ''}
+                reference={generatePaymentReference('pro')}
+                onSuccess={handlePaymentSuccess}
+                onClose={handlePaymentClose}
+                onConfirmationPending={handlePaymentPending}
+              />
+            ) : (
+              <Button asChild className="w-full mb-8 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-lg">
+                <Link href="/login?redirect=/pricing&plan=pro">
+                  <Crown className="w-4 h-4 mr-2" />
+                  Start 7-Day Free Trial
+                </Link>
+              </Button>
+            )}
             <ul className="space-y-4 text-sm flex-grow">
               <li className="flex items-start gap-3">
                 <Check className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />

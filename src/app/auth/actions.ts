@@ -85,6 +85,43 @@ export async function signUp(formData: FormData) {
   redirect('/onboarding');
 }
 
+// Handle OAuth user profile creation
+export async function handleOAuthUser(user: any, displayName?: string, role?: string) {
+  const supabase = await createClient();
+  
+  // Check if user profile already exists
+  const { data: existingProfile } = await supabase
+    .from('users')
+    .select('id')
+    .eq('id', user.id)
+    .single();
+
+  if (existingProfile) {
+    return { success: true };
+  }
+
+  // Create profile for new OAuth user
+  const { error: profileError } = await supabase.from('users').insert({
+    id: user.id,
+    email: user.email?.toLowerCase().trim(),
+    display_name: displayName || user.user_metadata?.display_name || user.email?.split('@')[0],
+    role: role || 'student',
+    subscription_tier: 'basic',
+    onboarding_completed: false,
+    leaderboard_opt_out: false,
+    xp: 0,
+    streak_days: 0,
+    created_at: new Date().toISOString(),
+  });
+
+  if (profileError) {
+    console.error('OAuth profile creation error:', profileError);
+    return { error: 'Failed to create user profile' };
+  }
+
+  return { success: true };
+}
+
 export async function signIn(formData: FormData) {
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;

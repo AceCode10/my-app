@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { handleOAuthUser } from '../actions';
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
@@ -40,11 +41,19 @@ export async function GET(request: Request) {
     const { data: { user } } = await supabase.auth.getUser();
     
     if (user) {
+      // Handle OAuth user profile creation
+      await handleOAuthUser(user);
+      
       const { data: userRecord } = await supabase
         .from('users')
-        .select('role')
+        .select('role, onboarding_completed')
         .eq('id', user.id)
         .single();
+      
+      // Redirect to onboarding if not completed
+      if (userRecord && !userRecord.onboarding_completed) {
+        return NextResponse.redirect(new URL('/onboarding', origin));
+      }
       
       // Redirect based on role
       if (userRecord?.role === 'super_admin' || userRecord?.role === 'content_moderator') {
