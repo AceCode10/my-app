@@ -200,9 +200,22 @@ Return ONLY valid JSON with "answers" array. Include ALL answers found.`;
 // ANSWER EXTRACTION WITH AI
 // ============================================
 
-async function extractAnswersWithAI(text: string): Promise<any[]> {
+async function extractAnswersWithAI(text: string, existingQuestions?: any[]): Promise<any[]> {
   const processedText = preprocessMarkScheme(sanitizeInputText(text));
-  const systemPrompt = buildMarkSchemePrompt();
+  let systemPrompt = buildMarkSchemePrompt();
+
+  // Include existing questions in prompt so AI can match precisely
+  if (existingQuestions && existingQuestions.length > 0) {
+    const questionList = existingQuestions
+      .filter(q => q.marks > 0)
+      .map(q => {
+        const partStr = q.part_label ? `(${q.part_label})` : '';
+        return `- Question ${q.question_number}${partStr}: ${q.marks} mark(s)`;
+      })
+      .join('\n');
+    systemPrompt += `\n\n## EXISTING QUESTIONS TO MATCH\nYou MUST provide answers for these questions using EXACTLY the question_number and part_label format shown:\n${questionList}\n\nCRITICAL: The part_label in your output must EXACTLY match what is shown above. For example:\n- If listed as "Question 2(b(i))", output question_number: 2 and part_label: "b(i)"\n- If listed as "Question 7(a)", output question_number: 7 and part_label: "a"\n- If listed as "Question 3", output question_number: 3 and part_label: null`;
+    console.log('Including', existingQuestions.filter(q => q.marks > 0).length, 'questions in AI prompt for matching');
+  }
 
   console.log('Pre-processed mark scheme sample:', processedText.slice(0, 500));
 
@@ -235,7 +248,7 @@ async function extractAnswersWithAI(text: string): Promise<any[]> {
       }
     ],
     temperature: 0.05,
-    max_tokens: 4096,
+    max_tokens: model.includes('gpt-4') ? 8192 : 4096,
     response_format: { type: 'json_object' }
   });
 
@@ -302,6 +315,7 @@ function matchAnswersToQuestions(
 ): { matched: QuestionMatch[], unmatched: any[] } {
   const matched: QuestionMatch[] = [];
   const unmatched: any[] = [];
+  const matchedQuestionIds = new Set<string>(); // Track matched questions across all strategies
   
   // Create multiple maps for flexible matching
   const exactMap = new Map<string, any>(); // Exact match: "6:a"
@@ -312,57 +326,66 @@ function matchAnswersToQuestions(
     const exactKey = `${q.question_number}:${normalizedPart}`;
     exactMap.set(exactKey, q);
     
-    // Also group by question number for flexible matching
     if (!numberOnlyMap.has(q.question_number)) {
       numberOnlyMap.set(q.question_number, []);
     }
     numberOnlyMap.get(q.question_number)!.push(q);
   }
   
+  console.log('Question exact keys:', Array.from(exactMap.keys()).join(', '));
+  
   for (const answer of answers) {
     const answerPart = normalizePartLabel(answer.part_label) || '';
     const exactKey = `${answer.question_number}:${answerPart}`;
     
+    console.log(`Matching answer Q${answer.question_number}${answer.part_label ? `(${answer.part_label})` : ''} → key="${exactKey}"`);
+    
     // Try exact match first
     let question = exactMap.get(exactKey);
+    if (question && matchedQuestionIds.has(question.id)) {
+      question = undefined; // Already matched via a previous answer
+    }
     
-    // If no exact match, try flexible matching strategies
+    // If no exact match, try flexible matching strategies on unmatched questions only
     if (!question) {
-      const questionsForNumber = numberOnlyMap.get(answer.question_number) || [];
+      const availableQuestions = (numberOnlyMap.get(answer.question_number) || [])
+        .filter(q => !matchedQuestionIds.has(q.id));
       
-      if (questionsForNumber.length > 0) {
-        // Strategy 1: If answer has no part but questions have parts, try to match first answerable part
+      if (availableQuestions.length > 0) {
+        // Strategy 1: If answer has no part, match to question with no part
         if (!answerPart) {
-          // Find first question with this number that needs an answer and has marks
-          question = questionsForNumber.find(q => q.marks > 0 && !q.mark_scheme);
+          question = availableQuestions.find(q => {
+            const qPart = normalizePartLabel(q.part_label) || '';
+            return !qPart && q.marks > 0;
+          });
+          // Fallback: first unmatched question with marks for this number
           if (!question) {
-            // Or just the first one with marks
-            question = questionsForNumber.find(q => q.marks > 0);
+            question = availableQuestions.find(q => q.marks > 0);
           }
         }
         
-        // Strategy 2: If answer has part like "a" but questions have "a(i)", "a(ii)", match to parent "a"
-        if (!question && answerPart && !answerPart.includes('(')) {
-          question = questionsForNumber.find(q => {
+        // Strategy 2: Exact part match with normalization
+        if (!question && answerPart) {
+          question = availableQuestions.find(q => {
             const qPart = normalizePartLabel(q.part_label) || '';
-            return qPart === answerPart || qPart.startsWith(answerPart + '(');
+            return qPart === answerPart;
           });
         }
         
-        // Strategy 3: Match by part label similarity (e.g., "a(i)" to "a(i)")
+        // Strategy 3: Strip all parens and compare (handles format differences)
         if (!question && answerPart) {
-          question = questionsForNumber.find(q => {
+          const answerPartFlat = answerPart.replace(/[()]/g, '');
+          question = availableQuestions.find(q => {
             const qPart = normalizePartLabel(q.part_label) || '';
-            // Try various normalizations
-            return qPart === answerPart || 
-                   qPart === answerPart.replace(/\(/g, '').replace(/\)/g, '') ||
-                   qPart.replace(/\(/g, '').replace(/\)/g, '') === answerPart;
+            const qPartFlat = qPart.replace(/[()]/g, '');
+            return qPartFlat === answerPartFlat && qPartFlat.length > 0;
           });
         }
       }
     }
     
-    if (question) {
+    if (question && !matchedQuestionIds.has(question.id)) {
+      matchedQuestionIds.add(question.id);
       matched.push({
         question_id: question.id,
         question_number: question.question_number,
@@ -373,14 +396,18 @@ function matchAnswersToQuestions(
         matched: true
       });
       
-      // Mark this question as matched to avoid double-matching
-      exactMap.delete(exactKey);
+      // Remove from exact map using the QUESTION's key (not the answer's key)
+      const questionExactKey = `${question.question_number}:${normalizePartLabel(question.part_label) || ''}`;
+      exactMap.delete(questionExactKey);
+      
+      console.log(`  ✓ Matched to Q${question.question_number}${question.part_label ? `(${question.part_label})` : ''}`);
     } else {
       unmatched.push({
         ...answer,
         matched: false,
         reason: `No question found for Q${answer.question_number}${answer.part_label ? `(${answer.part_label})` : ''}`
       });
+      console.log(`  ✗ No match found`);
     }
   }
   
@@ -425,8 +452,12 @@ export async function POST(
           const pythonResult = await pythonResponse.json();
           
           if (pythonResult.success && pythonResult.data) {
-            extractedText = pythonResult.data.cleaned_text;
+            // Use raw_text for mark schemes - cleaned_text has question-paper markers
+            // ([Q:X], [MARKS:X], [ANSWER_LINE]) that confuse AI extraction
+            extractedText = pythonResult.data.raw_text || pythonResult.data.cleaned_text;
             console.log('Python parser extracted', extractedText.length, 'characters from mark scheme');
+            console.log('Is mark scheme:', pythonResult.data.metadata?.is_mark_scheme);
+            console.log('Mark scheme entries from parser:', pythonResult.data.mark_scheme_entries?.length || 0);
           }
         }
       } catch (pythonError) {
@@ -481,7 +512,7 @@ export async function POST(
     console.log(`Found ${existingQuestions.length} existing questions for paper ${paperId}`);
     
     // Extract answers from mark scheme
-    const extractedAnswers = await extractAnswersWithAI(extractedText);
+    const extractedAnswers = await extractAnswersWithAI(extractedText, existingQuestions);
     console.log(`Extracted ${extractedAnswers.length} answers from mark scheme`);
     
     // Match answers to questions

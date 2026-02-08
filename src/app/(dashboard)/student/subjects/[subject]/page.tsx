@@ -3,6 +3,7 @@
 import React, { use } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
+import { useUser } from '@/hooks/use-user';
 import Link from 'next/link';
 import { 
   ChevronRight, 
@@ -21,6 +22,7 @@ interface SubjectPageProps {
 export default function SubjectPage({ params }: SubjectPageProps) {
   const resolvedParams = use(params);
   const subjectSlug = resolvedParams.subject;
+  const { user } = useUser();
 
   // Fetch subject from database - with caching
   const { data: subjectData, isLoading, error } = useQuery({
@@ -97,48 +99,38 @@ export default function SubjectPage({ params }: SubjectPageProps) {
     gcTime: 15 * 60 * 1000, // Keep in cache for 15 minutes
   });
 
-  // Fetch user progress for this subject (real-time with refetch)
+  // Fetch user progress for this subject - OPTIMIZED: uses useUser() + parallel queries
   const { data: userProgress } = useQuery({
-    queryKey: ['subject-user-progress', subjectData?.id],
+    queryKey: ['subject-user-progress', subjectData?.id, user?.id],
     queryFn: async () => {
-      if (!subjectData?.id) return null;
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
+      if (!subjectData?.id || !user?.id) return null;
 
-      // Get user progress from user_topic_progress table
-      const { data: topicProgress } = await supabase
-        .from('user_topic_progress')
-        .select('notes_read, questions_attempted')
-        .eq('user_id', user.id)
-        .eq('subject_id', subjectData.id);
+      // Fetch all progress data in parallel (3 queries at once instead of 3 sequential)
+      const [topicProgressRes, papersCompletedRes, quizAttemptsRes] = await Promise.all([
+        supabase.from('user_topic_progress')
+          .select('notes_read, questions_attempted')
+          .eq('user_id', user.id)
+          .eq('subject_id', subjectData.id),
+        supabase.from('assessment_attempts')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('status', 'completed'),
+        supabase.from('quiz_attempts')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id),
+      ]);
 
-      // Sum up progress across all topics
-      const notesRead = topicProgress?.reduce((sum: number, tp: { notes_read?: number }) => sum + (tp.notes_read || 0), 0) || 0;
-      const questionsAnswered = topicProgress?.reduce((sum: number, tp: { questions_attempted?: number }) => sum + (tp.questions_attempted || 0), 0) || 0;
-
-      // Get papers completed - use assessment_attempts table
-      const { count: papersCompleted } = await supabase
-        .from('assessment_attempts')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .eq('status', 'completed');
-
-      // Also check quiz_attempts for topical question progress
-      const { count: quizAttempts } = await supabase
-        .from('quiz_attempts')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id);
-
-      console.log('[SubjectPage] User progress:', { notesRead, questionsAnswered, quizAttempts, papersCompleted });
+      const notesRead = topicProgressRes.data?.reduce((sum: number, tp: { notes_read?: number }) => sum + (tp.notes_read || 0), 0) || 0;
+      const questionsAnswered = topicProgressRes.data?.reduce((sum: number, tp: { questions_attempted?: number }) => sum + (tp.questions_attempted || 0), 0) || 0;
 
       return {
-        notesRead: notesRead,
-        questionsAnswered: questionsAnswered + (quizAttempts || 0),
-        papersCompleted: papersCompleted || 0
+        notesRead,
+        questionsAnswered: questionsAnswered + (quizAttemptsRes.count || 0),
+        papersCompleted: papersCompletedRes.count || 0
       };
     },
-    enabled: !!subjectData?.id,
-    staleTime: 60 * 1000, // Cache for 1 minute
+    enabled: !!subjectData?.id && !!user?.id,
+    staleTime: 60 * 1000,
   });
 
   // Calculate progress percentages
@@ -233,7 +225,7 @@ export default function SubjectPage({ params }: SubjectPageProps) {
         </Link>
 
         {/* Past Papers Card */}
-        <Link href={`/resources/past-papers/${subjectSlug}`}>
+        <Link href={`/student/papers?subject=${subjectSlug}`}>
           <div className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 p-5 rounded-2xl border-0 hover:from-purple-500/15 hover:to-purple-600/10 hover:shadow-lg transition-all duration-300 group h-full">
             <div className="flex items-start justify-between">
               <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center mb-4">

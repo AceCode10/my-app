@@ -89,9 +89,9 @@ const StudentDashboard = () => {
         supabase.from('users').select('xp, streak_days').eq('id', user.id).single(),
         supabase.from('user_badges').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
         supabase.from('assessment_attempts')
-          .select('id, paper_id, status, score, percentage, submitted_at, started_at', { count: 'exact' })
+          .select('id, paper_id, status, score, percentage, submitted_at, started_at, practice_mode', { count: 'exact' })
           .eq('user_id', user.id)
-          .order('submitted_at', { ascending: false, nullsFirst: false })
+          .order('started_at', { ascending: false })
           .limit(5),
         supabase.from('assessment_attempts')
           .select('id', { count: 'exact', head: true })
@@ -110,6 +110,23 @@ const StudentDashboard = () => {
         }
       }
 
+      // Fetch paper details for recent attempts (to show paper names)
+      const paperIds = [...new Set(attemptsData.filter((a: any) => a.paper_id).map((a: any) => a.paper_id))];
+      let papersMap: Record<string, any> = {};
+      if (paperIds.length > 0) {
+        const { data: papersData } = await supabase
+          .from('past_papers')
+          .select('id, title, paper_number, variant, session, year, subjects(name, code)')
+          .in('id', paperIds);
+        (papersData || []).forEach((p: any) => { papersMap[p.id] = p; });
+      }
+
+      // Enrich attempts with paper info
+      const enrichedAttempts = attemptsData.map((a: any) => ({
+        ...a,
+        paper: papersMap[a.paper_id] || null,
+      }));
+
       // Fetch assignments if user has classes
       let assignmentsData: any[] = [];
       const classIds = enrollmentsRes.data?.map((e: any) => e.class_id) || [];
@@ -118,6 +135,7 @@ const StudentDashboard = () => {
           .from('assignments')
           .select('id, title, due_at, target_class_id, test_id, paper_id')
           .in('target_class_id', classIds)
+          .gte('due_at', new Date().toISOString())
           .order('due_at', { ascending: true })
           .limit(5);
         assignmentsData = data || [];
@@ -133,7 +151,7 @@ const StudentDashboard = () => {
           averageScore: Math.round(avgScore)
         },
         assignments: assignmentsData,
-        recentAttempts: attemptsData
+        recentAttempts: enrichedAttempts
       };
     },
     enabled: !!user?.id,
@@ -153,7 +171,7 @@ const StudentDashboard = () => {
       <div className="flex items-center justify-center min-h-screen">
         <Card className="p-6">
           <CardContent>
-            <p className="text-muted-foreground">Please log in to view your dashboard.</p>
+            <p className="text-muted-foreground">Please log in.</p>
             <Button asChild className="mt-4">
               <Link href="/login">Go to Login</Link>
             </Button>
@@ -396,33 +414,52 @@ const StudentDashboard = () => {
               storageKey="student-activity"
               action={
                 <Button variant="ghost" size="sm" asChild onClick={(e) => e.stopPropagation()}>
-                  <Link href="/student/assessments">View All</Link>
+                  <Link href="/student/papers">View All</Link>
                 </Button>
               }
             >
               <div className="space-y-3">
-                {recentAttempts.slice(0, 3).map((attempt) => (
-                  <div
-                    key={attempt.id}
-                    className="flex items-center justify-between p-3 rounded-lg border"
-                  >
-                    <div>
-                      <p className="font-medium text-sm">
-                        {attempt.status === 'submitted' ? 'Completed' : 'In Progress'}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {attempt.submitted_at 
-                          ? new Date(attempt.submitted_at).toLocaleDateString()
-                          : new Date(attempt.started_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                    {attempt.percentage !== null && (
-                      <Badge variant={attempt.percentage >= 70 ? 'default' : attempt.percentage >= 50 ? 'secondary' : 'destructive'}>
-                        {Math.round(attempt.percentage)}%
-                      </Badge>
-                    )}
-                  </div>
-                ))}
+                {recentAttempts.slice(0, 3).map((attempt) => {
+                  const paper = attempt.paper;
+                  let pNum = paper?.paper_number || '1';
+                  if (pNum.toLowerCase().startsWith('paper ')) pNum = pNum.substring(6).trim();
+                  const subjectCode = paper?.subjects?.code || '';
+                  const variant = paper?.variant || '1';
+                  const paperName = paper
+                    ? `${paper.subjects?.name || ''} Paper ${pNum}${subjectCode ? ` (${subjectCode}/${variant})` : ''} ${paper.session || ''} ${paper.year || ''}`
+                    : 'Paper Practice';
+                  const isInProgress = attempt.status === 'in_progress';
+                  const dateStr = attempt.submitted_at
+                    ? new Date(attempt.submitted_at).toLocaleDateString()
+                    : new Date(attempt.started_at).toLocaleDateString();
+
+                  return (
+                    <Link
+                      key={attempt.id}
+                      href={isInProgress
+                        ? `/student/papers/${attempt.paper_id}/practice?attempt=${attempt.id}`
+                        : `/student/papers/${attempt.paper_id}/results?attempt=${attempt.id}`
+                      }
+                      className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="min-w-0 flex-1 mr-3">
+                        <p className="font-medium text-sm truncate">{paperName.trim()}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {isInProgress ? 'In progress' : 'Completed'} · {dateStr}
+                        </p>
+                      </div>
+                      {isInProgress ? (
+                        <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300 text-xs shrink-0">Continue</Badge>
+                      ) : attempt.percentage !== null ? (
+                        <Badge variant={attempt.percentage >= 70 ? 'default' : attempt.percentage >= 50 ? 'secondary' : 'destructive'} className="shrink-0">
+                          {Math.round(attempt.percentage)}%
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="shrink-0">Done</Badge>
+                      )}
+                    </Link>
+                  );
+                })}
               </div>
             </CollapsibleCard>
           )}

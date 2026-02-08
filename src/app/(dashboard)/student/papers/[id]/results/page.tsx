@@ -80,47 +80,28 @@ export default function PaperResultsPage() {
 
   async function fetchData() {
     try {
-      // Fetch paper
-      const { data: paperData, error: paperError } = await supabase
-        .from('past_papers')
-        .select('*, subjects(id, name, slug)')
-        .eq('id', paperId)
-        .single();
+      // Fetch paper, questions, attempt, and answers in parallel
+      const [paperRes, questionsRes, attemptRes, answersRes] = await Promise.all([
+        supabase.from('past_papers').select('*, subjects(id, name, slug)').eq('id', paperId).single(),
+        supabase.from('paper_questions').select('*').eq('paper_id', paperId)
+          .order('question_number', { ascending: true })
+          .order('part_label', { ascending: true }),
+        supabase.from('assessment_attempts').select('*').eq('id', attemptId).single(),
+        supabase.from('paper_attempt_answers').select('*').eq('attempt_id', attemptId),
+      ]);
 
-      if (paperError) throw paperError;
-      setPaper(paperData as any);
+      if (paperRes.error) throw paperRes.error;
+      if (questionsRes.error) throw questionsRes.error;
+      if (attemptRes.error) throw attemptRes.error;
 
-      // Fetch questions
-      const { data: questionsData, error: questionsError } = await supabase
-        .from('paper_questions')
-        .select('*')
-        .eq('paper_id', paperId)
-        .order('question_number', { ascending: true })
-        .order('part_label', { ascending: true });
-
-      if (questionsError) throw questionsError;
-      setQuestions(questionsData || []);
-
-      // Fetch attempt
-      const { data: attemptData, error: attemptError } = await supabase
-        .from('assessment_attempts')
-        .select('*')
-        .eq('id', attemptId)
-        .single();
-
-      if (attemptError) throw attemptError;
-      setAttempt(attemptData);
-      setSelfScore(attemptData.self_score);
-      setNotes(attemptData.notes || '');
-
-      // Fetch answers
-      const { data: answersData } = await supabase
-        .from('paper_attempt_answers')
-        .select('*')
-        .eq('attempt_id', attemptId);
+      setPaper(paperRes.data as any);
+      setQuestions(questionsRes.data || []);
+      setAttempt(attemptRes.data);
+      setSelfScore(attemptRes.data.self_score);
+      setNotes(attemptRes.data.notes || '');
 
       const answersMap = new Map();
-      (answersData || []).forEach((answer: any) => {
+      (answersRes.data || []).forEach((answer: any) => {
         answersMap.set(answer.paper_question_id, answer);
       });
       setAnswers(answersMap);
@@ -155,6 +136,9 @@ export default function PaperResultsPage() {
         const ans = answers.get(q.id);
         return ans && (ans.answer_text || ans.selected_option);
       }).length;
+
+      // Don't award XP if no questions were attempted
+      if (answeredCount === 0) return;
 
       const timeSpentMinutes = attempt.time_spent_seconds 
         ? Math.round(attempt.time_spent_seconds / 60) 

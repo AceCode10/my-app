@@ -33,6 +33,13 @@ function LoginContent() {
             loginTimeoutRef.current = null;
         }
 
+        // Check for redirectTo param (set by middleware when unauthenticated user hits protected route)
+        const redirectTo = searchParams.get('redirectTo');
+        if (redirectTo && redirectTo.startsWith('/')) {
+            window.location.href = redirectTo;
+            return;
+        }
+
         if (role === 'super_admin' || role === 'content_moderator') {
             window.location.href = '/admin';
         } else if (role === 'teacher') {
@@ -42,7 +49,7 @@ function LoginContent() {
         } else {
             window.location.href = '/';
         }
-    }, []);
+    }, [searchParams]);
 
     useEffect(() => {
         setIsTeacher(searchParams.get('plan') === 'teacher');

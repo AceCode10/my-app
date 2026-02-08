@@ -102,12 +102,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [loading, user, supabase, refresh]);
 
+  // Role guard: redirect non-students away from student dashboard
+  // MUST be before any early returns to satisfy Rules of Hooks
+  useEffect(() => {
+    if (user && user.role && user.role !== 'student') {
+      const roleHome = user.role === 'teacher' ? '/teacher'
+        : (user.role === 'super_admin' || user.role === 'content_moderator') ? '/admin'
+        : '/';
+      router.replace(roleHome);
+    }
+  }, [user, router]);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push('/');
   };
 
   if (loading || checkingSession) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background">
+        <KodiLoadingGif />
+      </div>
+    );
+  }
+
+  // If user has wrong role, show nothing while redirecting
+  if (user && user.role && user.role !== 'student') {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <KodiLoadingGif />

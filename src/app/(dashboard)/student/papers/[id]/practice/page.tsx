@@ -136,36 +136,26 @@ export default function PaperPracticePage() {
 
   async function fetchData() {
     try {
-      // Fetch paper
-      const { data: paperData, error: paperError } = await supabase
-        .from('past_papers')
-        .select('*')
-        .eq('id', paperId)
-        .single();
+      // Fetch paper, questions, attempt, and answers in parallel
+      const [paperRes, questionsRes, attemptRes, answersRes] = await Promise.all([
+        supabase.from('past_papers').select('*').eq('id', paperId).single(),
+        supabase.from('paper_questions').select('*').eq('paper_id', paperId)
+          .order('question_number', { ascending: true })
+          .order('display_order', { ascending: true })
+          .order('part_label', { ascending: true }),
+        supabase.from('assessment_attempts').select('*').eq('id', attemptId).single(),
+        supabase.from('paper_attempt_answers').select('*').eq('attempt_id', attemptId),
+      ]);
 
-      if (paperError) throw paperError;
+      if (paperRes.error) throw paperRes.error;
+      if (questionsRes.error) throw questionsRes.error;
+      if (attemptRes.error) throw attemptRes.error;
+
+      const paperData = paperRes.data;
+      const attemptData = attemptRes.data;
+
       setPaper(paperData as any);
-
-      // Fetch questions with optimized ordering
-      const { data: questionsData, error: questionsError } = await supabase
-        .from('paper_questions')
-        .select('*')
-        .eq('paper_id', paperId)
-        .order('question_number', { ascending: true })
-        .order('display_order', { ascending: true })
-        .order('part_label', { ascending: true });
-
-      if (questionsError) throw questionsError;
-      setQuestions(questionsData || []);
-
-      // Fetch attempt
-      const { data: attemptData, error: attemptError } = await supabase
-        .from('assessment_attempts')
-        .select('*')
-        .eq('id', attemptId)
-        .single();
-
-      if (attemptError) throw attemptError;
+      setQuestions(questionsRes.data || []);
       setAttempt(attemptData);
 
       // Check if attempt is already submitted/closed - redirect to results
@@ -183,14 +173,9 @@ export default function PaperPracticePage() {
         setTimeRemaining(remaining);
       }
 
-      // Fetch existing answers
-      const { data: answersData } = await supabase
-        .from('paper_attempt_answers')
-        .select('*')
-        .eq('attempt_id', attemptId);
-
+      // Process answers
       const answersMap = new Map();
-      (answersData || []).forEach((answer: any) => {
+      (answersRes.data || []).forEach((answer: any) => {
         answersMap.set(answer.paper_question_id, answer);
       });
       setAnswers(answersMap);

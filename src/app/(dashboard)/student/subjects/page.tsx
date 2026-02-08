@@ -87,64 +87,83 @@ export default function SubjectsPage() {
         refetchOnWindowFocus: false, // Don't refetch on window focus
     });
 
-    // Fetch progress for all user subjects
+    // Fetch progress for all user subjects - OPTIMIZED: batched queries instead of N+1
     const { data: subjectProgress = {} } = useQuery({
         queryKey: ['subject-progress', user?.id, userSubjects.map(s => s.subject_id)],
         queryFn: async () => {
             if (!user?.id || userSubjects.length === 0) return {};
             
-            const progressMap: Record<string, number> = {};
-            
-            // Get subject IDs
             const subjectIds = userSubjects.map(us => us.subject_id).filter(Boolean);
             
-            // For each subject, calculate progress based on available resources and user activity
-            for (const subjectId of subjectIds) {
-                // Get total resources for this subject
-                const [notesResult, questionsResult, papersResult] = await Promise.all([
-                    supabase.from('notes').select('*', { count: 'exact', head: true })
-                        .eq('subject_id', subjectId).in('visibility', ['public', 'registered']).not('published_at', 'is', null),
-                    supabase.from('questions').select('*', { count: 'exact', head: true })
-                        .eq('subject_id', subjectId),
-                    supabase.from('past_papers').select('*', { count: 'exact', head: true })
-                        .eq('subject_id', subjectId).eq('status', 'published')
-                ]);
-                
-                const totalNotes = notesResult.count || 0;
-                const totalQuestions = questionsResult.count || 0;
-                const totalPapers = papersResult.count || 0;
-                const totalResources = totalNotes + totalQuestions + totalPapers;
-                
+            // Fetch ALL user activity in 3 global queries (instead of 6N sequential)
+            const [allTopicProgress, quizAttemptsResult, paperAttemptsResult] = await Promise.all([
+                supabase.from('user_topic_progress')
+                    .select('subject_id, notes_read, questions_attempted')
+                    .eq('user_id', user.id)
+                    .in('subject_id', subjectIds),
+                supabase.from('quiz_attempts')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('user_id', user.id),
+                supabase.from('assessment_attempts')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('user_id', user.id).eq('status', 'completed'),
+            ]);
+            
+            const quizAttempts = quizAttemptsResult.count || 0;
+            const papersCompleted = paperAttemptsResult.count || 0;
+            
+            // Group topic progress by subject
+            const progressBySubject: Record<string, { notesRead: number; questionsAttempted: number }> = {};
+            (allTopicProgress.data || []).forEach((tp: any) => {
+                if (!progressBySubject[tp.subject_id]) {
+                    progressBySubject[tp.subject_id] = { notesRead: 0, questionsAttempted: 0 };
+                }
+                progressBySubject[tp.subject_id].notesRead += (tp.notes_read || 0);
+                progressBySubject[tp.subject_id].questionsAttempted += (tp.questions_attempted || 0);
+            });
+            
+            // Fetch resource counts for ALL subjects in parallel (not sequentially)
+            const resourceCounts = await Promise.all(
+                subjectIds.map(async (subjectId) => {
+                    const [notesResult, questionsResult, papersResult] = await Promise.all([
+                        supabase.from('notes').select('*', { count: 'exact', head: true })
+                            .eq('subject_id', subjectId).in('visibility', ['public', 'registered']).not('published_at', 'is', null),
+                        supabase.from('questions').select('*', { count: 'exact', head: true })
+                            .eq('subject_id', subjectId),
+                        supabase.from('past_papers').select('*', { count: 'exact', head: true })
+                            .eq('subject_id', subjectId).eq('status', 'published'),
+                    ]);
+                    return {
+                        subjectId,
+                        totalNotes: notesResult.count || 0,
+                        totalQuestions: questionsResult.count || 0,
+                        totalPapers: papersResult.count || 0,
+                    };
+                })
+            );
+            
+            // Calculate progress for each subject
+            const progressMap: Record<string, number> = {};
+            for (const rc of resourceCounts) {
+                const totalResources = rc.totalNotes + rc.totalQuestions + rc.totalPapers;
                 if (totalResources === 0) {
-                    progressMap[subjectId] = 0;
+                    progressMap[rc.subjectId] = 0;
                     continue;
                 }
                 
-                // Get user's completed resources
-                const [topicProgressResult, quizAttemptsResult, paperAttemptsResult] = await Promise.all([
-                    supabase.from('user_topic_progress').select('notes_read, questions_attempted')
-                        .eq('user_id', user.id).eq('subject_id', subjectId),
-                    supabase.from('quiz_attempts').select('*', { count: 'exact', head: true })
-                        .eq('user_id', user.id),
-                    supabase.from('assessment_attempts').select('*', { count: 'exact', head: true })
-                        .eq('user_id', user.id).eq('status', 'completed')
-                ]);
+                const sp = progressBySubject[rc.subjectId] || { notesRead: 0, questionsAttempted: 0 };
+                const completedResources = 
+                    Math.min(sp.notesRead, rc.totalNotes) + 
+                    Math.min(sp.questionsAttempted + quizAttempts, rc.totalQuestions) + 
+                    Math.min(papersCompleted, rc.totalPapers);
                 
-                const notesRead = topicProgressResult.data?.reduce((sum: number, tp: { notes_read?: number }) => sum + (tp.notes_read || 0), 0) || 0;
-                const questionsAnswered = (topicProgressResult.data?.reduce((sum: number, tp: { questions_attempted?: number }) => sum + (tp.questions_attempted || 0), 0) || 0) 
-                    + (quizAttemptsResult.count || 0);
-                const papersCompleted = paperAttemptsResult.count || 0;
-                
-                const completedResources = Math.min(notesRead, totalNotes) + Math.min(questionsAnswered, totalQuestions) + Math.min(papersCompleted, totalPapers);
-                const progress = Math.round((completedResources / totalResources) * 100);
-                
-                progressMap[subjectId] = Math.min(progress, 100); // Cap at 100%
+                progressMap[rc.subjectId] = Math.min(Math.round((completedResources / totalResources) * 100), 100);
             }
             
             return progressMap;
         },
         enabled: !!user?.id && userSubjects.length > 0,
-        staleTime: 2 * 60 * 1000, // Cache for 2 minutes
+        staleTime: 2 * 60 * 1000,
     });
 
     // Map user's added subjects - use database data directly

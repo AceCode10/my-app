@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 
 const supabase = createClient();
 
@@ -49,25 +49,6 @@ export default function TeacherSubjectPage({ params }: SubjectPageProps) {
       if (error) throw error;
       return data;
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
-
-  // Fetch topics for this subject
-  const { data: topics = [] } = useQuery({
-    queryKey: ['teacher-subject-topics', subjectData?.id],
-    queryFn: async () => {
-      if (!subjectData?.id) return [];
-      const { data, error } = await supabase
-        .from('topics')
-        .select('id, name, slug, description, display_order, status')
-        .eq('subject_id', subjectData.id)
-        .eq('status', 'published')
-        .order('display_order', { ascending: true });
-      
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!subjectData?.id,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
@@ -202,7 +183,7 @@ export default function TeacherSubjectPage({ params }: SubjectPageProps) {
         </Link>
 
         {/* Past Papers Card */}
-        <Link href={`/resources/past-papers/${subjectSlug}`}>
+        <Link href={`/teacher/papers?subject=${subjectSlug}`}>
           <Card className="group hover:shadow-lg transition-all duration-300 border-0 bg-gradient-to-br from-purple-500/10 to-purple-600/5 hover:from-purple-500/15 hover:to-purple-600/10">
             <CardContent className="p-5">
               <div className="flex items-start justify-between">
@@ -225,38 +206,6 @@ export default function TeacherSubjectPage({ params }: SubjectPageProps) {
         </Link>
       </div>
 
-      {/* Topics List */}
-      {topics.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <List className="h-5 w-5" />
-              Topics ({topics.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {topics.map((topic: { id: string; name: string; slug: string }, index: number) => (
-                <Link 
-                  key={topic.id} 
-                  href={`/resources/topical-questions/${subjectSlug}/${topic.slug}`}
-                  className="flex items-center gap-3 p-3 rounded-lg border hover:border-primary hover:bg-muted/50 transition-all group"
-                >
-                  <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary text-sm font-semibold">
-                    {index + 1}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">
-                      {topic.name}
-                    </p>
-                  </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                </Link>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

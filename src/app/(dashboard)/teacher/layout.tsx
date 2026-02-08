@@ -27,6 +27,7 @@ const navItems = [
     { href: '/teacher', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/teacher/classes', label: 'My Classes', icon: Users },
     { href: '/teacher/subjects', label: 'Subjects', icon: GraduationCap },
+
     { href: '/teacher/test-builder', label: 'Test Builder', icon: Hammer },
     { href: '/teacher/tests', label: 'My Tests', icon: FileText },
     { href: '/teacher/submissions', label: 'Submissions', icon: ClipboardCheck },
@@ -112,8 +113,8 @@ function TeacherDashboardLayout({ children }: { children: React.ReactNode }) {
                     <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-primary/10 flex items-center justify-center">
                         <LogOut className="h-8 w-8 text-primary" />
                     </div>
-                    <h2 className="text-xl font-semibold mb-2">Please log in to view your dashboard</h2>
-                    <p className="text-muted-foreground mb-6">Access your teacher dashboard by logging in.</p>
+                    <h2 className="text-xl font-semibold mb-2">Please log in </h2>
+                    <p className="text-muted-foreground mb-6">.</p>
                     <Button asChild size="lg" className="w-full">
                         <Link href="/login?plan=teacher">Go to Login</Link>
                     </Button>

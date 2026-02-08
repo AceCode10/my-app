@@ -429,9 +429,9 @@ export default function SubjectPastPapersPage({
 
                     {/* Action Buttons */}
                     <div className="space-y-2">
-                      {/* Take Paper Button - Primary Action */}
+                      {/* Take Paper Button - Primary Action (goes to student dashboard) */}
                       <Link 
-                        href={`/practice/paper/${paper.id}`}
+                        href={`/student/papers/${paper.id}`}
                         className="flex justify-between items-center bg-primary text-primary-foreground p-3 rounded-lg hover:bg-primary/90 transition-colors"
                       >
                         <div className="flex items-center gap-3">

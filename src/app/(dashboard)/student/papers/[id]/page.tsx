@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/dialog';
 import { useRouter, useParams } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
+import { useUser } from '@/hooks/use-user';
 import { PastPaper, PaperQuestion } from '@/types/paper-practice';
 
 export default function PaperDetailPage() {
@@ -39,6 +40,7 @@ export default function PaperDetailPage() {
   const params = useParams();
   const paperId = params.id as string;
   const { toast } = useToast();
+  const { user: currentUser } = useUser();
 
   const [paper, setPaper] = useState<PastPaper | null>(null);
   const [questions, setQuestions] = useState<PaperQuestion[]>([]);
@@ -50,76 +52,38 @@ export default function PaperDetailPage() {
   const [inProgressAttempt, setInProgressAttempt] = useState<any>(null);
 
   useEffect(() => {
-    fetchPaper();
-    fetchQuestions();
-  }, [paperId]);
+    fetchAllData();
+  }, [paperId, currentUser?.id]);
 
-  // Fetch previous attempts after paper is loaded (needed for duration check)
-  useEffect(() => {
-    if (paper) {
-      fetchPreviousAttempts();
-    }
-  }, [paper]);
-
-  async function fetchPaper() {
+  async function fetchAllData() {
     try {
-      const { data, error } = await supabase
-        .from('past_papers')
-        .select('*, subjects(id, name, slug)')
-        .eq('id', paperId)
-        .single();
+      // Fetch paper, questions, and attempts ALL in parallel (eliminates waterfall)
+      const [paperRes, questionsRes, attemptsRes] = await Promise.all([
+        supabase.from('past_papers').select('*, subjects(id, name, slug, code)').eq('id', paperId).single(),
+        supabase.from('paper_questions').select('*').eq('paper_id', paperId)
+          .order('question_number', { ascending: true })
+          .order('part_label', { ascending: true }),
+        currentUser?.id
+          ? supabase.from('assessment_attempts').select('*')
+              .eq('user_id', currentUser.id).eq('paper_id', paperId)
+              .order('started_at', { ascending: false }).limit(5)
+          : Promise.resolve({ data: [] }),
+      ]);
 
-      if (error) throw error;
-      setPaper(data as any);
-    } catch (error: any) {
-      console.error('Error fetching paper:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to load paper details'
-      });
-    } finally {
-      setLoading(false);
-    }
-  }
+      if (paperRes.error) throw paperRes.error;
+      setPaper(paperRes.data as any);
+      setQuestions(questionsRes.data || []);
 
-  async function fetchQuestions() {
-    try {
-      const { data, error } = await supabase
-        .from('paper_questions')
-        .select('*')
-        .eq('paper_id', paperId)
-        .order('question_number', { ascending: true })
-        .order('part_label', { ascending: true });
-
-      if (error) throw error;
-      setQuestions(data || []);
-    } catch (error: any) {
-      console.error('Error fetching questions:', error);
-    }
-  }
-
-  async function fetchPreviousAttempts() {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data } = await supabase
-        .from('assessment_attempts')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('paper_id', paperId)
-        .order('started_at', { ascending: false })
-        .limit(5);
-
-      if (!data) {
+      // Process attempts — check for expired timed attempts using paper data
+      const attemptsData = (attemptsRes as any).data || [];
+      if (attemptsData.length === 0) {
         setPreviousAttempts([]);
+        setInProgressAttempt(null);
         return;
       }
 
-      // Check for expired timed attempts and auto-submit them
-      const paperData = paper;
-      const updatedAttempts = await Promise.all(data.map(async (attempt: any) => {
+      const paperData = paperRes.data;
+      const updatedAttempts = await Promise.all(attemptsData.map(async (attempt: any) => {
         if (attempt.status === 'in_progress' && attempt.practice_mode === 'timed' && paperData?.duration_minutes) {
           const startTime = new Date(attempt.started_at).getTime();
           const durationMs = paperData.duration_minutes * 60 * 1000;
@@ -171,8 +135,15 @@ export default function PaperDetailPage() {
       // Check for in-progress attempt (only non-expired ones now)
       const inProgress = updatedAttempts.find((a: any) => a.status === 'in_progress');
       setInProgressAttempt(inProgress || null);
-    } catch (error) {
-      console.error('Error fetching attempts:', error);
+    } catch (error: any) {
+      console.error('Error fetching paper:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to load paper details'
+      });
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -180,8 +151,7 @@ export default function PaperDetailPage() {
     setStarting(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      if (!currentUser?.id) {
         toast({
           variant: 'destructive',
           title: 'Not logged in',
@@ -194,7 +164,7 @@ export default function PaperDetailPage() {
       const { data: existingAttempts, error: checkError } = await supabase
         .from('assessment_attempts')
         .select('id, practice_mode, started_at')
-        .eq('user_id', user.id)
+        .eq('user_id', currentUser.id)
         .eq('paper_id', paperId)
         .eq('status', 'in_progress')
         .order('started_at', { ascending: false });
@@ -245,7 +215,7 @@ export default function PaperDetailPage() {
       const { data: attempt, error } = await supabase
         .from('assessment_attempts')
         .insert({
-          user_id: user.id,
+          user_id: currentUser.id,
           paper_id: paperId,
           practice_mode: practiceMode,
           status: 'in_progress',
@@ -324,8 +294,13 @@ export default function PaperDetailPage() {
           <div className="flex items-start justify-between">
             <div>
               <CardTitle className="text-2xl">
-                {/* Short title format: Subject P1 V12 Session Year */}
-                {(paper as any).subjects?.name || 'Paper'} P{paper.paper_number || '1'} V{paper.variant || '1'} {paper.session} {paper.year}
+                {(() => {
+                  const subjectCode = (paper as any).subjects?.code || '0000';
+                  let pNum = paper.paper_number || '1';
+                  if (pNum.toLowerCase().startsWith('paper ')) pNum = pNum.substring(6).trim();
+                  const variant = paper.variant || '1';
+                  return `${(paper as any).subjects?.name || 'Paper'} Paper ${pNum} (${subjectCode}/${variant}) ${paper.session || ''} ${paper.year}`;
+                })()}
               </CardTitle>
               <CardDescription className="mt-2">
                 {(paper as any).subjects?.name || 'General'}
@@ -356,8 +331,14 @@ export default function PaperDetailPage() {
             </div>
             <div className="text-center p-4 bg-muted rounded-lg">
               <Clock className="h-6 w-6 mx-auto mb-2 text-primary" />
-              <p className="text-2xl font-bold">{paper.duration_minutes || '—'}</p>
-              <p className="text-sm text-muted-foreground">Minutes</p>
+              <p className="text-2xl font-bold">
+                {paper.duration_minutes
+                  ? paper.duration_minutes >= 60
+                    ? `${Math.floor(paper.duration_minutes / 60)}h${paper.duration_minutes % 60 > 0 ? ` ${paper.duration_minutes % 60}m` : ''}`
+                    : paper.duration_minutes
+                  : '—'}
+              </p>
+              <p className="text-sm text-muted-foreground">{paper.duration_minutes && paper.duration_minutes >= 60 ? 'Duration' : 'Minutes'}</p>
             </div>
             <div className="text-center p-4 bg-muted rounded-lg">
               <FileText className="h-6 w-6 mx-auto mb-2 text-primary" />
