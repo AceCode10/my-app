@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { SubjectCard } from '@/components/subject-card';
 import {
   Select,
   SelectContent,
@@ -455,37 +456,19 @@ function StudentPapersContent() {
 
       {/* User's Subjects */}
       {userSubjects.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
           {userSubjects.map((subject: any) => (
-            <button
+            <SubjectCard
               key={subject.id}
+              name={subject.display_name || subject.name}
+              code={subject.code}
+              icon={subject.icon_url}
+              path=""
+              color={subject.color || '#3b82f6'}
+              showProgress={false}
+              progress={0}
               onClick={() => selectSubject(subject.slug)}
-              className="text-left p-5 rounded-xl border bg-card hover:bg-muted/50 hover:border-primary/30 hover:shadow-lg transition-all group"
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div
-                  className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-base"
-                  style={{ backgroundColor: subject.color || '#3b82f6' }}
-                >
-                  {subject.code ? subject.code.substring(0, 2) : subject.name.charAt(0)}
-                </div>
-                {subject.paper_count > 0 && (
-                  <Badge variant="secondary" className="text-xs">
-                    {subject.paper_count} paper{subject.paper_count !== 1 ? 's' : ''}
-                  </Badge>
-                )}
-              </div>
-              <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors text-base line-clamp-2">
-                {subject.display_name || subject.name}
-              </h3>
-              {subject.code && (
-                <p className="text-xs text-muted-foreground mt-1">{subject.code}</p>
-              )}
-              <div className="mt-3 flex items-center text-sm text-primary font-medium">
-                View Papers
-                <ChevronRight className="h-4 w-4 ml-0.5 group-hover:translate-x-0.5 transition-transform" />
-              </div>
-            </button>
+            />
           ))}
         </div>
       ) : (

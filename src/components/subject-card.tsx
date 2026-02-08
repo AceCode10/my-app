@@ -18,9 +18,10 @@ interface SubjectCardProps {
     color: string;
     progress?: number; // Progress percentage (0-100)
     showProgress?: boolean; // Whether to show progress for authenticated users
+    onClick?: () => void;
 }
 
-export const SubjectCard = memo(function SubjectCard({ name, code, path, icon, color, progress = 0, showProgress = false }: SubjectCardProps) {
+export const SubjectCard = memo(function SubjectCard({ name, code, path, icon, color, progress = 0, showProgress = false, onClick }: SubjectCardProps) {
     // Determine if icon is a component, icon name, or URL
     const isIconComponent = icon && typeof icon !== 'string';
     const isIconUrl = typeof icon === 'string' && (icon.startsWith('http') || icon.startsWith('/'));
@@ -56,61 +57,73 @@ export const SubjectCard = memo(function SubjectCard({ name, code, path, icon, c
 
     const gradientClasses = getGradientClasses(color);
 
-    return (
-        <Link href={path} className="block group">
-            <div className={cn(
-                "relative overflow-hidden rounded-2xl p-4 sm:p-6 h-[160px] sm:h-[200px]",
-                "bg-gradient-to-br shadow-lg",
-                "hover:shadow-2xl hover:scale-105 transition-all duration-300",
-                "border border-white/10",
-                gradientClasses
-            )}>
-                {/* Background pattern overlay */}
-                <div className="absolute inset-0 bg-black/10 backdrop-blur-[1px]" />
-                
-                {/* Content */}
-                <div className="relative z-10 flex flex-col h-full text-white">
-                    {/* Icon */}
-                    <div className="mb-2 sm:mb-3">
-                        {iconUrl ? (
-                            <div className="w-8 h-8 sm:w-10 sm:h-10 relative">
-                                <Image 
-                                    src={iconUrl} 
-                                    alt={name}
-                                    fill
-                                    className="object-contain filter brightness-0 invert"
-                                />
-                            </div>
-                        ) : (
-                            <IconComponent className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
-                        )}
-                    </div>
-                    
-                    {/* Subject Name */}
-                    <div className="flex-grow">
-                        <h3 className="font-bold text-white text-sm sm:text-lg mb-1 line-clamp-2 leading-tight">
-                            {name}
-                        </h3>
-                        {code && (
-                            <p className="text-xs text-white/80 mt-1">{code}</p>
-                        )}
-                    </div>
-                    
-                    {/* Progress Bar (only shown for authenticated users with progress) */}
-                    {showProgress && (
-                        <div className="mt-2 sm:mt-4 space-y-1">
-                            <Progress 
-                                value={progress} 
-                                className="h-1.5 sm:h-2 bg-white/20"
-                                indicatorClassName="bg-white"
+    const cardContent = (
+        <div className={cn(
+            "relative overflow-hidden rounded-2xl p-4 sm:p-6 h-[160px] sm:h-[200px]",
+            "bg-gradient-to-br shadow-lg",
+            "hover:shadow-2xl hover:scale-105 transition-all duration-300",
+            "border border-white/10",
+            gradientClasses
+        )}>
+            {/* Background pattern overlay */}
+            <div className="absolute inset-0 bg-black/10 backdrop-blur-[1px]" />
+            
+            {/* Content */}
+            <div className="relative z-10 flex flex-col h-full text-white">
+                {/* Icon */}
+                <div className="mb-2 sm:mb-3">
+                    {iconUrl ? (
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 relative">
+                            <Image 
+                                src={iconUrl} 
+                                alt={name}
+                                fill
+                                className="object-contain filter brightness-0 invert"
                             />
-                            <p className="text-xs text-white/90 font-medium">
-                                {progress}% Complete
-                            </p>
                         </div>
+                    ) : (
+                        <IconComponent className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
                     )}
                 </div>
+                
+                {/* Subject Name */}
+                <div className="flex-grow">
+                    <h3 className="font-bold text-white text-sm sm:text-lg mb-1 line-clamp-2 leading-tight">
+                        {name}
+                    </h3>
+                    {code && (
+                        <p className="text-xs text-white/80 mt-1">{code}</p>
+                    )}
+                </div>
+                
+                {/* Progress Bar (only shown for authenticated users with progress) */}
+                {showProgress && (
+                    <div className="mt-2 sm:mt-4 space-y-1">
+                        <Progress 
+                            value={progress} 
+                            className="h-1.5 sm:h-2 bg-white/20"
+                            indicatorClassName="bg-white"
+                        />
+                        <p className="text-xs text-white/90 font-medium">
+                            {progress}% Complete
+                        </p>
+                    </div>
+                )}
             </div>
+        </div>
+    );
+
+    if (onClick) {
+        return (
+            <button onClick={onClick} className="block group w-full text-left">
+                {cardContent}
+            </button>
+        );
+    }
+
+    return (
+        <Link href={path} className="block group">
+            {cardContent}
         </Link>
     );
 });
