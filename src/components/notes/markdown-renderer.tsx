@@ -9,6 +9,7 @@ import rehypeRaw from 'rehype-raw';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import rehypeHighlight from 'rehype-highlight';
 import { cn } from '@/lib/utils';
+import { Info, Lightbulb, AlertTriangle, BookOpen, PenLine } from 'lucide-react';
 
 // Extend sanitize schema to allow KaTeX elements
 const sanitizeSchema = {
@@ -32,7 +33,9 @@ const sanitizeSchema = {
     'mtext',
     'annotation',
     'span',
-    'div'
+    'div',
+    'figure',
+    'figcaption'
   ],
   attributes: {
     ...defaultSchema.attributes,
@@ -47,6 +50,157 @@ interface MarkdownRendererProps {
   content: string;
   className?: string;
   hasLatex?: boolean;
+}
+
+// Callout type definition
+interface CalloutInfo {
+  type: 'exam-tip' | 'definition' | 'warning' | 'info' | 'worked-example';
+  icon: React.ReactNode;
+  label: string;
+  borderColor: string;
+  bgColor: string;
+  textColor: string;
+  iconBg: string;
+  isWorkedExample?: boolean;
+}
+
+// Detect callout type from blockquote content
+function getCalloutType(children: React.ReactNode): CalloutInfo | null {
+  const text = extractText(children);
+  
+  if (text.startsWith('Worked Example') || text.startsWith('**Worked Example')) {
+    return {
+      type: 'worked-example',
+      icon: <PenLine className="h-5 w-5 flex-shrink-0 text-white" />,
+      label: 'Worked Example',
+      borderColor: 'border-emerald-500',
+      bgColor: 'bg-white dark:bg-slate-900',
+      textColor: 'text-slate-800 dark:text-slate-200',
+      iconBg: 'bg-emerald-500',
+      isWorkedExample: true,
+    };
+  }
+  if (text.startsWith('Exam Tip:') || text.startsWith('**Exam Tip:**')) {
+    return {
+      type: 'exam-tip',
+      icon: <Lightbulb className="h-5 w-5 flex-shrink-0" />,
+      label: 'Exam Tip',
+      borderColor: 'border-amber-500',
+      bgColor: 'bg-amber-50 dark:bg-amber-950/30',
+      textColor: 'text-amber-900 dark:text-amber-100',
+      iconBg: 'bg-amber-100 dark:bg-amber-900/50',
+    };
+  }
+  if (text.startsWith('Key Definition:') || text.startsWith('**Key Definition:**')) {
+    return {
+      type: 'definition',
+      icon: <BookOpen className="h-5 w-5 flex-shrink-0" />,
+      label: 'Key Definition',
+      borderColor: 'border-blue-500',
+      bgColor: 'bg-blue-50 dark:bg-blue-950/30',
+      textColor: 'text-blue-900 dark:text-blue-100',
+      iconBg: 'bg-blue-100 dark:bg-blue-900/50',
+    };
+  }
+  if (text.startsWith('Common Mistake:') || text.startsWith('**Common Mistake:**') || text.startsWith('Warning:') || text.startsWith('**Warning:**')) {
+    return {
+      type: 'warning',
+      icon: <AlertTriangle className="h-5 w-5 flex-shrink-0" />,
+      label: 'Common Mistake',
+      borderColor: 'border-red-500',
+      bgColor: 'bg-red-50 dark:bg-red-950/30',
+      textColor: 'text-red-900 dark:text-red-100',
+      iconBg: 'bg-red-100 dark:bg-red-900/50',
+    };
+  }
+  if (text.startsWith('Note:') || text.startsWith('**Note:**') || text.startsWith('Info:') || text.startsWith('**Info:**')) {
+    return {
+      type: 'info',
+      icon: <Info className="h-5 w-5 flex-shrink-0" />,
+      label: 'Note',
+      borderColor: 'border-violet-500',
+      bgColor: 'bg-violet-50 dark:bg-violet-950/30',
+      textColor: 'text-violet-900 dark:text-violet-100',
+      iconBg: 'bg-violet-100 dark:bg-violet-900/50',
+    };
+  }
+  return null;
+}
+
+function extractText(children: React.ReactNode): string {
+  return React.Children.toArray(children)
+    .map((child) => {
+      if (typeof child === 'string') return child;
+      if (React.isValidElement(child)) {
+        const props = child.props as { children?: React.ReactNode };
+        if (props.children) return extractText(props.children);
+      }
+      return '';
+    })
+    .join('')
+    .trim();
+}
+
+// Worked Example content renderer - splits content into question/marks/answer
+function WorkedExampleContent({ children }: { children: React.ReactNode }) {
+  const childArray = React.Children.toArray(children);
+  let inAnswer = false;
+  const questionParts: React.ReactNode[] = [];
+  const answerParts: React.ReactNode[] = [];
+  let marksText: string | null = null;
+
+  for (const child of childArray) {
+    const text = extractText(child);
+
+    // Skip the "Worked Example" title line (already rendered as header)
+    if (text.startsWith('Worked Example') || text.startsWith('**Worked Example')) continue;
+
+    // Detect marks notation like [2] or [3 marks]
+    const marksMatch = text.match(/\[(\d+)(?:\s*marks?)?\]/);
+    if (marksMatch && !inAnswer) {
+      marksText = marksMatch[0];
+    }
+
+    // Detect "Answer" heading
+    if (text.trim() === 'Answer' || text.trim() === '**Answer**' || text.startsWith('Answer')) {
+      inAnswer = true;
+      continue;
+    }
+
+    if (inAnswer) {
+      answerParts.push(child);
+    } else {
+      questionParts.push(child);
+    }
+  }
+
+  return (
+    <div>
+      {/* Question */}
+      <div className="mb-4">
+        {questionParts.length > 0 && (
+          <div className="[&>p]:mb-2 [&>p:last-child]:mb-0">
+            {questionParts}
+          </div>
+        )}
+        {marksText && (
+          <div className="text-right mt-2">
+            <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">{marksText}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Answer section */}
+      {answerParts.length > 0 && (
+        <div className="mt-4">
+          <h5 className="text-base font-bold text-foreground mb-3">Answer</h5>
+          <div className="text-emerald-700 dark:text-emerald-400 [&>p]:mb-2 [&>p:last-child]:mb-0 [&_strong]:font-bold">
+            {answerParts}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function MarkdownRenderer({ content, className, hasLatex = false }: MarkdownRendererProps) {
@@ -73,35 +227,33 @@ export function MarkdownRenderer({ content, className, hasLatex = false }: Markd
   return (
     <div className={cn(
       'prose prose-slate dark:prose-invert max-w-none',
-      // Headings - clear hierarchy with proper spacing
+      // Headings - SaveMyExams style: clear hierarchy, bold, well-spaced
       'prose-headings:font-bold prose-headings:text-foreground prose-headings:scroll-mt-20',
-      'prose-h1:text-2xl prose-h1:sm:text-3xl prose-h1:border-b prose-h1:border-border prose-h1:pb-3 prose-h1:mb-6 prose-h1:mt-0',
-      'prose-h2:text-xl prose-h2:sm:text-2xl prose-h2:mt-10 prose-h2:mb-4 prose-h2:text-primary/90 prose-h2:border-l-4 prose-h2:border-primary prose-h2:pl-4',
+      'prose-h1:text-3xl prose-h1:sm:text-4xl prose-h1:mb-6 prose-h1:mt-0 prose-h1:leading-tight',
+      'prose-h2:text-xl prose-h2:sm:text-2xl prose-h2:mt-12 prose-h2:mb-4 prose-h2:font-bold',
       'prose-h3:text-lg prose-h3:sm:text-xl prose-h3:mt-8 prose-h3:mb-3 prose-h3:font-semibold',
       'prose-h4:text-base prose-h4:sm:text-lg prose-h4:mt-6 prose-h4:mb-2 prose-h4:font-semibold',
-      // Paragraphs - optimal reading experience
-      'prose-p:text-base prose-p:leading-relaxed prose-p:mb-4 prose-p:text-foreground/90',
-      // Lists - well-spaced and readable
+      // Paragraphs
+      'prose-p:text-base prose-p:leading-[1.8] prose-p:mb-4 prose-p:text-foreground/90',
+      // Lists - well-spaced like SaveMyExams/ZNotes
       'prose-ul:my-4 prose-ul:pl-6 prose-ol:my-4 prose-ol:pl-6',
-      'prose-li:my-2 prose-li:leading-relaxed',
+      'prose-li:my-1.5 prose-li:leading-[1.8]',
       'prose-ul:list-disc prose-ol:list-decimal',
-      // Code - clear distinction
+      // Code
       'prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-code:font-mono prose-code:before:content-none prose-code:after:content-none',
       'prose-pre:bg-muted prose-pre:border prose-pre:rounded-lg prose-pre:overflow-x-auto',
-      // Blockquotes - highlight important info
-      'prose-blockquote:border-l-4 prose-blockquote:border-primary prose-blockquote:bg-primary/5 prose-blockquote:py-2 prose-blockquote:px-4 prose-blockquote:rounded-r-lg prose-blockquote:not-italic prose-blockquote:text-foreground/80',
-      // Tables - clean and readable
-      'prose-table:border prose-table:border-border prose-table:rounded-lg prose-table:overflow-hidden',
-      'prose-th:bg-muted prose-th:px-4 prose-th:py-3 prose-th:border prose-th:border-border prose-th:font-semibold prose-th:text-left',
-      'prose-td:px-4 prose-td:py-3 prose-td:border prose-td:border-border',
-      // Images
-      'prose-img:rounded-lg prose-img:shadow-md prose-img:mx-auto',
+      // Tables - clean bordered like SaveMyExams
+      'prose-table:border-collapse prose-table:w-full',
+      'prose-th:bg-muted prose-th:px-4 prose-th:py-3 prose-th:border prose-th:border-border prose-th:font-semibold prose-th:text-center',
+      'prose-td:px-4 prose-td:py-3 prose-td:border prose-td:border-border prose-td:text-center',
+      // Images - centered with shadow
+      'prose-img:rounded-lg prose-img:shadow-md prose-img:mx-auto prose-img:my-2',
       // Links
       'prose-a:text-primary prose-a:font-medium prose-a:no-underline hover:prose-a:underline',
-      // Strong/Bold - emphasis
+      // Strong/Bold - prominent like SaveMyExams
       'prose-strong:text-foreground prose-strong:font-bold',
-      // HR - section divider
-      'prose-hr:border-border prose-hr:my-8',
+      // HR
+      'prose-hr:border-border prose-hr:my-10',
       className
     )}>
       <ReactMarkdown
@@ -126,42 +278,124 @@ export function MarkdownRenderer({ content, className, hasLatex = false }: Markd
           ),
           // Custom table wrapper for horizontal scroll on mobile
           table: ({ node, children, ...props }) => (
-            <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
-              <table {...props}>{children}</table>
+            <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 my-6">
+              <table className="border border-border rounded-lg overflow-hidden" {...props}>{children}</table>
             </div>
           ),
-          // Custom image with lazy loading
+          // Custom image with figure/caption support
           img: ({ node, src, alt, ...props }) => (
-            <img
-              src={src}
-              alt={alt || ''}
-              loading="lazy"
-              className="max-w-full h-auto"
-              {...props}
-            />
+            <figure className="my-6 text-center not-prose">
+              <img
+                src={src}
+                alt={alt || ''}
+                loading="lazy"
+                className="max-w-full h-auto rounded-lg shadow-md mx-auto"
+                {...props}
+              />
+              {alt && alt !== '' && !alt.startsWith('http') && (
+                <figcaption className="mt-2 text-sm text-muted-foreground italic">
+                  {alt}
+                </figcaption>
+              )}
+            </figure>
           ),
+          // Italic paragraph after image = figure caption
+          em: ({ node, children, ...props }) => {
+            const text = extractText(children);
+            // Check if this is a standalone caption (starts with Figure or is right after an image)
+            if (text.startsWith('Figure ') || text.startsWith('Caption:')) {
+              return (
+                <span className="block text-center text-sm text-muted-foreground mt-[-0.5rem] mb-4" {...props}>
+                  {children}
+                </span>
+              );
+            }
+            return <em {...props}>{children}</em>;
+          },
           // Custom code block
-          code: ({ node, inline, className, children, ...props }: any) => {
+          code: ({ node, inline, className: codeClassName, children, ...props }: any) => {
             if (inline) {
               return (
-                <code className={className} {...props}>
+                <code className={codeClassName} {...props}>
                   {children}
                 </code>
               );
             }
             return (
-              <code className={cn(className, 'block overflow-x-auto')} {...props}>
+              <code className={cn(codeClassName, 'block overflow-x-auto')} {...props}>
                 {children}
               </code>
             );
           },
-          // Custom blockquote with icon
-          blockquote: ({ node, children, ...props }) => (
-            <blockquote className="relative" {...props}>
-              <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-full" />
-              {children}
-            </blockquote>
-          )
+          // Smart blockquote: detect callout type or render default
+          blockquote: ({ node, children, ...props }) => {
+            const callout = getCalloutType(children);
+
+            if (callout) {
+              // Special Worked Example rendering (SaveMyExams style)
+              if (callout.isWorkedExample) {
+                return (
+                  <div className={cn(
+                    'not-prose my-8 border-l-4 rounded-r-xl overflow-hidden shadow-sm',
+                    callout.borderColor,
+                    callout.bgColor
+                  )}>
+                    {/* Header with icon badge */}
+                    <div className="px-5 pt-5 pb-3">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className={cn('w-10 h-10 rounded-full flex items-center justify-center', callout.iconBg)}>
+                          {callout.icon}
+                        </div>
+                        <h4 className="text-xl font-bold text-foreground">Worked Example</h4>
+                      </div>
+                      {/* Content: question, marks, answer rendered with special styling */}
+                      <div className={cn(
+                        'text-base leading-relaxed',
+                        callout.textColor,
+                        // Style "Answer" heading
+                        '[&>p]:mb-3 [&>p:last-child]:mb-0',
+                        // Make marks badge float right
+                        '[&_strong]:font-bold',
+                        // Green answer text for lines after "Answer"
+                        '[&_.answer-text]:text-emerald-700 [&_.answer-text]:dark:text-emerald-400'
+                      )}>
+                        <WorkedExampleContent>{children}</WorkedExampleContent>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              // Standard callout box (Exam Tip, Key Definition, etc.)
+              return (
+                <div className={cn(
+                  'not-prose my-6 border-l-4 rounded-r-lg p-4',
+                  callout.borderColor,
+                  callout.bgColor,
+                  callout.textColor
+                )}>
+                  <div className="flex items-start gap-3">
+                    <div className={cn('w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0', callout.iconBg)}>
+                      {callout.icon}
+                    </div>
+                    <div className="flex-1 text-sm leading-relaxed [&>p]:mb-2 [&>p:last-child]:mb-0 [&_strong]:font-bold">
+                      {children}
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
+            // Default blockquote
+            return (
+              <blockquote
+                className="border-l-4 border-primary/40 bg-primary/5 dark:bg-primary/10 py-2 px-4 rounded-r-lg not-italic text-foreground/80"
+                {...props}
+              >
+                {children}
+              </blockquote>
+            );
+          }
         }}
       >
         {content}
@@ -175,13 +409,104 @@ function generateId(children: React.ReactNode): string {
   const text = React.Children.toArray(children)
     .map(child => {
       if (typeof child === 'string') return child;
-      if (React.isValidElement(child) && child.props.children) {
-        return generateId(child.props.children);
+      if (React.isValidElement(child)) {
+        const props = child.props as { children?: React.ReactNode };
+        if (props.children) return generateId(props.children);
       }
       return '';
     })
     .join('');
   
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim();
+}
+
+// Split markdown into sections at ## headings, render each in its own card
+function splitMarkdownIntoSections(content: string): { title: string | null; body: string }[] {
+  const lines = content.split('\n');
+  const sections: { title: string | null; body: string }[] = [];
+  let currentTitle: string | null = null;
+  let currentLines: string[] = [];
+  let hasIntro = false;
+
+  for (const line of lines) {
+    // Match ## headings (not # or ###)
+    const h2Match = line.match(/^## (.+)$/);
+    if (h2Match) {
+      // Save previous section
+      const bodyText = currentLines.join('\n').trim();
+      if (bodyText || currentTitle) {
+        sections.push({ title: currentTitle, body: bodyText });
+      } else if (currentLines.length === 0 && !currentTitle && !hasIntro) {
+        // Skip empty intro
+      }
+      currentTitle = h2Match[1];
+      currentLines = [];
+      hasIntro = true;
+    } else {
+      currentLines.push(line);
+    }
+  }
+
+  // Push the last section
+  const bodyText = currentLines.join('\n').trim();
+  if (bodyText || currentTitle) {
+    sections.push({ title: currentTitle, body: bodyText });
+  }
+
+  return sections;
+}
+
+interface SplitCardRendererProps {
+  content: string;
+  className?: string;
+  hasLatex?: boolean;
+  noteTitle?: string;
+}
+
+export function SplitCardRenderer({ content, className, hasLatex = false, noteTitle }: SplitCardRendererProps) {
+  const sections = useMemo(() => splitMarkdownIntoSections(content), [content]);
+
+  // If there's only one section (no ## headings), render normally without cards
+  if (sections.length <= 1) {
+    return (
+      <div className={cn('bg-card rounded-2xl border shadow-sm p-6 sm:p-8', className)}>
+        <MarkdownRenderer content={content} hasLatex={hasLatex} />
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn('space-y-6', className)}>
+      {sections.map((section, index) => (
+        <div
+          key={index}
+          className="bg-card rounded-2xl border shadow-sm p-6 sm:p-8 scroll-mt-20"
+          id={section.title ? generateIdFromString(section.title) : undefined}
+        >
+          {section.title && (
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-4">
+              {section.title}
+            </h2>
+          )}
+          {section.body && (
+            <MarkdownRenderer
+              content={section.body}
+              hasLatex={hasLatex}
+            />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Helper to generate heading IDs from plain strings (for SplitCardRenderer)
+function generateIdFromString(text: string): string {
   return text
     .toLowerCase()
     .replace(/[^a-z0-9\s-]/g, '')

@@ -10,7 +10,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   ArrowLeft,
   Save,
@@ -36,7 +35,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { MarkdownRenderer } from '@/components/notes/markdown-renderer';
+import { MarkdownEditor } from '@/components/notes/markdown-editor';
 import Link from 'next/link';
 import type { Note } from '@/types/notes';
 
@@ -73,7 +72,6 @@ export function NoteEditor({ noteId }: NoteEditorProps) {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [examBoards, setExamBoards] = useState<ExamBoard[]>([]);
-  const [activeTab, setActiveTab] = useState('edit');
 
   // Form state
   const [form, setForm] = useState({
@@ -370,60 +368,22 @@ export function NoteEditor({ noteId }: NoteEditorProps) {
           {/* Content Editor */}
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Content
-                </CardTitle>
-                <Tabs value={activeTab} onValueChange={setActiveTab}>
-                  <TabsList>
-                    <TabsTrigger value="edit">Edit</TabsTrigger>
-                    <TabsTrigger value="preview">Preview</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </div>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Content
+              </CardTitle>
               <CardDescription>
-                Write your note content using Markdown. LaTeX math is supported with $ or $$.
+                Write your note content using Markdown. Supports images, tables, LaTeX ($), and callout boxes.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {activeTab === 'edit' ? (
-                <Textarea
-                  placeholder="# Introduction
-
-Write your note content here using Markdown...
-
-## Key Concepts
-
-- Point 1
-- Point 2
-
-## Mathematical Formulas
-
-Use LaTeX: $E = mc^2$
-
-Or block equations:
-$$
-\int_0^\infty e^{-x^2} dx = \frac{\sqrt{\pi}}{2}
-$$"
-                  value={form.content_md}
-                  onChange={(e) => handleContentChange(e.target.value)}
-                  className="min-h-[500px] font-mono text-sm"
-                />
-              ) : (
-                <div className="min-h-[500px] border rounded-lg p-6 bg-background overflow-auto">
-                  {form.content_md ? (
-                    <MarkdownRenderer 
-                      content={form.content_md} 
-                      hasLatex={form.has_latex}
-                    />
-                  ) : (
-                    <p className="text-muted-foreground text-center py-12">
-                      No content to preview
-                    </p>
-                  )}
-                </div>
-              )}
+              <MarkdownEditor
+                value={form.content_md}
+                onChange={handleContentChange}
+                hasLatex={form.has_latex}
+                imageFolder={form.slug || 'draft'}
+                minHeight="500px"
+              />
             </CardContent>
           </Card>
         </div>

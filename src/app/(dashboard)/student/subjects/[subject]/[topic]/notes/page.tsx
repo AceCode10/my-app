@@ -2,23 +2,21 @@
 
 import { useMemo, useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { ChevronRight, Download, Loader2, Info, Bookmark, Share2, ArrowLeft, PanelLeft } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Download, Loader2, Info, Bookmark, Share2, ArrowLeft, PanelLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useUser } from '@/hooks/use-user';
 import { createClient } from '@/lib/supabase/client';
-import type { Note } from '@/types';
+import type { Note } from '@/types/notes';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 import { allSubjects } from '@/lib/subjects';
 import { format } from 'date-fns';
-import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { FullscreenNotesViewer } from '@/components/notes/fullscreen-notes-viewer';
+import { SplitCardRenderer } from '@/components/notes/markdown-renderer';
 
 export default function NotesPage({
   params,
@@ -42,6 +40,12 @@ export default function NotesPage({
   const [savedNoteIds, setSavedNoteIds] = useState<string[]>([]);
 
   const isNoteSaved = useMemo(() => savedNoteIds.includes(noteData?.id || ''), [savedNoteIds, noteData]);
+
+  // Compute prev/next topics for navigation
+  const topics = subjectData?.topics || [];
+  const currentTopicIndex = topics.findIndex(t => t.name.toLowerCase().replace(/ /g, '-') === topicSlug);
+  const prevTopic = currentTopicIndex > 0 ? topics[currentTopicIndex - 1] : null;
+  const nextTopic = currentTopicIndex < topics.length - 1 ? topics[currentTopicIndex + 1] : null;
 
   useEffect(() => {
     async function fetchNote() {
@@ -98,23 +102,45 @@ export default function NotesPage({
     setIsPdfLoading(true);
 
     try {
-      const canvas = await html2canvas(noteContentRef.current, {
+      const html2canvas = (await import('html2canvas')).default;
+      const { jsPDF } = await import('jspdf');
+
+      const element = noteContentRef.current;
+      const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
-        windowWidth: noteContentRef.current.scrollWidth,
-        windowHeight: noteContentRef.current.scrollHeight
+        logging: false,
+        windowWidth: element.scrollWidth,
       });
-      const imgData = canvas.toDataURL('image/png');
-      
-      const pdf = new jsPDF({
-        orientation: 'p',
-        unit: 'px',
-        format: [canvas.width, canvas.height]
-      });
-      
-      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
-      pdf.save(`${topicSlug}-revision-note.pdf`);
 
+      const a4Width = 595;
+      const a4Height = 842;
+      const margin = 40;
+      const contentWidth = a4Width - margin * 2;
+      const ratio = contentWidth / canvas.width;
+      const scaledHeight = canvas.height * ratio;
+
+      const pdf = new jsPDF('p', 'pt', 'a4');
+      const pageContentHeight = a4Height - margin * 2;
+      let yOffset = 0;
+      let pageNum = 0;
+
+      while (yOffset < scaledHeight) {
+        if (pageNum > 0) pdf.addPage();
+        pdf.addImage(
+          canvas.toDataURL('image/png'),
+          'PNG',
+          margin,
+          margin - yOffset,
+          contentWidth,
+          scaledHeight
+        );
+        yOffset += pageContentHeight;
+        pageNum++;
+      }
+
+      pdf.save(`${topicSlug}-revision-note.pdf`);
+      toast({ title: 'PDF Downloaded', description: 'Your revision notes have been saved as a PDF.' });
     } catch (error) {
       console.error("Error generating PDF:", error);
       toast({
@@ -202,7 +228,7 @@ export default function NotesPage({
       );
     }
     
-    if (!noteData?.rendered_html) {
+    if (!noteData?.content_md && !noteData?.rendered_html) {
       return (
         <Alert>
           <Info className="h-4 w-4" />
@@ -215,11 +241,21 @@ export default function NotesPage({
     }
 
     return (
-      <div 
-        ref={noteContentRef}
-        className="prose dark:prose-invert max-w-none prose-headings:font-bold prose-headings:text-foreground prose-h2:text-2xl prose-h3:text-xl"
-        dangerouslySetInnerHTML={{ __html: noteData.rendered_html }}
-      />
+      <div ref={noteContentRef}>
+        {noteData?.content_md ? (
+          <SplitCardRenderer
+            content={noteData.content_md}
+            hasLatex={noteData.has_latex || false}
+          />
+        ) : noteData?.rendered_html ? (
+          <div className="bg-card rounded-2xl border shadow-sm p-6 sm:p-8">
+            <div 
+              className="prose dark:prose-invert max-w-none prose-headings:font-bold prose-headings:text-foreground prose-h2:text-2xl prose-h3:text-xl"
+              dangerouslySetInnerHTML={{ __html: noteData.rendered_html }}
+            />
+          </div>
+        ) : null}
+      </div>
     );
   }
 
@@ -277,9 +313,10 @@ export default function NotesPage({
             </Collapsible>
           </aside>
 
-          <main className="lg:col-span-3">
+          <main className="lg:col-span-3 space-y-6">
+            {/* Header card with title and actions */}
             <div className="bg-card p-6 sm:p-8 rounded-2xl shadow-sm border">
-              <div className="mb-6">
+              <div className="mb-4">
                 <h1 className="text-3xl sm:text-4xl font-extrabold text-foreground mb-2 capitalize">
                   {noteData?.title || `${topicName}`}
                 </h1>
@@ -287,8 +324,8 @@ export default function NotesPage({
                 {noteData?.updated_at && <p className="text-xs text-muted-foreground mt-2">Last updated: {format(new Date(noteData.updated_at), 'PPP')}</p>}
               </div>
               
-              <div className="flex items-center gap-2 mb-6">
-                <Button onClick={handleDownloadPdf} disabled={isPdfLoading || !noteData?.rendered_html}>
+              <div className="flex items-center gap-2">
+                <Button onClick={handleDownloadPdf} disabled={isPdfLoading || (!noteData?.content_md && !noteData?.rendered_html)}>
                   {isPdfLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Download className="mr-2 h-4 w-4" />}
                   Download PDF
                 </Button>
@@ -298,12 +335,45 @@ export default function NotesPage({
                 </Button>
                 <Button variant="outline" onClick={handleShare}><Share2 className="mr-2 h-4 w-4"/>Share</Button>
               </div>
+            </div>
 
-              <Separator />
-              
-              <div className="mt-6">
-                {renderContent()}
-              </div>
+            {/* Note content - split into cards at ## headings */}
+            {renderContent()}
+
+            {/* Previous / Next Topic Navigation */}
+            <div className="flex items-center justify-between mt-8 gap-4">
+              {prevTopic ? (
+                <Button variant="outline" asChild className="flex-1 sm:flex-none">
+                  <Link href={`/student/subjects/${subjectSlug}/${prevTopic.name.toLowerCase().replace(/ /g, '-')}/notes`}>
+                    <ChevronLeft className="w-4 h-4 mr-2" />
+                    <div className="text-left">
+                      <div className="text-xs text-muted-foreground">Previous</div>
+                      <div className="text-sm font-medium truncate max-w-[150px]">{prevTopic.name}</div>
+                    </div>
+                  </Link>
+                </Button>
+              ) : (
+                <Button variant="outline" asChild>
+                  <Link href={`/student/subjects/${subjectSlug}`}>
+                    <ChevronLeft className="w-4 h-4 mr-2" />
+                    All Topics
+                  </Link>
+                </Button>
+              )}
+
+              {nextTopic ? (
+                <Button variant="outline" asChild className="flex-1 sm:flex-none">
+                  <Link href={`/student/subjects/${subjectSlug}/${nextTopic.name.toLowerCase().replace(/ /g, '-')}/notes`}>
+                    <div className="text-right">
+                      <div className="text-xs text-muted-foreground">Next</div>
+                      <div className="text-sm font-medium truncate max-w-[150px]">{nextTopic.name}</div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 ml-2" />
+                  </Link>
+                </Button>
+              ) : (
+                <div />
+              )}
             </div>
           </main>
         </div>

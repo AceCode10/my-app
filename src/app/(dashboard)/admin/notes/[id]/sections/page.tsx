@@ -10,7 +10,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   ArrowLeft,
   Save,
@@ -51,7 +50,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { MarkdownRenderer } from '@/components/notes/markdown-renderer';
+import { MarkdownEditor } from '@/components/notes/markdown-editor';
 import Link from 'next/link';
 import type { Note, NoteSection } from '@/types/notes';
 
@@ -84,7 +83,6 @@ export default function NoteSectionsPage({ params }: { params: Promise<{ id: str
     estimated_read_time: 2
   });
 
-  const [activeTab, setActiveTab] = useState('edit');
 
   useEffect(() => {
     fetchData();
@@ -167,7 +165,6 @@ export default function NoteSectionsPage({ params }: { params: Promise<{ id: str
       has_latex: false,
       estimated_read_time: 2
     });
-    setActiveTab('edit');
     setIsDialogOpen(true);
   };
 
@@ -182,7 +179,6 @@ export default function NoteSectionsPage({ params }: { params: Promise<{ id: str
       has_latex: section.has_latex,
       estimated_read_time: section.estimated_read_time
     });
-    setActiveTab('edit');
     setIsDialogOpen(true);
   };
 
@@ -515,36 +511,14 @@ export default function NoteSectionsPage({ params }: { params: Promise<{ id: str
 
             {/* Content */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label>Content</Label>
-                <Tabs value={activeTab} onValueChange={setActiveTab}>
-                  <TabsList className="h-8">
-                    <TabsTrigger value="edit" className="text-xs">Edit</TabsTrigger>
-                    <TabsTrigger value="preview" className="text-xs">Preview</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </div>
-              {activeTab === 'edit' ? (
-                <Textarea
-                  placeholder="Write section content in Markdown..."
-                  value={form.content_md}
-                  onChange={(e) => handleContentChange(e.target.value)}
-                  className="min-h-[300px] font-mono text-sm"
-                />
-              ) : (
-                <div className="min-h-[300px] border rounded-lg p-4 bg-background overflow-auto">
-                  {form.content_md ? (
-                    <MarkdownRenderer 
-                      content={form.content_md} 
-                      hasLatex={form.has_latex}
-                    />
-                  ) : (
-                    <p className="text-muted-foreground text-center py-12">
-                      No content to preview
-                    </p>
-                  )}
-                </div>
-              )}
+              <Label>Content</Label>
+              <MarkdownEditor
+                value={form.content_md}
+                onChange={handleContentChange}
+                hasLatex={form.has_latex}
+                imageFolder={note?.slug || 'sections'}
+                minHeight="300px"
+              />
             </div>
 
             {/* Options */}
