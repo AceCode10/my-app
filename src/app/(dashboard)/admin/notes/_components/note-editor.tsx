@@ -397,6 +397,25 @@ export function NoteEditor({ noteId }: NoteEditorProps) {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
+                <Label>Exam Board</Label>
+                <Select
+                  value={form.exam_board_id}
+                  onValueChange={(value) => setForm(prev => ({ ...prev, exam_board_id: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select exam board" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {examBoards.map(board => (
+                      <SelectItem key={board.id} value={board.id}>
+                        {board.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
                 <Label>Subject</Label>
                 <Select
                   value={form.subject_id}
@@ -429,25 +448,6 @@ export function NoteEditor({ noteId }: NoteEditorProps) {
                     {topics.map(topic => (
                       <SelectItem key={topic.id} value={topic.id}>
                         {topic.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Exam Board</Label>
-                <Select
-                  value={form.exam_board_id}
-                  onValueChange={(value) => setForm(prev => ({ ...prev, exam_board_id: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select exam board" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {examBoards.map(board => (
-                      <SelectItem key={board.id} value={board.id}>
-                        {board.name}
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { ChevronRight, ChevronLeft, Download, Loader2, Info, Bookmark, Share2, ArrowLeft, PanelLeft } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Download, Loader2, Info, Bookmark, Share2, ArrowLeft, PanelLeft, PanelLeftClose } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -38,6 +38,7 @@ export default function NotesPage({
   const [isPdfLoading, setIsPdfLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [savedNoteIds, setSavedNoteIds] = useState<string[]>([]);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const isNoteSaved = useMemo(() => savedNoteIds.includes(noteData?.id || ''), [savedNoteIds, noteData]);
 
@@ -270,25 +271,29 @@ export default function NotesPage({
           <span className="font-medium text-foreground capitalize truncate">{topicName}</span>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
-          <aside className="lg:col-span-1 bg-card p-4 rounded-2xl shadow-sm border sticky top-24">
-            <Collapsible defaultOpen={true}>
-              <div className="flex items-center justify-between mb-2">
-                <Button variant="ghost" className="w-full justify-start" asChild>
-                  <Link href={`/student/subjects/${subjectSlug}`}>
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back to {subjectData.name}
-                  </Link>
-                </Button>
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" size="icon" className="p-2 lg:hidden">
-                    <PanelLeft className="h-5 w-5"/>
-                    <span className="sr-only">Toggle topic list</span>
+        <div className="flex gap-8 items-start">
+          {/* Desktop sidebar - collapsible */}
+          <aside className={cn(
+            "hidden lg:block flex-shrink-0 transition-all duration-300",
+            sidebarCollapsed ? "w-0" : "w-64"
+          )}>
+            {!sidebarCollapsed && (
+              <div className="bg-card p-4 rounded-2xl shadow-sm border sticky top-24">
+                <div className="flex items-center justify-between mb-2">
+                  <Button variant="ghost" className="flex-1 justify-start" asChild>
+                    <Link href={`/student/subjects/${subjectSlug}`}>
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Back to {subjectData.name}
+                    </Link>
                   </Button>
-                </CollapsibleTrigger>
-              </div>
-              
-              <CollapsibleContent>
+                  <button
+                    onClick={() => setSidebarCollapsed(true)}
+                    className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    title="Hide sidebar"
+                  >
+                    <PanelLeftClose className="h-4 w-4" />
+                  </button>
+                </div>
                 <h3 className="font-bold text-lg text-foreground px-2 mb-2 mt-2">Topics</h3>
                 <nav className="flex flex-col space-y-1">
                   {subjectData.topics?.map(t => {
@@ -309,11 +314,58 @@ export default function NotesPage({
                     )
                   })}
                 </nav>
-              </CollapsibleContent>
-            </Collapsible>
+              </div>
+            )}
           </aside>
 
-          <main className="lg:col-span-3 space-y-6">
+          {/* Mobile sidebar */}
+          <div className="lg:hidden mb-4">
+            <Collapsible defaultOpen={false}>
+              <CollapsibleTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <PanelLeft className="h-4 w-4 mr-2" />
+                  Show Topics
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-3">
+                <div className="bg-card p-4 rounded-2xl shadow-sm border">
+                  <nav className="flex flex-col space-y-1">
+                    {subjectData.topics?.map(t => {
+                      const currentTopicSlug = t.name.toLowerCase().replace(/ /g, '-');
+                      const href = `/student/subjects/${subjectSlug}/${currentTopicSlug}/notes`;
+                      const isActive = pathname === href;
+                      return (
+                        <Link href={href} key={t.name}>
+                          <div className={cn(
+                            "p-2 rounded-md text-sm font-medium transition-colors",
+                            isActive 
+                              ? "bg-primary/10 text-primary"
+                              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                          )}>
+                            {t.name}
+                          </div>
+                        </Link>
+                      )
+                    })}
+                  </nav>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+
+          <main className="flex-1 min-w-0 space-y-6">
+            {/* Desktop: show sidebar button when collapsed */}
+            {sidebarCollapsed && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSidebarCollapsed(false)}
+                className="hidden lg:flex mb-2"
+              >
+                <PanelLeft className="h-4 w-4 mr-2" />
+                Show Topics
+              </Button>
+            )}
             {/* Header card with title and actions */}
             <div className="bg-card p-6 sm:p-8 rounded-2xl shadow-sm border">
               <div className="mb-4">

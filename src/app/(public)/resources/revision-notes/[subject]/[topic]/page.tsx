@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef, use } from 'react';
 import Link from 'next/link';
-import { ChevronRight, ChevronLeft, BookOpen, Download, Share2, Bookmark, BookmarkCheck, Loader2, Menu } from 'lucide-react';
+import { ChevronRight, ChevronLeft, ChevronDown, BookOpen, Download, Share2, Bookmark, BookmarkCheck, Loader2, Menu, PanelLeftClose, PanelLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -37,6 +37,8 @@ interface Topic {
   name: string;
   slug: string;
   description?: string;
+  parent_topic_id?: string | null;
+  display_order?: number;
 }
 
 interface Subject {
@@ -68,6 +70,8 @@ export default function TopicNotesPage({
   const [isSaved, setIsSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
 
   // Find adjacent topics for prev/next navigation
   const currentTopicIndex = allTopics.findIndex(t => t.slug === topicSlug);
@@ -107,14 +111,22 @@ export default function TopicNotesPage({
       }
       setTopic(topicData);
 
-      // Fetch all topics for this subject (for sidebar navigation)
+      // Fetch all topics for this subject (for sidebar navigation) including parent_topic_id
       const { data: allTopicsData } = await supabase
         .from('topics')
-        .select('id, name, slug, display_order')
+        .select('id, name, slug, display_order, parent_topic_id')
         .eq('subject_id', subjectData.id)
         .order('display_order', { ascending: true });
 
       setAllTopics(allTopicsData || []);
+
+      // Auto-expand the parent topic that contains the current topic
+      if (allTopicsData && topicData) {
+        const currentTopic = allTopicsData.find((t: Topic) => t.id === topicData.id);
+        if (currentTopic?.parent_topic_id) {
+          setExpandedTopics(prev => new Set([...prev, currentTopic.parent_topic_id!]));
+        }
+      }
 
       // Fetch notes for this topic
       const { data: notesData, error: notesError } = await supabase
@@ -250,36 +262,120 @@ export default function TopicNotesPage({
     });
   };
 
+  // Toggle expand/collapse for parent topics
+  const toggleTopicExpand = (topicId: string) => {
+    setExpandedTopics(prev => {
+      const next = new Set(prev);
+      if (next.has(topicId)) {
+        next.delete(topicId);
+      } else {
+        next.add(topicId);
+      }
+      return next;
+    });
+  };
+
+  // Build hierarchical topic tree
+  const parentTopics = allTopics.filter(t => !t.parent_topic_id);
+  const getChildren = (parentId: string) => allTopics.filter(t => t.parent_topic_id === parentId);
+
   // Topic sidebar component (reused for desktop & mobile)
-  const TopicSidebar = ({ onNavigate }: { onNavigate?: () => void }) => (
+  const TopicSidebar = ({ onNavigate, showCollapseButton = false }: { onNavigate?: () => void; showCollapseButton?: boolean }) => (
     <div className="flex flex-col h-full">
       <div className="p-4 border-b">
-        <Link 
-          href={`/resources/revision-notes/${subjectSlug}`}
-          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          {subject?.name || 'Back'}
-        </Link>
+        <div className="flex items-center justify-between">
+          <Link 
+            href={`/resources/revision-notes/${subjectSlug}`}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            {subject?.name || 'Back'}
+          </Link>
+          {showCollapseButton && (
+            <button
+              onClick={() => setSidebarCollapsed(true)}
+              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Hide sidebar"
+            >
+              <PanelLeftClose className="h-4 w-4" />
+            </button>
+          )}
+        </div>
         <h3 className="font-semibold text-foreground mt-2">Topics</h3>
       </div>
       <ScrollArea className="flex-1">
         <nav className="p-2 space-y-0.5">
-          {allTopics.map((t) => (
-            <Link
-              key={t.id}
-              href={`/resources/revision-notes/${subjectSlug}/${t.slug}`}
-              onClick={onNavigate}
-              className={cn(
-                "block px-3 py-2.5 text-sm rounded-lg transition-colors",
-                t.slug === topicSlug 
-                  ? "bg-primary/10 text-primary font-medium border-l-3 border-primary" 
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
-              {t.name}
-            </Link>
-          ))}
+          {parentTopics.map((t) => {
+            const children = getChildren(t.id);
+            const isExpanded = expandedTopics.has(t.id);
+            const isParentWithChildren = children.length > 0;
+            const isActive = t.slug === topicSlug;
+            const hasActiveChild = children.some(c => c.slug === topicSlug);
+
+            return (
+              <div key={t.id}>
+                {/* Parent topic row */}
+                <div className="flex items-center">
+                  {isParentWithChildren ? (
+                    <>
+                      {/* Expand/collapse button */}
+                      <button
+                        onClick={() => toggleTopicExpand(t.id)}
+                        className={cn(
+                          "flex items-center gap-2 flex-1 px-3 py-2.5 text-sm rounded-lg transition-colors text-left",
+                          isActive
+                            ? "bg-primary/10 text-primary font-medium"
+                            : hasActiveChild
+                            ? "text-foreground font-medium"
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        )}
+                      >
+                        <ChevronDown className={cn(
+                          "h-3.5 w-3.5 flex-shrink-0 transition-transform duration-200",
+                          !isExpanded && "-rotate-90"
+                        )} />
+                        <span className="flex-1">{t.name}</span>
+                      </button>
+                    </>
+                  ) : (
+                    <Link
+                      href={`/resources/revision-notes/${subjectSlug}/${t.slug}`}
+                      onClick={onNavigate}
+                      className={cn(
+                        "block w-full px-3 py-2.5 text-sm rounded-lg transition-colors",
+                        isActive
+                          ? "bg-primary/10 text-primary font-medium"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      )}
+                    >
+                      {t.name}
+                    </Link>
+                  )}
+                </div>
+
+                {/* Sub-topics (children) */}
+                {isParentWithChildren && isExpanded && (
+                  <div className="ml-4 pl-3 border-l-2 border-border space-y-0.5 mt-0.5 mb-1">
+                    {children.map((child) => (
+                      <Link
+                        key={child.id}
+                        href={`/resources/revision-notes/${subjectSlug}/${child.slug}`}
+                        onClick={onNavigate}
+                        className={cn(
+                          "block px-3 py-2 text-sm rounded-lg transition-colors",
+                          child.slug === topicSlug
+                            ? "bg-primary/10 text-primary font-medium"
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        )}
+                      >
+                        {child.name}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </nav>
       </ScrollArea>
     </div>
@@ -398,30 +494,50 @@ export default function TopicNotesPage({
       </div>
 
       <div className="flex gap-8">
-        {/* Desktop Sidebar */}
+        {/* Desktop Sidebar - collapsible */}
         {allTopics.length > 0 && (
-          <aside className="hidden lg:block w-64 flex-shrink-0">
-            <Card className="sticky top-24 max-h-[calc(100vh-8rem)] overflow-hidden flex flex-col">
-              <TopicSidebar />
-            </Card>
+          <aside className={cn(
+            "hidden lg:block flex-shrink-0 transition-all duration-300",
+            sidebarCollapsed ? "w-0" : "w-64"
+          )}>
+            {!sidebarCollapsed && (
+              <Card className="sticky top-24 max-h-[calc(100vh-8rem)] overflow-hidden flex flex-col">
+                <TopicSidebar showCollapseButton />
+              </Card>
+            )}
           </aside>
         )}
 
         {/* Main Content */}
         <main className="flex-1 min-w-0">
-          {/* Mobile sidebar trigger */}
-          <div className="lg:hidden mb-4">
-            <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-              <SheetTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Menu className="h-4 w-4 mr-2" />
-                  Show Topics
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="w-72 p-0">
-                <TopicSidebar onNavigate={() => setSidebarOpen(false)} />
-              </SheetContent>
-            </Sheet>
+          {/* Sidebar toggle + mobile trigger */}
+          <div className="flex items-center gap-2 mb-4">
+            {/* Desktop: show sidebar button when collapsed */}
+            {sidebarCollapsed && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSidebarCollapsed(false)}
+                className="hidden lg:flex"
+              >
+                <PanelLeft className="h-4 w-4 mr-2" />
+                Show Topics
+              </Button>
+            )}
+            {/* Mobile sidebar trigger */}
+            <div className="lg:hidden">
+              <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Menu className="h-4 w-4 mr-2" />
+                    Show Topics
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="left" className="w-72 p-0">
+                  <TopicSidebar onNavigate={() => setSidebarOpen(false)} />
+                </SheetContent>
+              </Sheet>
+            </div>
           </div>
 
           {selectedNote && (

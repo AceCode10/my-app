@@ -12,14 +12,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check admin
+    // Check admin or content moderator
     const { data: userData } = await supabaseAuth
       .from('users')
-      .select('is_admin')
+      .select('is_admin, role')
       .eq('id', user.id)
       .single();
 
-    if (!userData?.is_admin) {
+    const isAdminUser = userData?.is_admin === true || 
+      userData?.role === 'super_admin' || 
+      userData?.role === 'content_moderator';
+
+    if (!isAdminUser) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

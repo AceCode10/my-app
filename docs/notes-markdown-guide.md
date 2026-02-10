@@ -9,10 +9,16 @@ This guide explains how to write revision notes in Markdown so they render corre
 Notes are **automatically split into separate cards** at every `## Heading`. Each `## ` heading starts a new visual card/section on the page, creating the clean card-per-topic layout similar to ZNotes and SaveMyExams.
 
 **Key rules:**
-- `# Title` — Use for the main topic title (rendered at the top, large)
-- `## Section` — Each `## ` heading creates a **new card**. This is how you split content into visual sections.
+- `# Title` — Use for the main topic title (rendered at the top, very large)
+- `## Section` — Each `## ` heading creates a **new card**. This is how you split content into visual sections. The first `##` heading appears much larger (topic name).
 - `### Sub-heading` — Rendered inside the current card as a sub-section
 - `#### Sub-sub-heading` — Smaller heading inside the current card
+
+**Visual hierarchy:**
+- First `##` heading: `text-3xl sm:text-4xl` (much larger, centered)
+- Subsequent `##` headings: `text-xl sm:text-2xl` (standard section size)
+- `###` headings: `text-lg sm:text-xl`
+- `####` headings: `text-base sm:text-lg`
 
 **Example structure:**
 ```markdown
@@ -69,6 +75,40 @@ If your markdown has **no `## ` headings**, it renders as a single card.
 
 ---
 
+## Centered Content
+
+Wrap any content in `<center>` tags to center it:
+
+```markdown
+<center>
+
+### This heading is centered
+
+Some centered text here.
+
+</center>
+```
+
+This works for headings, paragraphs, images, or any content you want centered on the page.
+
+---
+
+## Keyword Highlighting
+
+Use `<mark>` tags to highlight important keywords with color emphasis:
+
+```markdown
+A <mark>NIC</mark> is needed to allow a device to connect to a <mark>network</mark>.
+```
+
+This renders the highlighted words with:
+- **Light mode**: Bold black text with light green background
+- **Dark mode**: Emerald green text with dark green background
+
+This provides color emphasis rather than yellow highlighting, making key terms stand out professionally.
+
+---
+
 ## Lists
 
 ### Bullet List
@@ -79,6 +119,8 @@ If your markdown has **no `## ` headings**, it renders as a single card.
   - Another nested item
 - Third item
 ```
+
+**Note:** Bullet lists use round bullets (•) not dashes (-), matching SaveMyExams style.
 
 ### Numbered List
 ```markdown
@@ -94,6 +136,8 @@ If your markdown has **no `## ` headings**, it renders as a single card.
 - **Asymmetric Encryption:** This encryption has a public key for the sender to encrypt and a private key for the recipient to decrypt.
 ```
 
+This format is perfect for definitions and key concepts, with the term in bold followed by its explanation.
+
 ---
 
 ## Images
@@ -104,9 +148,14 @@ Insert images using the toolbar's image upload button, or paste/drag-and-drop im
 ![Description of the image](https://your-image-url.com/image.png)
 ```
 
-The text inside `[...]` becomes a caption below the image. Leave it empty `![]()` for no caption.
+**Important notes about images:**
+- Images render **without captions** - the alt text is used for accessibility only
+- Images are automatically centered and have rounded corners with shadow
+- **You can paste images directly** (Ctrl+V) — they auto-upload to Supabase storage
+- **You can drag and drop** image files into the editor
+- Images are optimized for web and lazy-loaded for performance
 
-**You can also paste images directly** — the editor will upload them automatically and insert the markdown.
+No caption text will appear below images, keeping the layout clean and focused on the content.
 
 ---
 
@@ -120,6 +169,12 @@ The text inside `[...]` becomes a caption below the image. Leave it empty `![]()
 | Efficiency | Low | High |
 | Security | Low | Higher |
 ```
+
+**Table styling:**
+- Tables have clear borders with shaded headers
+- Responsive design - horizontal scroll on mobile
+- Clean, professional appearance matching SaveMyExams style
+- Left-aligned text for readability
 
 ---
 
@@ -244,6 +299,40 @@ This is the most complex callout. It renders with a green border, pencil icon, t
 
 ---
 
+## Styling Features & Best Practices
+
+### Typography & Spacing
+- **Line spacing**: Automatically set to 1.5x for better readability
+- **Font hierarchy**: Clear visual hierarchy with different heading sizes
+- **Responsive text**: Headings scale appropriately on mobile devices
+
+### Color Scheme
+- **Light mode**: Clean, professional appearance with subtle colors
+- **Dark mode**: Optimized contrast with emerald green accents for keywords
+- **Consistent styling**: Matches SaveMyExams/ZNotes aesthetic
+
+### Layout Tips
+- **Card-based design**: Each `##` heading creates a new visual card
+- **Mobile responsive**: Tables scroll horizontally on small screens
+- **Clean spacing**: Generous margins and padding for readability
+- **Professional appearance**: Subtle shadows, rounded corners, and borders
+
+### Content Organization
+1. **Start with a clear topic title** using `#` or first `##` heading
+2. **Use `##` headings** to break content into digestible cards
+3. **Include callout boxes** for important information
+4. **Add worked examples** with the special callout format
+5. **Use tables** for comparisons and structured data
+6. **Highlight keywords** with `<mark>` for emphasis
+
+### Accessibility
+- **Semantic HTML**: Proper heading structure (h1 → h2 → h3)
+- **Image alt text**: Always provide descriptive alt text for images
+- **Color contrast**: High contrast in both light and dark modes
+- **Screen reader friendly**: Proper markup for assistive technologies
+
+---
+
 ## Complete Example Note
 
 Here's a full example of how a topic note should be structured:
@@ -313,10 +402,13 @@ Here's a full example of how a topic note should be structured:
 
 **Tips:**
 - Make sure your content uses `## ` headings to split into cards
-- You can paste images directly (Ctrl+V) — they auto-upload
+- You can paste images directly (Ctrl+V) — they auto-upload without captions
 - You can drag and drop image files into the editor
 - The preview tab shows exactly how the note will look to students
 - Use the callout toolbar buttons to insert callout templates at the cursor position
+- Line spacing is automatically set to 1.5x for better readability
+- Use `<mark>` for keyword emphasis instead of yellow highlighting
+- Tables have professional borders and styling automatically applied
 
 ---
 

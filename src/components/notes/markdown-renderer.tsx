@@ -35,7 +35,9 @@ const sanitizeSchema = {
     'span',
     'div',
     'figure',
-    'figcaption'
+    'figcaption',
+    'mark',
+    'center'
   ],
   attributes: {
     ...defaultSchema.attributes,
@@ -230,22 +232,20 @@ export function MarkdownRenderer({ content, className, hasLatex = false }: Markd
       // Headings - SaveMyExams style: clear hierarchy, bold, well-spaced
       'prose-headings:font-bold prose-headings:text-foreground prose-headings:scroll-mt-20',
       'prose-h1:text-3xl prose-h1:sm:text-4xl prose-h1:mb-6 prose-h1:mt-0 prose-h1:leading-tight',
-      'prose-h2:text-xl prose-h2:sm:text-2xl prose-h2:mt-12 prose-h2:mb-4 prose-h2:font-bold',
-      'prose-h3:text-lg prose-h3:sm:text-xl prose-h3:mt-8 prose-h3:mb-3 prose-h3:font-semibold',
-      'prose-h4:text-base prose-h4:sm:text-lg prose-h4:mt-6 prose-h4:mb-2 prose-h4:font-semibold',
-      // Paragraphs
-      'prose-p:text-base prose-p:leading-[1.8] prose-p:mb-4 prose-p:text-foreground/90',
+      'prose-h2:text-xl prose-h2:sm:text-2xl prose-h2:mt-10 prose-h2:mb-5 prose-h2:font-bold',
+      'prose-h3:text-lg prose-h3:sm:text-xl prose-h3:mt-8 prose-h3:mb-4 prose-h3:font-semibold',
+      'prose-h4:text-base prose-h4:sm:text-lg prose-h4:mt-6 prose-h4:mb-3 prose-h4:font-semibold',
+      // Paragraphs - 1.5pt line spacing
+      'prose-p:text-base prose-p:leading-relaxed prose-p:mb-4 prose-p:text-foreground/90',
       // Lists - well-spaced like SaveMyExams/ZNotes
       'prose-ul:my-4 prose-ul:pl-6 prose-ol:my-4 prose-ol:pl-6',
-      'prose-li:my-1.5 prose-li:leading-[1.8]',
-      'prose-ul:list-disc prose-ol:list-decimal',
+      'prose-li:my-1.5 prose-li:leading-relaxed',
+      '[&_ul]:list-disc [&_ol]:list-decimal',
       // Code
       'prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-code:font-mono prose-code:before:content-none prose-code:after:content-none',
       'prose-pre:bg-muted prose-pre:border prose-pre:rounded-lg prose-pre:overflow-x-auto',
-      // Tables - clean bordered like SaveMyExams
-      'prose-table:border-collapse prose-table:w-full',
-      'prose-th:bg-muted prose-th:px-4 prose-th:py-3 prose-th:border prose-th:border-border prose-th:font-semibold prose-th:text-center',
-      'prose-td:px-4 prose-td:py-3 prose-td:border prose-td:border-border prose-td:text-center',
+      // Tables - handled via custom component below
+      'prose-table:w-full prose-table:my-6',
       // Images - centered with shadow
       'prose-img:rounded-lg prose-img:shadow-md prose-img:mx-auto prose-img:my-2',
       // Links
@@ -276,15 +276,73 @@ export function MarkdownRenderer({ content, className, hasLatex = false }: Markd
               {children}
             </h3>
           ),
-          // Custom table wrapper for horizontal scroll on mobile
+          // Custom table with clear borders and shaded header
           table: ({ node, children, ...props }) => (
-            <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 my-6">
-              <table className="border border-border rounded-lg overflow-hidden" {...props}>{children}</table>
+            <div className="not-prose overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 my-6">
+              <table
+                className="w-full text-sm [border:1px_solid_#cbd5e1] dark:[border:1px_solid_#475569]"
+                style={{ borderCollapse: 'collapse' }}
+                {...props}
+              >
+                {children}
+              </table>
             </div>
           ),
-          // Custom image with figure/caption support
+          thead: ({ node, children, ...props }: any) => (
+            <thead className="bg-slate-100 dark:bg-slate-800" {...(props as any)}>{children}</thead>
+          ),
+          th: ({ node, children, ...props }: any) => (
+            <th
+              className="px-4 py-3 font-semibold text-left text-foreground [border:1px_solid_#cbd5e1] dark:[border:1px_solid_#475569]"
+              {...(props as any)}
+            >
+              {children}
+            </th>
+          ),
+          td: ({ node, children, ...props }: any) => (
+            <td
+              className="px-4 py-3 text-left text-foreground/90 [border:1px_solid_#cbd5e1] dark:[border:1px_solid_#475569]"
+              {...(props as any)}
+            >
+              {children}
+            </td>
+          ),
+          // Keyword emphasis: emerald green (dark) / bold black (light)
+          mark: ({ node, children, ...props }: any) => (
+            <span
+              className="font-semibold text-black dark:text-emerald-400 bg-emerald-100/60 dark:bg-emerald-900/40 px-1 py-0.5 rounded-sm"
+              {...(props as any)}
+            >
+              {children}
+            </span>
+          ),
+          // Center tag support for centered headings/content
+          center: ({ node, children, ...props }: any) => (
+            <div className="text-center" {...(props as any)}>
+              {children}
+            </div>
+          ),
+          // Unordered list with round bullets
+          ul: ({ node, children, ordered, ...props }: any) => (
+            <ul className="my-4 pl-6" style={{ listStyleType: 'disc' }} {...(props as any)}>
+              {children}
+            </ul>
+          ),
+          // Ordered list
+          ol: ({ node, children, ordered, ...props }: any) => (
+            <ol className="my-4 pl-6" style={{ listStyleType: 'decimal' }} {...(props as any)}>
+              {children}
+            </ol>
+          ),
+          // List item with proper spacing
+          li: ({ node, children, ordered, ...props }: any) => (
+            <li className="my-1.5 leading-relaxed" style={{ display: 'list-item' }} {...(props as any)}>
+              {children}
+            </li>
+          ),
+          // Custom image - use span wrapper to avoid <figure> inside <p> hydration error
           img: ({ node, src, alt, ...props }) => (
-            <figure className="my-6 text-center not-prose">
+            <span className="block my-6 text-center not-prose">
               <img
                 src={src}
                 alt={alt || ''}
@@ -292,12 +350,7 @@ export function MarkdownRenderer({ content, className, hasLatex = false }: Markd
                 className="max-w-full h-auto rounded-lg shadow-md mx-auto"
                 {...props}
               />
-              {alt && alt !== '' && !alt.startsWith('http') && (
-                <figcaption className="mt-2 text-sm text-muted-foreground italic">
-                  {alt}
-                </figcaption>
-              )}
-            </figure>
+            </span>
           ),
           // Italic paragraph after image = figure caption
           em: ({ node, children, ...props }) => {
@@ -489,7 +542,10 @@ export function SplitCardRenderer({ content, className, hasLatex = false, noteTi
           id={section.title ? generateIdFromString(section.title) : undefined}
         >
           {section.title && (
-            <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-4">
+            <h2 className={cn(
+              "font-bold text-foreground",
+              index === 0 ? "text-3xl sm:text-4xl mb-6 text-center" : "text-xl sm:text-2xl mb-4"
+            )}>
               {section.title}
             </h2>
           )}
