@@ -271,9 +271,9 @@ export default function SubjectPastPapersPage({
   }
 
   return (
-    <div className="py-8">
+    <div className="py-2">
       {/* Breadcrumb */}
-      <div className="flex items-center text-sm text-muted-foreground mb-6">
+      <div className="flex items-center text-sm text-muted-foreground mb-4">
         <Link href="/resources/past-papers" className="hover:text-primary">
           Past Papers
         </Link>

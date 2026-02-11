@@ -97,6 +97,22 @@ export async function handleOAuthUser(user: any, displayName?: string, role?: st
     .single();
 
   if (existingProfile) {
+    // Update display_name if it looks like an email prefix (no spaces, likely auto-generated)
+    const googleName = user.user_metadata?.full_name || user.user_metadata?.name;
+    if (googleName) {
+      const { data: currentProfile } = await supabase
+        .from('users')
+        .select('display_name')
+        .eq('id', user.id)
+        .single();
+      
+      if (currentProfile?.display_name && !currentProfile.display_name.includes(' ') && currentProfile.display_name.includes('_')) {
+        await supabase
+          .from('users')
+          .update({ display_name: googleName })
+          .eq('id', user.id);
+      }
+    }
     return { success: true };
   }
 
@@ -104,7 +120,7 @@ export async function handleOAuthUser(user: any, displayName?: string, role?: st
   const { error: profileError } = await supabase.from('users').insert({
     id: user.id,
     email: user.email?.toLowerCase().trim(),
-    display_name: displayName || user.user_metadata?.display_name || user.email?.split('@')[0],
+    display_name: displayName || user.user_metadata?.full_name || user.user_metadata?.name || user.user_metadata?.display_name || user.email?.split('@')[0],
     role: role || 'student',
     subscription_tier: 'basic',
     onboarding_completed: false,

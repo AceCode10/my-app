@@ -1516,14 +1516,49 @@ export default function PaperQuestionsPage() {
     }
   }
 
-  // Toggle question selection
+  // Toggle question selection - auto-include parent/children for multi-part questions
   function toggleQuestionSelection(questionId: string) {
     setSelectedQuestions(prev => {
       const newSet = new Set(prev);
+      const question = questions.find(q => q.id === questionId);
+      if (!question) return newSet;
+
       if (newSet.has(questionId)) {
+        // Deselecting: remove this question
         newSet.delete(questionId);
+        // If deselecting a parent, also deselect all children
+        questions.forEach(q => {
+          if ((q as any).parent_question_id === questionId) {
+            newSet.delete(q.id);
+            // Also deselect grandchildren
+            questions.forEach(gc => {
+              if ((gc as any).parent_question_id === q.id) newSet.delete(gc.id);
+            });
+          }
+        });
       } else {
+        // Selecting: add this question
         newSet.add(questionId);
+        // If selecting a parent, also select all children
+        questions.forEach(q => {
+          if ((q as any).parent_question_id === questionId) {
+            newSet.add(q.id);
+            // Also select grandchildren
+            questions.forEach(gc => {
+              if ((gc as any).parent_question_id === q.id) newSet.add(gc.id);
+            });
+          }
+        });
+        // If selecting a child, also select the parent (context question)
+        const parentId = (question as any).parent_question_id;
+        if (parentId) {
+          newSet.add(parentId);
+          // Also select the grandparent if applicable
+          const parent = questions.find(q => q.id === parentId);
+          if (parent && (parent as any).parent_question_id) {
+            newSet.add((parent as any).parent_question_id);
+          }
+        }
       }
       return newSet;
     });

@@ -171,45 +171,105 @@ export default function TopicNotesPage({
       const { jsPDF } = await import('jspdf');
       
       const element = contentRef.current;
+      
+      // Capture at 3x scale for sharp text
       const canvas = await html2canvas(element, {
-        scale: 2,
+        scale: 3,
         useCORS: true,
         logging: false,
         windowWidth: element.scrollWidth,
+        backgroundColor: '#ffffff',
       });
       
-      // A4 dimensions in px at 96dpi
-      const a4Width = 595;
-      const a4Height = 842;
+      // A4 dimensions in points (72 dpi)
+      const a4Width = 595.28;
+      const a4Height = 841.89;
       const margin = 40;
+      const footerHeight = 30;
       const contentWidth = a4Width - margin * 2;
+      const pageContentHeight = a4Height - margin - footerHeight - margin;
       
-      const imgWidth = canvas.width;
-      const imgHeight = canvas.height;
-      const ratio = contentWidth / imgWidth;
-      const scaledHeight = imgHeight * ratio;
+      // Scale factor: how the canvas maps to PDF content area
+      const ratio = contentWidth / canvas.width;
+      const totalScaledHeight = canvas.height * ratio;
       
       const pdf = new jsPDF('p', 'pt', 'a4');
-      const pageContentHeight = a4Height - margin * 2;
-      let yOffset = 0;
-      let pageNum = 0;
       
-      while (yOffset < scaledHeight) {
-        if (pageNum > 0) {
-          pdf.addPage();
-        }
+      // Calculate total pages
+      const totalPages = Math.ceil(totalScaledHeight / pageContentHeight);
+      
+      // Helper: add footer to current page
+      const addFooter = (pageNum: number) => {
+        const footerY = a4Height - margin;
         
-        pdf.addImage(
-          canvas.toDataURL('image/png'),
-          'PNG',
-          margin,
-          margin - yOffset,
-          contentWidth,
-          scaledHeight
+        // Thin line above footer
+        pdf.setDrawColor(200, 200, 200);
+        pdf.setLineWidth(0.5);
+        pdf.line(margin, footerY - 12, a4Width - margin, footerY - 12);
+        
+        // Page number - left aligned
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(8);
+        pdf.setTextColor(120, 120, 120);
+        pdf.text(`Page ${pageNum}`, margin, footerY);
+        
+        // Copyright - center aligned
+        pdf.text('\u00A9 2026 IGA Prep', a4Width / 2, footerY, { align: 'center' });
+        
+        // "For more, visit igaprep.com" - right aligned with link
+        const rightText = 'For more, visit ';
+        const linkText = 'igaprep.com';
+        const rightTextWidth = pdf.getTextWidth(rightText);
+        const linkTextWidth = pdf.getTextWidth(linkText);
+        const totalRightWidth = rightTextWidth + linkTextWidth;
+        const rightStartX = a4Width - margin - totalRightWidth;
+        
+        pdf.text(rightText, rightStartX, footerY);
+        pdf.setTextColor(22, 163, 74); // green
+        pdf.text(linkText, rightStartX + rightTextWidth, footerY);
+        pdf.link(rightStartX + rightTextWidth, footerY - 8, linkTextWidth, 10, { url: 'https://igaprep.com' });
+        pdf.setTextColor(120, 120, 120);
+      };
+      
+      // Slice canvas into page-sized chunks
+      for (let page = 0; page < totalPages; page++) {
+        if (page > 0) pdf.addPage();
+        
+        // Calculate which portion of canvas to extract for this page
+        const srcY = Math.round((page * pageContentHeight) / ratio);
+        const srcHeight = Math.min(
+          Math.round(pageContentHeight / ratio),
+          canvas.height - srcY
         );
         
-        yOffset += pageContentHeight;
-        pageNum++;
+        if (srcHeight <= 0) break;
+        
+        // Create a temp canvas for just this page's content
+        const pageCanvas = document.createElement('canvas');
+        pageCanvas.width = canvas.width;
+        pageCanvas.height = srcHeight;
+        const ctx = pageCanvas.getContext('2d');
+        if (!ctx) continue;
+        
+        ctx.drawImage(
+          canvas,
+          0, srcY, canvas.width, srcHeight,
+          0, 0, canvas.width, srcHeight
+        );
+        
+        // Add this slice to PDF
+        const sliceHeight = srcHeight * ratio;
+        pdf.addImage(
+          pageCanvas.toDataURL('image/jpeg', 0.95),
+          'JPEG',
+          margin,
+          margin,
+          contentWidth,
+          sliceHeight
+        );
+        
+        // Add footer
+        addFooter(page + 1);
       }
       
       pdf.save(`${selectedNote.slug || 'revision-note'}.pdf`);
@@ -231,20 +291,23 @@ export default function TopicNotesPage({
   };
 
   const handleShare = async () => {
-    const url = window.location.href;
+    // Use short URL with note ID for sharing (much shorter than the full path)
+    const shortUrl = selectedNote?.id 
+      ? `${window.location.origin}/n/${selectedNote.id}`
+      : window.location.href;
     
     if (navigator.share) {
       try {
         await navigator.share({
           title: selectedNote?.title || 'Revision Notes',
           text: `Check out these revision notes for ${topic?.name}`,
-          url,
+          url: shortUrl,
         });
       } catch (err) {
         // User cancelled
       }
     } else {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(shortUrl);
       toast({
         title: 'Link Copied',
         description: 'The link has been copied to your clipboard.',
@@ -322,7 +385,7 @@ export default function TopicNotesPage({
                       <button
                         onClick={() => toggleTopicExpand(t.id)}
                         className={cn(
-                          "flex items-center gap-2 flex-1 px-3 py-2.5 text-sm rounded-lg transition-colors text-left",
+                          "flex items-center gap-2 flex-1 px-3 py-2.5 text-[15px] rounded-lg transition-colors text-left",
                           isActive
                             ? "bg-primary/10 text-primary font-medium"
                             : hasActiveChild
@@ -342,7 +405,7 @@ export default function TopicNotesPage({
                       href={`/resources/revision-notes/${subjectSlug}/${t.slug}`}
                       onClick={onNavigate}
                       className={cn(
-                        "block w-full px-3 py-2.5 text-sm rounded-lg transition-colors",
+                        "block w-full px-3 py-2.5 text-[15px] rounded-lg transition-colors",
                         isActive
                           ? "bg-primary/10 text-primary font-medium"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -362,7 +425,7 @@ export default function TopicNotesPage({
                         href={`/resources/revision-notes/${subjectSlug}/${child.slug}`}
                         onClick={onNavigate}
                         className={cn(
-                          "block px-3 py-2 text-sm rounded-lg transition-colors",
+                          "block px-3 py-2 text-[14px] rounded-lg transition-colors",
                           child.slug === topicSlug
                             ? "bg-primary/10 text-primary font-medium"
                             : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -384,7 +447,7 @@ export default function TopicNotesPage({
   // Loading state
   if (isLoading) {
     return (
-      <div className="py-8">
+      <div className="py-2">
         <Skeleton className="h-6 w-64 mb-6" />
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           <div className="lg:col-span-1">
@@ -403,7 +466,7 @@ export default function TopicNotesPage({
   // Error or no notes
   if (error || notes.length === 0) {
     return (
-      <div className="py-8">
+      <div className="py-2">
         {/* Breadcrumb */}
         <div className="flex items-center text-sm text-muted-foreground mb-6">
           <Link href="/resources/revision-notes" className="hover:text-primary">
@@ -479,9 +542,9 @@ export default function TopicNotesPage({
 
   // Markdown note - SaveMyExams/ZNotes style layout
   return (
-    <div className="py-6">
+    <div className="py-2">
       {/* Breadcrumb */}
-      <div className="flex items-center text-sm text-muted-foreground mb-6">
+      <div className="flex items-center text-sm text-muted-foreground mb-4">
         <Link href="/resources/revision-notes" className="hover:text-primary transition-colors">
           Revision Notes
         </Link>

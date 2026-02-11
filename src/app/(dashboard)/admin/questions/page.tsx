@@ -71,6 +71,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { logDelete } from '@/lib/audit';
+import { getLevelsForBoard } from '@/lib/exam-boards';
 
 interface Question {
   id: string;
@@ -95,9 +96,19 @@ interface Question {
   display_order: number | null;
 }
 
+interface DbExamBoard {
+  id: string;
+  code: string;
+  name: string;
+  color: string;
+}
+
 interface Subject {
   id: string;
   name: string;
+  code?: string;
+  exam_board_id?: string;
+  level?: string;
 }
 
 interface Topic {
@@ -137,11 +148,14 @@ export default function QuestionsPage() {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterExamBoard, setFilterExamBoard] = useState('all');
+  const [filterLevel, setFilterLevel] = useState('all');
   const [filterType, setFilterType] = useState('all');
   const [filterDifficulty, setFilterDifficulty] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterSubject, setFilterSubject] = useState('all');
   const [filterTopic, setFilterTopic] = useState('all');
+  const [dbExamBoards, setDbExamBoards] = useState<DbExamBoard[]>([]);
   
   const [totalCount, setTotalCount] = useState(0);
   
@@ -165,8 +179,16 @@ export default function QuestionsPage() {
 
   useEffect(() => {
     fetchQuestions();
+    fetchExamBoards();
     fetchSubjects();
   }, []);
+
+  // Re-fetch subjects when exam board or level changes
+  useEffect(() => {
+    fetchSubjects();
+    setFilterSubject('all');
+    setFilterTopic('all');
+  }, [filterExamBoard, filterLevel]);
 
   useEffect(() => {
     if (filterSubject !== 'all') {
@@ -245,13 +267,35 @@ export default function QuestionsPage() {
     }
   }
 
-  async function fetchSubjects() {
+  async function fetchExamBoards() {
     try {
       const { data, error } = await supabase
+        .from('exam_boards')
+        .select('id, code, name, color')
+        .eq('is_active', true)
+        .order('display_order');
+      if (error) throw error;
+      setDbExamBoards(data || []);
+    } catch (error) {
+      console.error('Error fetching exam boards:', error);
+    }
+  }
+
+  async function fetchSubjects() {
+    try {
+      let query = supabase
         .from('subjects')
-        .select('id, name')
+        .select('id, name, code, exam_board_id, level')
         .order('name');
 
+      if (filterExamBoard !== 'all') {
+        query = query.eq('exam_board_id', filterExamBoard);
+      }
+      if (filterLevel !== 'all') {
+        query = query.eq('level', filterLevel);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       setSubjects(data || []);
     } catch (error) {
@@ -485,6 +529,8 @@ export default function QuestionsPage() {
 
   function clearFilters() {
     setSearchQuery('');
+    setFilterExamBoard('all');
+    setFilterLevel('all');
     setFilterType('all');
     setFilterDifficulty('all');
     setFilterStatus('all');
@@ -517,7 +563,7 @@ export default function QuestionsPage() {
     setSelectedIds(new Set());
     setSelectAll(false);
     fetchQuestions(); // Fetch with new filters
-  }, [filterType, filterDifficulty, filterStatus, filterSubject, filterTopic]);
+  }, [filterType, filterDifficulty, filterStatus, filterSubject, filterTopic, filterExamBoard, filterLevel]);
 
   // Fetch questions when page or search changes
   useEffect(() => {
@@ -607,7 +653,7 @@ export default function QuestionsPage() {
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-8 gap-4">
             <div className="relative md:col-span-2">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -618,6 +664,56 @@ export default function QuestionsPage() {
               />
             </div>
 
+            <Select value={filterExamBoard} onValueChange={(value) => {
+              setFilterExamBoard(value);
+              // Reset level if it's not valid for new board
+              if (value !== 'all') {
+                const board = dbExamBoards.find(b => b.id === value);
+                if (board) {
+                  const boardCode = board.code.toLowerCase();
+                  const mappedCode = boardCode === 'cie' ? 'cambridge' : boardCode === 'edex' ? 'edexcel' : boardCode;
+                  const availableLevels = getLevelsForBoard(mappedCode);
+                  if (filterLevel !== 'all' && !availableLevels.some(l => l.id === filterLevel)) {
+                    setFilterLevel(availableLevels[0]?.id || 'all');
+                  }
+                }
+              }
+            }}>
+              <SelectTrigger>
+                <SelectValue placeholder="Exam Board" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Boards</SelectItem>
+                {dbExamBoards.map(board => (
+                  <SelectItem key={board.id} value={board.id}>
+                    {board.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={filterLevel} onValueChange={setFilterLevel}>
+              <SelectTrigger>
+                <SelectValue placeholder="Level" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Levels</SelectItem>
+                {(() => {
+                  if (filterExamBoard === 'all') {
+                    return [{id: 'igcse', name: 'IGCSE'}, {id: 'as', name: 'AS Level'}, {id: 'a2', name: 'A Level'}].map(l => (
+                      <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                    ));
+                  }
+                  const board = dbExamBoards.find(b => b.id === filterExamBoard);
+                  const boardCode = board?.code.toLowerCase() || '';
+                  const mappedCode = boardCode === 'cie' ? 'cambridge' : boardCode === 'edex' ? 'edexcel' : boardCode;
+                  return getLevelsForBoard(mappedCode).map(level => (
+                    <SelectItem key={level.id} value={level.id}>{level.name}</SelectItem>
+                  ));
+                })()}
+              </SelectContent>
+            </Select>
+
             <Select value={filterSubject} onValueChange={setFilterSubject}>
               <SelectTrigger>
                 <SelectValue placeholder="Subject" />
@@ -626,7 +722,7 @@ export default function QuestionsPage() {
                 <SelectItem value="all">All Subjects</SelectItem>
                 {subjects.map(subject => (
                   <SelectItem key={subject.id} value={subject.id}>
-                    {subject.name}
+                    {subject.name}{subject.code ? ` (${subject.code})` : ''}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -691,7 +787,7 @@ export default function QuestionsPage() {
                 </SelectContent>
               </Select>
               
-              {(searchQuery || filterType !== 'all' || filterDifficulty !== 'all' || filterStatus !== 'all' || filterSubject !== 'all' || filterTopic !== 'all') && (
+              {(searchQuery || filterExamBoard !== 'all' || filterLevel !== 'all' || filterType !== 'all' || filterDifficulty !== 'all' || filterStatus !== 'all' || filterSubject !== 'all' || filterTopic !== 'all') && (
                 <Button variant="ghost" size="sm" onClick={clearFilters}>
                   Clear filters
                 </Button>

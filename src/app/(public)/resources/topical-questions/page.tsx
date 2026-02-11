@@ -62,8 +62,8 @@ export default function TopicalQuestionsPage() {
   const selectedLevelData = getLevelById(selectedLevel);
 
   return (
-    <div className="py-12">
-      <div className="text-center mb-12">
+    <div className="py-4">
+      <div className="text-center mb-8">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
           <Target className="w-8 h-8 text-primary" />
         </div>

@@ -1,7 +1,18 @@
 'use client';
 
 import { useState } from 'react';
-import { Document, Page, Text, View, StyleSheet, pdf, Image, Link } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet, pdf, Image, Link, Font } from '@react-pdf/renderer';
+
+// Register Arial-equivalent font (Roboto from Google Fonts - metrically similar to Arial)
+Font.register({
+  family: 'Arial',
+  fonts: [
+    { src: 'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxP.ttf', fontWeight: 400 },
+    { src: 'https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmWUlfBBc9.ttf', fontWeight: 700 },
+    { src: 'https://fonts.gstatic.com/s/roboto/v30/KFOkCnqEu92Fr1Mu51xIIzc.ttf', fontStyle: 'italic', fontWeight: 400 },
+    { src: 'https://fonts.gstatic.com/s/roboto/v30/KFOjCnqEu92Fr1Mu51TzBic6CsE.ttf', fontStyle: 'italic', fontWeight: 700 },
+  ],
+});
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -78,7 +89,7 @@ const styles = StyleSheet.create({
     paddingLeft: 50,
     paddingRight: 40,
     fontSize: 11,
-    fontFamily: 'Helvetica',
+    fontFamily: 'Arial',
   },
   // Cover page styles
   coverPage: {
@@ -335,21 +346,38 @@ const styles = StyleSheet.create({
     borderTopColor: '#c8e6c9',
   },
   // Footer
-  footer: {
+  footerContainer: {
     position: 'absolute',
-    bottom: 25,
+    bottom: 20,
     left: 50,
-    right: 50,
-    textAlign: 'center',
+    right: 40,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTopWidth: 0.5,
+    borderTopColor: '#ccc',
+    paddingTop: 6,
+  },
+  footerLeft: {
     fontSize: 8,
     color: '#666',
+    width: '30%',
   },
-  pageNumber: {
-    position: 'absolute',
-    bottom: 25,
-    right: 50,
-    fontSize: 9,
-    color: '#333',
+  footerCenter: {
+    fontSize: 8,
+    color: '#666',
+    textAlign: 'center',
+    width: '40%',
+  },
+  footerRight: {
+    fontSize: 8,
+    color: '#666',
+    textAlign: 'right',
+    width: '30%',
+  },
+  footerLink: {
+    fontSize: 8,
+    color: '#16a34a',
   },
   endOfPaper: {
     textAlign: 'center',
@@ -608,10 +636,14 @@ function QuestionPaperPDF({ test, options }: { test: TestData; options: PDFOptio
           </View>
         </View>
 
-        {/* Footer */}
-        <Text style={styles.footer} fixed>
-          © {new Date().getFullYear()} IGA Prep
-        </Text>
+        {/* Cover page footer - no page number */}
+        <View style={styles.footerContainer} fixed>
+          <Text style={styles.footerLeft}></Text>
+          <Text style={styles.footerCenter}>© 2026 IGA Prep</Text>
+          <View style={{ width: '30%', alignItems: 'flex-end' }}>
+            <Text style={styles.footerRight}>For more, visit <Link src="https://igaprep.com"><Text style={styles.footerLink}>igaprep.com</Text></Link></Text>
+          </View>
+        </View>
       </Page>
 
       {/* Questions Pages */}
@@ -831,13 +863,19 @@ function QuestionPaperPDF({ test, options }: { test: TestData; options: PDFOptio
           );
         })}
 
-        {/* Footer */}
-        <Text style={styles.footer} fixed>
-          © {new Date().getFullYear()} IGA Prep
+        {/* Content page footer with page numbers starting from 2 */}
+        <Text style={{ position: 'absolute', bottom: 20, left: 50, right: 40, borderTopWidth: 0.5, borderTopColor: '#ccc' }} fixed>{''}</Text>
+        <Text
+          style={{ position: 'absolute', bottom: 20, left: 50, fontSize: 8, color: '#666', paddingTop: 6 }}
+          fixed
+          render={({ pageNumber }: { pageNumber: number }) => `Page ${pageNumber + 1}`}
+        />
+        <Text style={{ position: 'absolute', bottom: 20, left: 0, right: 0, textAlign: 'center', fontSize: 8, color: '#666', paddingTop: 6 }} fixed>
+          © 2026 IGA Prep
         </Text>
-        <Link src="https://www.igaprep.com/" style={styles.pageNumber} fixed>
-          <Text style={{ fontSize: 8, color: '#666' }}>For more, visit igaprep.com</Text>
-        </Link>
+        <View style={{ position: 'absolute', bottom: 20, right: 40, paddingTop: 6 }} fixed>
+          <Text style={{ fontSize: 8, color: '#666' }}>For more, visit <Link src="https://igaprep.com"><Text style={{ fontSize: 8, color: '#16a34a' }}>igaprep.com</Text></Link></Text>
+        </View>
       </Page>
     </Document>
   );

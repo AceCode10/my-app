@@ -588,7 +588,7 @@ export default function TopicPracticePage({
   // Loading state
   if (isLoading) {
     return (
-      <div className="py-8 max-w-4xl mx-auto px-4">
+      <div className="py-2 max-w-4xl mx-auto px-4">
         <Skeleton className="h-6 w-64 mb-6" />
         <Skeleton className="h-12 w-full mb-4" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -602,7 +602,7 @@ export default function TopicPracticePage({
   // Error state
   if (error && !topic) {
     return (
-      <div className="py-8 max-w-4xl mx-auto px-4">
+      <div className="py-2 max-w-4xl mx-auto px-4">
         <Card className="text-center py-12">
           <CardContent>
             <AlertCircle className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
@@ -623,9 +623,9 @@ export default function TopicPracticePage({
   // Landing view - SaveMyExams style topic overview
   if (viewMode === 'landing') {
     return (
-      <div className="py-8 max-w-4xl mx-auto px-4">
+      <div className="py-2 max-w-4xl mx-auto px-4">
         {/* Breadcrumb */}
-        <div className="flex items-center text-sm text-muted-foreground mb-6 flex-wrap gap-1">
+        <div className="flex items-center text-sm text-muted-foreground mb-4 flex-wrap gap-1">
           <Link href="/resources/topical-questions" className="hover:text-primary text-primary">
             Exam Questions
           </Link>
@@ -733,7 +733,7 @@ export default function TopicPracticePage({
   if (viewMode === 'summary') {
     const viewedCount = Object.values(questionStatuses).filter(s => s.viewed).length;
     return (
-      <div className="py-8 max-w-4xl mx-auto px-4">
+      <div className="py-2 max-w-4xl mx-auto px-4">
         <SessionSummary
           stats={{
             correct: correctCount,
@@ -756,7 +756,7 @@ export default function TopicPracticePage({
 
   // Practice view - SaveMyExams style question display
   return (
-    <div className="py-6 max-w-4xl mx-auto px-4">
+    <div className="py-2 max-w-4xl mx-auto px-4">
       {/* Keyboard Help Modal */}
       {showKeyboardHelp && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowKeyboardHelp(false)}>
@@ -905,6 +905,9 @@ export default function TopicPracticePage({
                           <p className="text-foreground leading-relaxed whitespace-pre-wrap">
                             {q.stem_markdown || q.stem_md || q.context_text}
                           </p>
+                          {q.image_url && (
+                            <img src={q.image_url} alt="Question image" className="mt-3 max-w-full rounded-lg border" />
+                          )}
                         </div>
                       </div>
                     </div>
@@ -938,6 +941,11 @@ export default function TopicPracticePage({
                         {q.stem_markdown || q.stem_md}
                       </p>
                       
+                      {/* Question image */}
+                      {q.image_url && (
+                        <img src={q.image_url} alt="Question image" className="mb-4 max-w-full rounded-lg border" />
+                      )}
+                      
                       {/* MCQ Options */}
                       {(q.question_type === 'multiple_choice' || q.question_type === 'mcq') && q.options && (
                         <div className="space-y-2">
@@ -961,12 +969,30 @@ export default function TopicPracticePage({
                         </div>
                       )}
                       
-                      {/* Answer display for this part */}
-                      {showAnswer && q.correct_answer && (
-                        <div className="mt-3 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
-                          <p className="text-sm text-green-700 dark:text-green-400">
-                            <strong>Answer:</strong> {typeof q.correct_answer === 'object' ? JSON.stringify(q.correct_answer) : String(q.correct_answer)}
-                          </p>
+                      {/* Answer & Mark Scheme display for this part */}
+                      {showAnswer && (
+                        <div className="mt-3 space-y-2">
+                          {q.correct_answer && (
+                            <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+                              <p className="text-sm text-green-700 dark:text-green-400">
+                                <strong>Answer:</strong> {typeof q.correct_answer === 'object' ? JSON.stringify(q.correct_answer) : String(q.correct_answer)}
+                              </p>
+                            </div>
+                          )}
+                          {q.explanation && (
+                            <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                              <p className="text-sm text-blue-700 dark:text-blue-400">
+                                <strong>Explanation:</strong> {q.explanation}
+                              </p>
+                            </div>
+                          )}
+                          {q.examiner_comment && q.examiner_comment !== 'N/A' && (
+                            <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                              <p className="text-sm text-amber-700 dark:text-amber-400">
+                                <strong>Mark Scheme:</strong> {q.examiner_comment}
+                              </p>
+                            </div>
+                          )}
                         </div>
                       )}
                       

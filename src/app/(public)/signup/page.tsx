@@ -13,7 +13,8 @@ function SignupContent() {
     const searchParams = useSearchParams();
     const { toast } = useToast();
     const supabase = createClient();
-    const [name, setName] = useState('');
+    const [firstName, setFirstName] = useState('');
+    const [lastName, setLastName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -29,8 +30,11 @@ function SignupContent() {
         // Early validation with better UX feedback
         const validationErrors = [];
         
-        if (!name?.trim()) {
-            validationErrors.push('Full name is required');
+        if (!firstName?.trim()) {
+            validationErrors.push('First name is required');
+        }
+        if (!lastName?.trim()) {
+            validationErrors.push('Last name is required');
         }
         if (!email?.trim()) {
             validationErrors.push('Email address is required');
@@ -58,6 +62,7 @@ function SignupContent() {
 
     const handleFinalSubmit = async () => {
         setIsLoading(true);
+        const fullName = `${firstName.trim()} ${lastName.trim()}`;
 
         try {
             // Determine role before signup
@@ -74,7 +79,9 @@ function SignupContent() {
                 password,
                 options: {
                     data: {
-                        display_name: name,
+                        display_name: fullName,
+                        first_name: firstName.trim(),
+                        last_name: lastName.trim(),
                         role: role,
                         onboarding_completed: false
                     },
@@ -175,16 +182,28 @@ function SignupContent() {
                                 {isTeacher ? 'Start your journey to empowering your students.' : 'Start your journey to mastering your exams.'}
                             </p>
                             <form className="space-y-4" onSubmit={handleCredentialsSubmit}>
-                                <div className="relative">
-                                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                                    <input
-                                        type="text"
-                                        placeholder="Full Name"
-                                        className="w-full pl-10 pr-4 py-3 rounded-lg border bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-                                        value={name}
-                                        onChange={(e) => setName(e.target.value)}
-                                        required
-                                    />
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="relative">
+                                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                                        <input
+                                            type="text"
+                                            placeholder="First Name"
+                                            className="w-full pl-10 pr-4 py-3 rounded-lg border bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                                            value={firstName}
+                                            onChange={(e) => setFirstName(e.target.value)}
+                                            required
+                                        />
+                                    </div>
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            placeholder="Last Name"
+                                            className="w-full pl-4 pr-4 py-3 rounded-lg border bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                                            value={lastName}
+                                            onChange={(e) => setLastName(e.target.value)}
+                                            required
+                                        />
+                                    </div>
                                 </div>
                                 <div className="relative">
                                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />

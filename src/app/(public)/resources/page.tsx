@@ -125,9 +125,9 @@ export default function ResourcesPage() {
   ];
 
   return (
-    <div className="py-12">
+    <div className="py-4">
       {/* Hero Section */}
-      <div className="text-center mb-12">
+      <div className="text-center mb-8">
         <h1 className="text-4xl font-extrabold text-foreground mb-4">
           Study <span className="text-primary">Resources</span>
         </h1>

@@ -157,7 +157,7 @@ export function useUser() {
               .insert({
                 id: authUser.id,
                 email: authUser.email,
-                display_name: authUser.user_metadata?.display_name || authUser.email?.split('@')[0] || 'User',
+                display_name: authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.user_metadata?.display_name || authUser.email?.split('@')[0] || 'User',
                 role: authUser.user_metadata?.role || 'student',
                 subscription_tier: authUser.user_metadata?.role === 'teacher' ? 'pro' : 'basic',
                 onboarding_completed: false,
@@ -438,17 +438,12 @@ export function useUser() {
           fetchUserProfile(session.user.id, forceRefresh);
         }
 
-        // Recovery: if SIGNED_IN fires but _initializePromise is stuck,
-        // the profile fetch will also hang (REST calls need auth headers from getSession).
-        // After a short delay, if auth is still not initialized, force a page reload.
-        // On reload, the session is in cookies and _initialize resolves normally.
+        // Recovery: if SIGNED_IN fires but initializeAuth() is still awaiting
+        // getSession() (which is blocked by _initializePromise), unblock it.
+        // The session from onAuthStateChange is already valid — no need to reload.
         if (event === 'SIGNED_IN' && !globalAuthInitialized) {
-          setTimeout(() => {
-            if (!globalAuthInitialized && isSubscribed && mountedRef.current) {
-              console.warn('[Auth] Recovery: SIGNED_IN received but auth still stuck after 3s — forcing reload');
-              window.location.reload();
-            }
-          }, 3000);
+          globalAuthInitialized = true;
+          console.log('[Auth] Recovery: marking auth initialized from SIGNED_IN event');
         }
       } else if (event === 'TOKEN_REFRESHED' && session?.user) {
         // Token refreshed - validate cache is still valid

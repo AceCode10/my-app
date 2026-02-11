@@ -178,9 +178,9 @@ export default function SubjectTopicalQuestionsPage({
   }
 
   return (
-    <div className="py-8 max-w-4xl mx-auto">
+    <div className="py-2 max-w-4xl mx-auto">
       {/* Breadcrumb */}
-      <div className="flex items-center text-sm text-muted-foreground mb-6">
+      <div className="flex items-center text-sm text-muted-foreground mb-4">
         <Link href="/resources/topical-questions" className="hover:text-primary">
           Topical Questions
         </Link>
