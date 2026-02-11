@@ -3,6 +3,8 @@
 import React, { useEffect, useState, useRef, use } from 'react';
 import Link from 'next/link';
 import { ChevronRight, ChevronLeft, ChevronDown, BookOpen, Download, Share2, Bookmark, BookmarkCheck, Loader2, Menu, PanelLeftClose, PanelLeft } from 'lucide-react';
+import Image from 'next/image';
+import { getIconComponent } from '@/lib/icon-mapper';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -48,6 +50,15 @@ interface Subject {
   code?: string;
   icon_url?: string;
   color?: string;
+}
+
+// Derive a short abbreviation from the subject name
+// e.g. "Information and Communication Technology" → "ICT"
+function getSubjectAbbreviation(name: string): string {
+  const stopWords = ['and', 'the', 'of', 'in', 'for', 'with', 'to', 'a', 'an'];
+  const words = name.split(/\s+/).filter(w => !stopWords.includes(w.toLowerCase()));
+  if (words.length <= 2) return name;
+  return words.map(w => w[0]).join('').toUpperCase();
 }
 
 export default function TopicNotesPage({
@@ -343,16 +354,43 @@ export default function TopicNotesPage({
   const getChildren = (parentId: string) => allTopics.filter(t => t.parent_topic_id === parentId);
 
   // Topic sidebar component (reused for desktop & mobile)
+  // Render subject icon (same logic as SubjectCard)
+  const renderSubjectIcon = (size: 'sm' | 'md' = 'md') => {
+    const sizeClass = size === 'sm' ? 'w-8 h-8' : 'w-10 h-10';
+    const iconSizeClass = size === 'sm' ? 'w-5 h-5' : 'w-6 h-6';
+    
+    if (!subject) return null;
+    
+    const iconUrl = typeof subject.icon_url === 'string' && (subject.icon_url.startsWith('http') || subject.icon_url.startsWith('/')) ? subject.icon_url : null;
+    const iconName = typeof subject.icon_url === 'string' && !iconUrl ? subject.icon_url : undefined;
+    const IconComponent = getIconComponent(iconName);
+    
+    if (iconUrl) {
+      return (
+        <div className={cn(sizeClass, 'relative flex-shrink-0 rounded-lg overflow-hidden')} style={{ backgroundColor: subject.color || '#16a34a' }}>
+          <Image src={iconUrl} alt={subject.name} fill className="object-contain p-1" />
+        </div>
+      );
+    }
+    
+    return (
+      <div className={cn(sizeClass, 'rounded-lg flex items-center justify-center flex-shrink-0')} style={{ backgroundColor: subject.color || '#16a34a' }}>
+        <IconComponent className={cn(iconSizeClass, 'text-white')} />
+      </div>
+    );
+  };
+
   const TopicSidebar = ({ onNavigate, showCollapseButton = false }: { onNavigate?: () => void; showCollapseButton?: boolean }) => (
     <div className="flex flex-col h-full">
+      {/* ZNotes-style header: icon + short name + syllabus code */}
       <div className="p-4 border-b">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-3">
           <Link 
             href={`/resources/revision-notes/${subjectSlug}`}
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
           >
-            <ChevronLeft className="h-4 w-4" />
-            {subject?.name || 'Back'}
+            <ChevronLeft className="h-3 w-3" />
+            All Topics
           </Link>
           {showCollapseButton && (
             <button
@@ -364,8 +402,26 @@ export default function TopicNotesPage({
             </button>
           )}
         </div>
-        <h3 className="font-semibold text-foreground mt-2">Topics</h3>
+        {subject && (
+          <div className="flex items-center gap-3">
+            {renderSubjectIcon('md')}
+            <div className="min-w-0">
+              <h3 className="font-bold text-foreground text-base leading-tight">
+                {getSubjectAbbreviation(subject.name)}
+              </h3>
+              {subject.code && (
+                <p className="text-xs text-muted-foreground">{subject.code}</p>
+              )}
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Topics heading */}
+      <div className="px-4 pt-3 pb-1">
+        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Topics</h4>
+      </div>
+
       <ScrollArea className="flex-1">
         <nav className="p-2 space-y-0.5">
           {parentTopics.map((t) => {
@@ -387,9 +443,9 @@ export default function TopicNotesPage({
                         className={cn(
                           "flex items-center gap-2 flex-1 px-3 py-2.5 text-[15px] rounded-lg transition-colors text-left",
                           isActive
-                            ? "bg-primary/10 text-primary font-medium"
+                            ? "bg-primary/10 text-primary font-semibold"
                             : hasActiveChild
-                            ? "text-foreground font-medium"
+                            ? "text-foreground font-semibold"
                             : "text-muted-foreground hover:bg-muted hover:text-foreground"
                         )}
                       >
@@ -407,7 +463,7 @@ export default function TopicNotesPage({
                       className={cn(
                         "block w-full px-3 py-2.5 text-[15px] rounded-lg transition-colors",
                         isActive
-                          ? "bg-primary/10 text-primary font-medium"
+                          ? "bg-primary/10 text-primary font-semibold border-l-3 border-primary"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground"
                       )}
                     >
@@ -427,7 +483,7 @@ export default function TopicNotesPage({
                         className={cn(
                           "block px-3 py-2 text-[14px] rounded-lg transition-colors",
                           child.slug === topicSlug
-                            ? "bg-primary/10 text-primary font-medium"
+                            ? "bg-primary/10 text-primary font-semibold"
                             : "text-muted-foreground hover:bg-muted hover:text-foreground"
                         )}
                       >

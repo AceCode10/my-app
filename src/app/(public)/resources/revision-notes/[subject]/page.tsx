@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, use } from 'react';
 import Link from 'next/link';
-import { ChevronRight, ChevronDown, BookOpen, FileText, Clock } from 'lucide-react';
+import { ChevronRight, BookOpen, FileText, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { createClient } from '@/lib/supabase/client';
@@ -31,15 +31,6 @@ interface Subject {
   code?: string;
   icon_url?: string;
   color?: string;
-}
-
-// Derive a short abbreviation from the subject name
-// e.g. "Information and Communication Technology" → "ICT"
-function getSubjectAbbreviation(name: string): string {
-  const stopWords = ['and', 'the', 'of', 'in', 'for', 'with', 'to', 'a', 'an'];
-  const words = name.split(/\s+/).filter(w => !stopWords.includes(w.toLowerCase()));
-  if (words.length <= 2) return name; // Don't abbreviate short names
-  return words.map(w => w[0]).join('').toUpperCase();
 }
 
 export default function SubjectRevisionNotesPage({ 
@@ -137,27 +128,6 @@ export default function SubjectRevisionNotesPage({
           {isLoading ? <Skeleton className="h-4 w-24 inline-block" /> : subject?.name}
         </span>
       </div>
-
-      {/* Subject Header - ZNotes style with icon + short code + syllabus code */}
-      {!isLoading && subject && (
-        <div className="flex items-center gap-4 mb-6">
-          {subject.icon_url ? (
-            <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 shadow-sm border">
-              <img src={subject.icon_url} alt={subject.name} className="w-full h-full object-cover" />
-            </div>
-          ) : (
-            <div className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm" style={{ backgroundColor: subject.color || '#16a34a' }}>
-              <BookOpen className="w-7 h-7 text-white" />
-            </div>
-          )}
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">
-              {getSubjectAbbreviation(subject.name)}{subject.code ? ` ${subject.code}` : ''}
-            </h1>
-            <p className="text-muted-foreground text-sm">{subject.name}</p>
-          </div>
-        </div>
-      )}
 
       {/* Topics List - Modern Clean Design (Similar to Topical Questions) */}
       <div className="bg-card rounded-xl border divide-y overflow-hidden">
