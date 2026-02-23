@@ -56,11 +56,23 @@ function LoginContent() {
         // Check for error params from auth callback
         const error = searchParams.get('error');
         if (error === 'auth_failed') {
-            setErrorMessage('Authentication failed. Please try again.');
+            // The OAuth code may have been exchanged client-side already.
+            // Check if we actually have a valid session before showing an error.
+            supabase.auth.getSession().then(({ data: { session } }: { data: { session: any } }) => {
+                if (session?.user) {
+                    // User IS signed in — the server callback failed because the code
+                    // was already consumed client-side. Just redirect to dashboard.
+                    console.log('[Login] auth_failed but session exists — redirecting');
+                    setErrorMessage(null);
+                    redirectToRole(session.user.user_metadata?.role || 'student');
+                } else {
+                    setErrorMessage('Authentication failed. Please try again.');
+                }
+            });
         } else if (error === 'no_code') {
             setErrorMessage('Login session expired. Please try again.');
         }
-    }, [searchParams]);
+    }, [searchParams, supabase, redirectToRole]);
     
     // NOTE: Do NOT call invalidateUserCache() on mount here.
     // It races with useUser's initializeAuth() and corrupts global auth state.

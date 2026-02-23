@@ -64,25 +64,23 @@ function TeacherDashboardLayout({ children }: { children: React.ReactNode }) {
             setCheckingSession(true);
             console.log('[TeacherLayout] loading=false, user=null — checking session with getUser()...');
             
-            // Check if there's actually a valid session with server validation
             const checkStart = Date.now();
-            supabase.auth.getUser().then((result: { data: { user: unknown }; error: { message: string } | null }) => {
+            supabase.auth.getUser().then((result: { data: { user: any }; error: { message: string } | null }) => {
                 const authUser = result.data.user;
                 const error = result.error;
                 console.log(`[TeacherLayout] getUser() returned in ${Date.now() - checkStart}ms, authUser: ${!!authUser}, error: ${error?.message || 'none'}`);
                 if (authUser && !error) {
-                    console.log('[TeacherLayout] Valid session exists but user profile was null — calling refresh()');
-                    console.log(`[TeacherLayout] Calling refresh() (user state is ${user ? 'set' : 'null'})`);
-                    const refreshPromise = refresh?.() ?? Promise.resolve(null);
+                    console.log('[TeacherLayout] Valid session — calling refresh() with userId:', authUser.id?.substring(0, 8));
+                    // Pass the auth user's ID so refresh() can fetch even when user state is null
+                    const refreshPromise = refresh?.(authUser.id) ?? Promise.resolve(null);
                     refreshPromise.then((profile: unknown) => {
-                        console.log(`[TeacherLayout] refresh() resolved: ${profile ? 'got profile' : 'null (no-op)'}`);
+                        console.log(`[TeacherLayout] refresh() resolved: ${profile ? 'got profile' : 'null'}`);
                         if (!profile) {
-                            console.warn('[TeacherLayout] refresh() resolved to null — setting checkingSession=false');
                             setCheckingSession(false);
                         }
                     });
                 } else {
-                    console.log('[TeacherLayout] No valid session — setting checkingSession=false');
+                    console.log('[TeacherLayout] No valid session — redirecting to login');
                     setCheckingSession(false);
                 }
             }).catch((err: unknown) => {

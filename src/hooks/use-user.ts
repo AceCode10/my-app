@@ -427,6 +427,13 @@ export function useUser() {
 
     initializeAuth().finally(() => {
       clearTimeout(timeoutId);
+      // After init completes, sync cached user to local state.
+      // This handles the case where a concurrent fetch (from another hook instance
+      // or auth event) populated the cache while this instance was waiting.
+      if (mountedRef.current && cachedUser && !user) {
+        setUser(cachedUser);
+        setLoading(false);
+      }
     });
 
     // Listen for auth changes - handles INITIAL_SESSION, SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED
@@ -514,9 +521,12 @@ export function useUser() {
   }, [fetchUserProfile]);
 
   // Provide a refresh function for manual refresh
-  const refresh = useCallback(() => {
-    if (user?.id) {
-      return fetchUserProfile(user.id, true);
+  // Accepts an optional userId so callers (e.g. StudentLayout) can force a fetch
+  // even when the hook's local user state is still null.
+  const refresh = useCallback((userId?: string) => {
+    const id = userId || user?.id || cachedUserId;
+    if (id) {
+      return fetchUserProfile(id, true);
     }
     return Promise.resolve(null);
   }, [user?.id, fetchUserProfile]);

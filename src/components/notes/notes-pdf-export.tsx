@@ -225,7 +225,9 @@ export function NotesPDFExport({ note, sections: propSections, trigger }: NotesP
   );
 }
 
-// PDF Generation Function - renders each section individually to avoid page overflow
+// PDF Generation Function - renders content in small blocks to avoid page overflow
+// Each paragraph/element is rendered separately so page breaks happen BETWEEN
+// elements, never cutting through text or diagrams.
 async function generateNotePDF(
   note: Note,
   sections: NoteSection[],
@@ -253,20 +255,24 @@ async function generateNotePDF(
   const contentStartY = margin + headerSpace;
 
   const pdf = new jsPDF('p', 'pt', paper_size);
-  let currentY = contentStartY; // current Y position on current page
+  let currentY = contentStartY;
   let pageNum = 0;
 
-  // Higher DPI scale for sharper text
-  const canvasScale = 3;
+  // Use higher scale + PNG for sharp text (no JPEG compression artifacts)
+  const canvasScale = 4;
+  // Render at a wider pixel width for better quality, then scale down to PDF points
+  const renderWidth = contentWidth * 2;
 
   // Helper: render an HTML block to canvas and add to PDF with page break handling
   async function addBlockToPDF(htmlBlock: string): Promise<void> {
+    if (!htmlBlock.trim()) return;
+
     const container = document.createElement('div');
     container.style.cssText = `
       position: fixed;
       left: -9999px;
       top: 0;
-      width: ${contentWidth}px;
+      width: ${renderWidth}px;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: ${baseFontSize};
       line-height: 1.7;
@@ -281,26 +287,28 @@ async function generateNotePDF(
       const canvas = await html2canvas(container, {
         scale: canvasScale,
         useCORS: true,
+        allowTaint: true,
         logging: false,
         backgroundColor: '#ffffff',
-        windowWidth: contentWidth,
+        windowWidth: renderWidth,
       });
 
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const imgData = canvas.toDataURL('image/png');
       const ratio = contentWidth / canvas.width;
       const blockHeight = canvas.height * ratio;
 
       // If block fits on current page, add it
       if (currentY + blockHeight <= margin + usableHeight + headerSpace) {
-        pdf.addImage(imgData, 'JPEG', margin, currentY, contentWidth, blockHeight);
+        pdf.addImage(imgData, 'PNG', margin, currentY, contentWidth, blockHeight);
         currentY += blockHeight;
       } else if (blockHeight <= usableHeight) {
         // Block doesn't fit but is smaller than a full page — move to next page
         addNewPage();
-        pdf.addImage(imgData, 'JPEG', margin, currentY, contentWidth, blockHeight);
+        pdf.addImage(imgData, 'PNG', margin, currentY, contentWidth, blockHeight);
         currentY += blockHeight;
       } else {
         // Block is taller than a page — slice it across pages
+        // This should be rare since we break content into small blocks
         let srcY = 0;
         const totalSrcHeight = canvas.height;
 
@@ -310,7 +318,6 @@ async function generateNotePDF(
           const sliceHeightPx = Math.min(remainingPagePx, totalSrcHeight - srcY);
           const sliceHeightPts = sliceHeightPx * ratio;
 
-          // Create a slice canvas
           const sliceCanvas = document.createElement('canvas');
           sliceCanvas.width = canvas.width;
           sliceCanvas.height = Math.ceil(sliceHeightPx);
@@ -325,12 +332,11 @@ async function generateNotePDF(
             );
           }
 
-          const sliceData = sliceCanvas.toDataURL('image/jpeg', 0.95);
-          pdf.addImage(sliceData, 'JPEG', margin, currentY, contentWidth, sliceHeightPts);
+          const sliceData = sliceCanvas.toDataURL('image/png');
+          pdf.addImage(sliceData, 'PNG', margin, currentY, contentWidth, sliceHeightPts);
           currentY += sliceHeightPts;
           srcY += sliceHeightPx;
 
-          // If more content, add a new page
           if (srcY < totalSrcHeight) {
             addNewPage();
           }
@@ -338,6 +344,14 @@ async function generateNotePDF(
       }
     } finally {
       document.body.removeChild(container);
+    }
+  }
+
+  // Helper: add multiple small HTML blocks, each rendered separately
+  // This ensures page breaks happen between elements, not through them
+  async function addBlocksToPDF(htmlBlocks: string[]): Promise<void> {
+    for (const block of htmlBlocks) {
+      await addBlockToPDF(block);
     }
   }
 
@@ -352,7 +366,8 @@ async function generateNotePDF(
     if (include_header) {
       pdf.setFontSize(8);
       pdf.setTextColor(150, 150, 150);
-      pdf.text(note.title, margin, margin + 5);
+      const titleText = note.title.length > 80 ? note.title.substring(0, 77) + '...' : note.title;
+      pdf.text(titleText, margin, margin + 5);
       pdf.setDrawColor(220, 220, 220);
       pdf.line(margin, margin + 10, pageWidth - margin, margin + 10);
     }
@@ -362,7 +377,7 @@ async function generateNotePDF(
       const footerY = pageHeight - margin + 5;
       pdf.text(`Page ${pageNum + 1}`, margin, footerY);
       pdf.text('\u00A9 ' + new Date().getFullYear() + ' IGA Prep', pageWidth / 2, footerY, { align: 'center' });
-      pdf.text('For more, visit igaprep.com', pageWidth - margin, footerY, { align: 'right' });
+      pdf.text('igaprep.com', pageWidth - margin, footerY, { align: 'right' });
     }
   }
 
@@ -391,24 +406,156 @@ async function generateNotePDF(
     await addBlockToPDF(tocHtml);
   }
 
-  // Content sections - each section is rendered as a separate block
+  // Content sections - break each section into individual element blocks
+  // so page breaks happen between paragraphs/elements, not through them
   if (include_sections && sections.length > 0) {
     for (let i = 0; i < sections.length; i++) {
       const section = sections[i];
-      let sectionHtml = `<div style="margin-bottom:16px;">`;
-      sectionHtml += `<h2 style="font-size:1.3em;font-weight:bold;margin:0 0 8px 0;color:#1a1a2e;">${i + 1}. ${escapeHtml(section.title)}</h2>`;
-      sectionHtml += markdownToSimpleHtml(section.content_md);
-      sectionHtml += `</div>`;
-      await addBlockToPDF(sectionHtml);
+
+      // Section heading as its own block — ensures it starts on a fresh area
+      const headingHtml = `<h2 style="font-size:1.3em;font-weight:bold;margin:16px 0 8px 0;color:#1a1a2e;border-bottom:1px solid #eee;padding-bottom:4px;">${i + 1}. ${escapeHtml(section.title)}</h2>`;
+
+      // Split section content into individual element-level blocks
+      const contentBlocks = splitMarkdownIntoBlocks(section.content_md);
+
+      // Render heading first
+      await addBlockToPDF(headingHtml);
+
+      // Render each content block separately
+      await addBlocksToPDF(contentBlocks);
     }
   } else {
-    await addBlockToPDF(markdownToSimpleHtml(note.content_md));
+    const contentBlocks = splitMarkdownIntoBlocks(note.content_md);
+    await addBlocksToPDF(contentBlocks);
   }
 
   // Add decorations to the last page
   addPageDecorations();
 
   return pdf;
+}
+
+// Split markdown content into individual blocks (paragraphs, lists, tables, etc.)
+// Each block is converted to HTML and rendered separately so page breaks happen
+// between blocks, never cutting through content.
+function splitMarkdownIntoBlocks(md: string): string[] {
+  if (!md) return [];
+
+  const blocks: string[] = [];
+  const lines = md.split('\n');
+  let currentBlock: string[] = [];
+  let inList = false;
+  let inTable = false;
+  let inCodeBlock = false;
+
+  function flushBlock() {
+    if (currentBlock.length > 0) {
+      const blockMd = currentBlock.join('\n');
+      const html = markdownToSimpleHtml(blockMd);
+      if (html.trim()) {
+        blocks.push(html);
+      }
+      currentBlock = [];
+    }
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Code block fence
+    if (trimmed.startsWith('```')) {
+      if (inCodeBlock) {
+        currentBlock.push(line);
+        inCodeBlock = false;
+        flushBlock();
+        continue;
+      } else {
+        flushBlock();
+        inCodeBlock = true;
+        currentBlock.push(line);
+        continue;
+      }
+    }
+
+    if (inCodeBlock) {
+      currentBlock.push(line);
+      continue;
+    }
+
+    // Empty line = paragraph break
+    if (!trimmed) {
+      flushBlock();
+      inList = false;
+      inTable = false;
+      continue;
+    }
+
+    // Headers — always their own block
+    if (/^#{1,6}\s+/.test(trimmed)) {
+      flushBlock();
+      currentBlock.push(line);
+      flushBlock();
+      continue;
+    }
+
+    // Horizontal rules
+    if (/^---+$/.test(trimmed)) {
+      flushBlock();
+      currentBlock.push(line);
+      flushBlock();
+      continue;
+    }
+
+    // Table rows — group together
+    if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+      if (!inTable) {
+        flushBlock();
+        inTable = true;
+      }
+      currentBlock.push(line);
+      continue;
+    } else if (inTable) {
+      flushBlock();
+      inTable = false;
+    }
+
+    // List items — group consecutive list items together
+    const isListItem = /^[\*\-\+]\s+/.test(trimmed) || /^\d+\.\s+/.test(trimmed);
+    if (isListItem) {
+      if (!inList) {
+        flushBlock();
+        inList = true;
+      }
+      currentBlock.push(line);
+      continue;
+    } else if (inList) {
+      flushBlock();
+      inList = false;
+    }
+
+    // Blockquotes
+    if (trimmed.startsWith('>')) {
+      flushBlock();
+      currentBlock.push(line);
+      flushBlock();
+      continue;
+    }
+
+    // Images — always their own block
+    if (/^!\[/.test(trimmed)) {
+      flushBlock();
+      currentBlock.push(line);
+      flushBlock();
+      continue;
+    }
+
+    // Regular paragraph text
+    currentBlock.push(line);
+  }
+
+  flushBlock();
+  return blocks;
 }
 
 // Convert markdown to simple inline HTML for PDF rendering
