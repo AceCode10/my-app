@@ -210,7 +210,12 @@ function preprocessMarkdown(md: string): string {
   if (!md) return '';
   let result = md;
   // Fix bold markers with internal spaces: "** text **" → "**text**"
-  result = result.replace(/\*\*\s+(.+?)\s+\*\*/g, '**$1**');
+  // Also handle word-adjacent cases: "in** RAM **" → "in **RAM**"
+  result = result.replace(/(\S?)\*\*\s+(.+?)\s+\*\*(\S?)/g, (_, before, content, after) => {
+    const prefix = before && /\w/.test(before) ? before + ' ' : (before || '');
+    const suffix = after && /\w/.test(after) ? ' ' + after : (after || '');
+    return `${prefix}**${content}**${suffix}`;
+  });
   // Fix italic markers with internal spaces: "* text *" → "*text*"  
   // Be careful not to match list items (line-start asterisk + space)
   result = result.replace(/(?<!\n|\*)\*\s+(.+?)\s+\*(?!\*)/g, '*$1*');

@@ -48,6 +48,50 @@ interface Topic {
   estimated_time?: number;
 }
 
+// Format mark scheme / explanation text: split bullet points onto separate lines
+function FormattedMarkScheme({ text }: { text: string }) {
+  if (!text) return null;
+  
+  // Split on bullet point markers (•, -, *) or newlines
+  // First, normalize: replace • with newline+• if not already preceded by newline
+  let formatted = text.replace(/\s*•\s*/g, '\n• ');
+  // Also handle dash-separated points like "- point"
+  formatted = formatted.replace(/\s*(?:^|\n)\s*[-–]\s+/g, '\n• ');
+  // Split on newlines
+  const lines = formatted.split('\n').map(l => l.trim()).filter(Boolean);
+  
+  if (lines.length <= 1) {
+    // Single line - just render as-is
+    return <span className="ml-1">{text}</span>;
+  }
+  
+  // Check if first line is an intro (doesn't start with •)
+  const hasIntro = !lines[0].startsWith('•');
+  const intro = hasIntro ? lines[0] : null;
+  const points = lines.filter(l => l.startsWith('•')).map(l => l.replace(/^•\s*/, ''));
+  const nonBulletLines = hasIntro ? lines.slice(1).filter(l => !l.startsWith('•')) : lines.filter(l => !l.startsWith('•'));
+  
+  return (
+    <div className="mt-1.5">
+      {intro && <p className="mb-1.5">{intro}</p>}
+      {points.length > 0 && (
+        <ul className="list-disc pl-5 space-y-1">
+          {points.map((point, i) => (
+            <li key={i}>{point}</li>
+          ))}
+        </ul>
+      )}
+      {nonBulletLines.length > 0 && (
+        <div className="mt-1.5">
+          {nonBulletLines.map((line, i) => (
+            <p key={i}>{line}</p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface Subject {
   id: string;
   name: string;
@@ -107,45 +151,29 @@ export default function TopicPracticePage({
     try {
       setIsLoading(true);
 
-      // Get exam_board_id from the exam_boards table if examBoard is provided
+      // Fetch subject and exam board in parallel (they're independent)
       let examBoardId: string | null = null;
-      if (examBoard) {
-        const codeMap: Record<string, string> = {
-          'cambridge': 'CIE',
-          'ib': 'IB',
-          'edexcel': 'EDEX',
-          'ocr': 'OCR',
-          'aqa': 'AQA',
-          'ap': 'AP'
-        };
-        const dbCode = codeMap[examBoard.toLowerCase()] || examBoard.toUpperCase();
-        
-        const { data: boardData } = await supabase
-          .from('exam_boards')
-          .select('id')
-          .eq('code', dbCode)
-          .single();
-        
-        if (boardData) {
-          examBoardId = boardData.id;
-        }
-      }
+      const codeMap: Record<string, string> = {
+        'cambridge': 'CIE', 'ib': 'IB', 'edexcel': 'EDEX',
+        'ocr': 'OCR', 'aqa': 'AQA', 'ap': 'AP'
+      };
 
-      // Fetch subject
-      const { data: subjectData, error: subjectError } = await supabase
-        .from('subjects')
-        .select('*')
-        .eq('slug', subjectSlug)
-        .single();
+      const [subjectResult, boardResult] = await Promise.all([
+        supabase.from('subjects').select('*').eq('slug', subjectSlug).single(),
+        examBoard
+          ? supabase.from('exam_boards').select('id')
+              .eq('code', codeMap[examBoard.toLowerCase()] || examBoard.toUpperCase())
+              .single()
+          : Promise.resolve({ data: null }),
+      ]);
 
-      if (subjectError) {
-        console.error('Subject fetch error:', subjectError);
-        throw new Error(`Subject not found: ${subjectError.message}`);
+      if (subjectResult.error || !subjectResult.data) {
+        console.error('Subject fetch error:', subjectResult.error);
+        throw new Error(`Subject not found`);
       }
-      if (!subjectData) {
-        throw new Error('Subject not found');
-      }
+      const subjectData = subjectResult.data;
       setSubject(subjectData);
+      if (boardResult.data) examBoardId = boardResult.data.id;
 
       // Fetch topic by slug (simple and reliable)
       const { data: topicData, error: topicError } = await supabase
@@ -996,16 +1024,18 @@ export default function TopicPracticePage({
                           )}
                           {q.explanation && (
                             <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-                              <p className="text-sm text-blue-700 dark:text-blue-400">
-                                <strong>Explanation:</strong> {q.explanation}
-                              </p>
+                              <div className="text-sm text-blue-700 dark:text-blue-400">
+                                <strong>Explanation:</strong>
+                                <FormattedMarkScheme text={q.explanation} />
+                              </div>
                             </div>
                           )}
                           {q.examiner_comment && q.examiner_comment !== 'N/A' && (
                             <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-                              <p className="text-sm text-amber-700 dark:text-amber-400">
-                                <strong>Mark Scheme:</strong> {q.examiner_comment}
-                              </p>
+                              <div className="text-sm text-amber-700 dark:text-amber-400">
+                                <strong>Mark Scheme:</strong>
+                                <FormattedMarkScheme text={q.examiner_comment} />
+                              </div>
                             </div>
                           )}
                         </div>

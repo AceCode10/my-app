@@ -426,7 +426,12 @@ function markdownToSimpleHtml(md: string): string {
   html = html.replace(/^#\s+(.+)$/gm, '<h1 style="font-size:1.5em;font-weight:bold;margin:24px 0 10px 0;">$1</h1>');
 
   // Fix bold markers with internal spaces: "** text **" → "**text**"
-  html = html.replace(/\*\*\s+(.+?)\s+\*\*/g, '**$1**');
+  // Also handle word-adjacent cases: "in** RAM **" → "in **RAM**"
+  html = html.replace(/(\S?)\*\*\s+(.+?)\s+\*\*(\S?)/g, (_, before, content, after) => {
+    const prefix = before && /\w/.test(before) ? before + ' ' : (before || '');
+    const suffix = after && /\w/.test(after) ? ' ' + after : (after || '');
+    return `${prefix}**${content}**${suffix}`;
+  });
 
   // Bold and italic
   html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');

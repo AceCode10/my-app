@@ -382,20 +382,6 @@ export function useUser() {
       }
     };
 
-    // Diagnostic probe: after 3s, independently test if getSession() works
-    // This bypasses our initializeAuth flow and tests the Supabase client directly
-    const probeId = setTimeout(async () => {
-      if (!isSubscribed || !mountedRef.current) return;
-      try {
-        console.log(`[Diag] (${effectId}) Probe: calling getSession() independently...`);
-        const probeStart = Date.now();
-        const { data: { session: probeSession } } = await supabase.auth.getSession();
-        console.log(`[Diag] (${effectId}) Probe: getSession() returned in ${Date.now() - probeStart}ms, session: ${!!probeSession?.user}`);
-      } catch (err) {
-        console.error(`[Diag] (${effectId}) Probe: getSession() threw:`, (err as Error).message);
-      }
-    }, 3000);
-
     // Timeout that only fires if no auth state received and still loading
     const timeoutId = setTimeout(() => {
       if (isSubscribed && mountedRef.current && loading && !authStateReceived) {
@@ -448,28 +434,31 @@ export function useUser() {
           fetchUserProfile(session.user.id, forceRefresh);
         }
 
-        // Recovery: if SIGNED_IN fires but _initializePromise is stuck, the profile
-        // fetch will also hang because REST calls need getSession() for auth headers.
-        // The session IS in cookies from the successful exchange. Force a clean reload
-        // to break the deadlock — on reload, code verifier is consumed, _initialize
-        // finds session in cookies and resolves immediately.
+        // When SIGNED_IN fires, _initializePromise may not have resolved yet
+        // (SIGNED_IN fires from within _initialize → _recoverAndRefresh).
+        // REST calls in fetchUserProfile block until _initializePromise resolves.
+        // Set a temporary user state from session metadata for instant UI feedback.
         if (event === 'SIGNED_IN' && !globalAuthInitialized) {
           globalAuthInitialized = true;
-          console.log('[Auth] Recovery: marking auth initialized from SIGNED_IN event');
-          // Wait briefly for normal completion, then force reload if still stuck
-          setTimeout(() => {
-            if (!cachedUser && isSubscribed && mountedRef.current) {
-              console.warn('[Auth] Recovery: profile fetch stuck after SIGNED_IN — forcing clean reload');
-              // Clean auth params from URL to prevent re-triggering PKCE detection on reload
-              if (typeof window !== 'undefined') {
-                const url = new URL(window.location.href);
-                url.searchParams.delete('code');
-                url.searchParams.delete('error');
-                url.searchParams.delete('error_description');
-                window.location.replace(url.pathname + (url.search || ''));
-              }
-            }
-          }, 2000);
+          console.log('[Auth] Marking auth initialized from SIGNED_IN event');
+          // Provide instant UI feedback using session metadata while profile loads
+          if (!cachedUser && session?.user && mountedRef.current) {
+            const meta = session.user.user_metadata || {};
+            const tempName = meta.full_name || meta.name || formatEmailAsName(session.user.email);
+            const tempUser: UserProfile = {
+              id: session.user.id,
+              email: session.user.email || '',
+              display_name: tempName || 'User',
+              avatar_url: meta.avatar_url || meta.picture,
+              role: meta.role || 'student',
+              subscription_tier: 'basic',
+              onboarding_completed: false,
+              created_at: session.user.created_at || new Date().toISOString(),
+            };
+            setUser(tempUser);
+            setLoading(false);
+            console.log('[Auth] Set temporary user from session metadata:', tempName);
+          }
         }
       } else if (event === 'TOKEN_REFRESHED' && session?.user) {
         // Token refreshed - validate cache is still valid
@@ -483,7 +472,6 @@ export function useUser() {
       console.log(`[Auth] useUser effect cleanup (id=${effectId})`);
       isSubscribed = false;
       mountedRef.current = false;
-      clearTimeout(probeId);
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
         timeoutRef.current = null;

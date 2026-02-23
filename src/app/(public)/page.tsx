@@ -307,7 +307,7 @@ export default function LandingPage() {
                             <Link href="/signup">Get Started for Free</Link>
                         </Button>
                         <Button asChild size="lg" variant="outline" className="w-full sm:w-auto">
-                            <Link href="/signup?plan=teacher">I'm a teacher</Link>
+                            <Link href="/for-teachers">I'm a teacher</Link>
                         </Button>
                     </div>
                 </div>

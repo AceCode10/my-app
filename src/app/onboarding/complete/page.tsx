@@ -85,20 +85,20 @@ export default function CompleteOnboardingPage() {
 
       setUserRole(userRecord?.role || 'student');
 
-      // Fetch exam boards
-      const { data: boardsData } = await supabase
-        .from('exam_boards')
-        .select('id, name, code')
-        .eq('status', 'active')
-        .order('name');
-      setExamBoards(boardsData || []);
-
-      // Fetch education levels
-      const { data: levelsData } = await supabase
-        .from('education_levels')
-        .select('id, name, description')
-        .order('display_order');
-      setLevels(levelsData || []);
+      // Fetch exam boards and education levels in parallel
+      const [boardsResult, levelsResult] = await Promise.all([
+        supabase
+          .from('exam_boards')
+          .select('id, name, code')
+          .eq('status', 'active')
+          .order('name'),
+        supabase
+          .from('education_levels')
+          .select('id, name, description')
+          .order('display_order'),
+      ]);
+      setExamBoards(boardsResult.data || []);
+      setLevels(levelsResult.data || []);
 
       setIsLoading(false);
     };
