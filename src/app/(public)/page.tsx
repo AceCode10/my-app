@@ -1,11 +1,23 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle, Zap, Users, BookOpen, GraduationCap, Microscope, Calculator, Globe, Atom, BookText, FlaskConical, Music, Palette, Languages, Binary } from "lucide-react";
 import Link from 'next/link';
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { useSearchParams } from 'next/navigation';
+
+// OAuth Callback Fallback Component
+function OAuthCallbackFallback() {
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (searchParams.has('code')) {
+      window.location.href = `/auth/callback?${searchParams.toString()}`;
+    }
+  }, [searchParams]);
+  return null;
+}
 
 // Rotating words with their colors
 const rotatingWords = [
@@ -291,6 +303,9 @@ const testimonials = [
 export default function LandingPage() {
     return (
         <div className="bg-background text-foreground">
+            <Suspense fallback={null}>
+                <OAuthCallbackFallback />
+            </Suspense>
             {/* Hero Section with Rotating Text */}
             <section className="relative overflow-hidden pt-16 sm:pt-20 md:pt-32 pb-12 md:pb-24">
                 <FloatingIconsBackground />

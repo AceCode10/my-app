@@ -7,6 +7,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import type { 
   ExamBoard, 
   ExamBoardContextValue, 
@@ -111,12 +112,12 @@ export function ExamBoardProvider({ children, initialExamBoards = [] }: ExamBoar
 
   // Listen for auth changes - handles INITIAL_SESSION for page loads with existing session
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
       if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
         // Only fetch if userId changed to avoid duplicate fetches
         if (userId !== session.user.id) {
           setUserId(session.user.id);
-          await fetchUserPreference(session.user.id);
+          fetchUserPreference(session.user.id);
         }
       } else if (event === 'SIGNED_OUT') {
         setUserId(null);

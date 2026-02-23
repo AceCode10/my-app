@@ -44,6 +44,7 @@ let globalAuthPromise: Promise<void> | null = null; // Shared promise for initia
 const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes cache - shorter for better consistency
 const FETCH_TIMEOUT = 10000; // 10 second timeout for profile fetch
 const INIT_TIMEOUT = 8000; // 8 second timeout for initial auth check
+const AUTH_CALL_TIMEOUT = 4000; // Timebox auth SDK calls to avoid deadlocks blocking all hook instances
 
 // Helper to invalidate cache (can be called from other modules)
 export function invalidateUserCache() {
@@ -282,13 +283,23 @@ export function useUser() {
         // First check local session (fast) to avoid showing loading state unnecessarily
         const sessionStart = Date.now();
         console.log(`[Auth] (${effectId}) Calling getSession()...`);
-        // Diagnostic: warn if getSession() takes more than 5s (indicates _initializePromise is blocked)
-        const sessionWarn = setTimeout(() => {
-          console.error(`[Auth] ⚠️ (${effectId}) getSession() STILL PENDING after 5s — Supabase _initialize is likely blocked`);
-          logState('getSession-stuck');
-        }, 5000);
-        const { data: { session } } = await supabase.auth.getSession();
-        clearTimeout(sessionWarn);
+        const sessionResult = await Promise.race<
+          { timedOut: false; session: Session | null } |
+          { timedOut: true }
+        >([
+          supabase.auth.getSession().then(({ data: { session } }: { data: { session: Session | null } }) => ({ timedOut: false as const, session })),
+          new Promise<{ timedOut: true }>((resolve) =>
+            setTimeout(() => resolve({ timedOut: true }), AUTH_CALL_TIMEOUT)
+          ),
+        ]);
+
+        if (sessionResult.timedOut) {
+          console.warn(`[Auth] (${effectId}) getSession() timed out after ${AUTH_CALL_TIMEOUT}ms — continuing with auth events`);
+          logState('getSession-timeboxed');
+          return;
+        }
+
+        const { session } = sessionResult;
         console.log(`[Auth] (${effectId}) getSession() completed in ${Date.now() - sessionStart}ms, session: ${!!session?.user}`);
         
         if (!isSubscribed || !mountedRef.current) {
@@ -300,7 +311,7 @@ export function useUser() {
         if (session?.user) {
           // Session exists locally - fetch profile while validating in background
           console.log(`[Auth] (${effectId}) Session found, fetching profile for ${session.user.id.substring(0, 8)}...`);
-          const profilePromise = fetchUserProfile(session.user.id);
+          fetchUserProfile(session.user.id);
           
           // Also validate with server in background (don't block UI)
           supabase.auth.getUser().then(({ error }: { error: { message: string } | null }) => {
@@ -313,18 +324,29 @@ export function useUser() {
           }).catch(() => {
             // Ignore validation errors - we'll rely on session refresh
           });
-          
-          await profilePromise;
+
           globalAuthInitialized = true;
         } else {
           // No session - try getUser as fallback (handles edge cases)
           console.log(`[Auth] (${effectId}) No session, trying getUser() fallback...`);
           const getUserStart = Date.now();
-          const getUserWarn = setTimeout(() => {
-            console.error(`[Auth] ⚠️ (${effectId}) getUser() STILL PENDING after 5s`);
-          }, 5000);
-          const { data: { user: authUser }, error } = await supabase.auth.getUser();
-          clearTimeout(getUserWarn);
+          const getUserResult = await Promise.race<
+            { timedOut: false; user: Session['user']; error: { message: string } | null } |
+            { timedOut: true }
+          >([
+            supabase.auth.getUser().then(({ data: { user }, error }: { data: { user: any }; error: { message: string } | null }) => ({ timedOut: false as const, user, error })),
+            new Promise<{ timedOut: true }>((resolve) =>
+              setTimeout(() => resolve({ timedOut: true }), AUTH_CALL_TIMEOUT)
+            ),
+          ]);
+
+          if (getUserResult.timedOut) {
+            console.warn(`[Auth] (${effectId}) getUser() timed out after ${AUTH_CALL_TIMEOUT}ms — continuing with auth events`);
+            logState('getUser-timeboxed');
+            return;
+          }
+
+          const { user: authUser, error } = getUserResult;
           console.log(`[Auth] (${effectId}) getUser() completed in ${Date.now() - getUserStart}ms, user: ${!!authUser}, error: ${error?.message || 'none'}`);
           
           if (!isSubscribed || !mountedRef.current) {
@@ -352,7 +374,7 @@ export function useUser() {
             }
             globalAuthInitialized = true;
           } else if (authUser) {
-            await fetchUserProfile(authUser.id);
+            fetchUserProfile(authUser.id);
             globalAuthInitialized = true;
           } else {
             if (mountedRef.current) {
@@ -408,7 +430,7 @@ export function useUser() {
     });
 
     // Listen for auth changes - handles INITIAL_SESSION, SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
       if (!isSubscribed || !mountedRef.current) return;
       
       authStateReceived = true;
@@ -438,11 +460,16 @@ export function useUser() {
         // (SIGNED_IN fires from within _initialize → _recoverAndRefresh).
         // REST calls in fetchUserProfile block until _initializePromise resolves.
         // Set a temporary user state from session metadata for instant UI feedback.
-        if (event === 'SIGNED_IN' && !globalAuthInitialized) {
-          globalAuthInitialized = true;
-          console.log('[Auth] Marking auth initialized from SIGNED_IN event');
-          // Provide instant UI feedback using session metadata while profile loads
-          if (!cachedUser && session?.user && mountedRef.current) {
+        if (event === 'SIGNED_IN' && session?.user) {
+          if (!globalAuthInitialized) {
+            globalAuthInitialized = true;
+            console.log('[Auth] Marking auth initialized from SIGNED_IN event');
+          }
+
+          // Provide instant UI feedback for THIS hook instance while profile loads.
+          // We intentionally do this per-instance because many components mount useUser()
+          // concurrently and only one of them may have started global init.
+          if (mountedRef.current && (!cachedUser || cachedUserId !== session.user.id)) {
             const meta = session.user.user_metadata || {};
             const tempName = meta.full_name || meta.name || formatEmailAsName(session.user.email);
             const tempUser: UserProfile = {
@@ -455,7 +482,13 @@ export function useUser() {
               onboarding_completed: false,
               created_at: session.user.created_at || new Date().toISOString(),
             };
-            setUser(tempUser);
+
+            setUser((prev) => {
+              if (prev?.id === tempUser.id && prev.display_name && prev.role) {
+                return prev;
+              }
+              return tempUser;
+            });
             setLoading(false);
             console.log('[Auth] Set temporary user from session metadata:', tempName);
           }
