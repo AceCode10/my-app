@@ -242,6 +242,21 @@ export default function TopicPracticePage({
         };
         rootQuestions.forEach(q => addWithChildren(q));
         
+        // Ensure context-only items appear before answerable items within the group.
+        // This ensures the shared stem/context is displayed first, then the parts.
+        sorted.sort((a, b) => {
+          const aIsContext = a.is_context_only || (a.marks === 0 && !a.part_label) || a.needs_answer === false;
+          const bIsContext = b.is_context_only || (b.marks === 0 && !b.part_label) || b.needs_answer === false;
+          if (aIsContext && !bIsContext) return -1;
+          if (!aIsContext && bIsContext) return 1;
+          // Among non-context items: items without part_label before those with part_label
+          if (!aIsContext && !bIsContext) {
+            if (!a.part_label && b.part_label) return -1;
+            if (a.part_label && !b.part_label) return 1;
+          }
+          return 0; // preserve existing order otherwise
+        });
+        
         // Calculate total marks (only from answerable parts)
         const totalMarks = sorted.reduce((sum, q) => {
           if (q.is_context_only || q.needs_answer === false || q.marks === 0) return sum;

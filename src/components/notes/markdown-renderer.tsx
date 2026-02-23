@@ -205,7 +205,21 @@ function WorkedExampleContent({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Preprocess markdown to fix common authoring issues
+function preprocessMarkdown(md: string): string {
+  if (!md) return '';
+  let result = md;
+  // Fix bold markers with internal spaces: "** text **" → "**text**"
+  result = result.replace(/\*\*\s+(.+?)\s+\*\*/g, '**$1**');
+  // Fix italic markers with internal spaces: "* text *" → "*text*"  
+  // Be careful not to match list items (line-start asterisk + space)
+  result = result.replace(/(?<!\n|\*)\*\s+(.+?)\s+\*(?!\*)/g, '*$1*');
+  return result;
+}
+
 export function MarkdownRenderer({ content, className, hasLatex = false }: MarkdownRendererProps) {
+  const processedContent = useMemo(() => preprocessMarkdown(content), [content]);
+
   const remarkPlugins = useMemo(() => {
     const plugins: any[] = [remarkGfm];
     if (hasLatex) {
@@ -451,7 +465,7 @@ export function MarkdownRenderer({ content, className, hasLatex = false }: Markd
           }
         }}
       >
-        {content}
+        {processedContent}
       </ReactMarkdown>
     </div>
   );

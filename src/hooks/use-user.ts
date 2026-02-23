@@ -23,6 +23,16 @@ export interface UserProfile {
   created_at: string;
 }
 
+// Format email prefix as a readable name: "denny_sepiso" -> "Denny Sepiso"
+function formatEmailAsName(email?: string | null): string {
+  if (!email) return '';
+  const prefix = email.split('@')[0];
+  return prefix
+    .replace(/[._-]/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase())
+    .trim();
+}
+
 // Global cache for user profile to avoid refetching on every component mount
 let cachedUser: UserProfile | null = null;
 let cachedUserId: string | null = null; // Track which user the cache belongs to
@@ -157,7 +167,7 @@ export function useUser() {
               .insert({
                 id: authUser.id,
                 email: authUser.email,
-                display_name: authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.user_metadata?.display_name || authUser.email?.split('@')[0] || 'User',
+                display_name: authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.user_metadata?.display_name || formatEmailAsName(authUser.email) || 'User',
                 role: authUser.user_metadata?.role || 'student',
                 subscription_tier: authUser.user_metadata?.role === 'teacher' ? 'pro' : 'basic',
                 onboarding_completed: false,
@@ -438,12 +448,28 @@ export function useUser() {
           fetchUserProfile(session.user.id, forceRefresh);
         }
 
-        // Recovery: if SIGNED_IN fires but initializeAuth() is still awaiting
-        // getSession() (which is blocked by _initializePromise), unblock it.
-        // The session from onAuthStateChange is already valid — no need to reload.
+        // Recovery: if SIGNED_IN fires but _initializePromise is stuck, the profile
+        // fetch will also hang because REST calls need getSession() for auth headers.
+        // The session IS in cookies from the successful exchange. Force a clean reload
+        // to break the deadlock — on reload, code verifier is consumed, _initialize
+        // finds session in cookies and resolves immediately.
         if (event === 'SIGNED_IN' && !globalAuthInitialized) {
           globalAuthInitialized = true;
           console.log('[Auth] Recovery: marking auth initialized from SIGNED_IN event');
+          // Wait briefly for normal completion, then force reload if still stuck
+          setTimeout(() => {
+            if (!cachedUser && isSubscribed && mountedRef.current) {
+              console.warn('[Auth] Recovery: profile fetch stuck after SIGNED_IN — forcing clean reload');
+              // Clean auth params from URL to prevent re-triggering PKCE detection on reload
+              if (typeof window !== 'undefined') {
+                const url = new URL(window.location.href);
+                url.searchParams.delete('code');
+                url.searchParams.delete('error');
+                url.searchParams.delete('error_description');
+                window.location.replace(url.pathname + (url.search || ''));
+              }
+            }
+          }, 2000);
         }
       } else if (event === 'TOKEN_REFRESHED' && session?.user) {
         // Token refreshed - validate cache is still valid

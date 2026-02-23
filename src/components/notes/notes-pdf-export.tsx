@@ -225,7 +225,7 @@ export function NotesPDFExport({ note, sections: propSections, trigger }: NotesP
   );
 }
 
-// PDF Generation Function - renders markdown as styled HTML and captures with html2canvas
+// PDF Generation Function - renders each section individually to avoid page overflow
 async function generateNotePDF(
   note: Note,
   sections: NoteSection[],
@@ -247,130 +247,168 @@ async function generateNotePDF(
   // Margin in points
   const margin = 40;
   const contentWidth = pageWidth - margin * 2;
-  const contentHeight = pageHeight - margin * 2 - (include_header ? 20 : 0) - (include_footer ? 20 : 0);
+  const headerSpace = include_header ? 25 : 0;
+  const footerSpace = include_footer ? 25 : 0;
+  const usableHeight = pageHeight - margin * 2 - headerSpace - footerSpace;
+  const contentStartY = margin + headerSpace;
 
-  // Build HTML content to render
-  let htmlContent = '';
+  const pdf = new jsPDF('p', 'pt', paper_size);
+  let currentY = contentStartY; // current Y position on current page
+  let pageNum = 0;
 
-  // Title
-  htmlContent += `<h1 style="font-size:2em;font-weight:bold;margin:0 0 8px 0;color:#1a1a2e;">${escapeHtml(note.title)}</h1>`;
-  if (note.subtitle) {
-    htmlContent += `<p style="font-size:1.2em;color:#666;margin:0 0 12px 0;">${escapeHtml(note.subtitle)}</p>`;
+  // Higher DPI scale for sharper text
+  const canvasScale = 3;
+
+  // Helper: render an HTML block to canvas and add to PDF with page break handling
+  async function addBlockToPDF(htmlBlock: string): Promise<void> {
+    const container = document.createElement('div');
+    container.style.cssText = `
+      position: fixed;
+      left: -9999px;
+      top: 0;
+      width: ${contentWidth}px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: ${baseFontSize};
+      line-height: 1.7;
+      color: #1a1a2e;
+      background: white;
+      padding: 0;
+    `;
+    container.innerHTML = htmlBlock;
+    document.body.appendChild(container);
+
+    try {
+      const canvas = await html2canvas(container, {
+        scale: canvasScale,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        windowWidth: contentWidth,
+      });
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const ratio = contentWidth / canvas.width;
+      const blockHeight = canvas.height * ratio;
+
+      // If block fits on current page, add it
+      if (currentY + blockHeight <= margin + usableHeight + headerSpace) {
+        pdf.addImage(imgData, 'JPEG', margin, currentY, contentWidth, blockHeight);
+        currentY += blockHeight;
+      } else if (blockHeight <= usableHeight) {
+        // Block doesn't fit but is smaller than a full page — move to next page
+        addNewPage();
+        pdf.addImage(imgData, 'JPEG', margin, currentY, contentWidth, blockHeight);
+        currentY += blockHeight;
+      } else {
+        // Block is taller than a page — slice it across pages
+        let srcY = 0;
+        const totalSrcHeight = canvas.height;
+
+        while (srcY < totalSrcHeight) {
+          const remainingPagePts = margin + usableHeight + headerSpace - currentY;
+          const remainingPagePx = remainingPagePts / ratio;
+          const sliceHeightPx = Math.min(remainingPagePx, totalSrcHeight - srcY);
+          const sliceHeightPts = sliceHeightPx * ratio;
+
+          // Create a slice canvas
+          const sliceCanvas = document.createElement('canvas');
+          sliceCanvas.width = canvas.width;
+          sliceCanvas.height = Math.ceil(sliceHeightPx);
+          const ctx = sliceCanvas.getContext('2d');
+          if (ctx) {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+            ctx.drawImage(
+              canvas,
+              0, Math.floor(srcY), canvas.width, Math.ceil(sliceHeightPx),
+              0, 0, canvas.width, Math.ceil(sliceHeightPx)
+            );
+          }
+
+          const sliceData = sliceCanvas.toDataURL('image/jpeg', 0.95);
+          pdf.addImage(sliceData, 'JPEG', margin, currentY, contentWidth, sliceHeightPts);
+          currentY += sliceHeightPts;
+          srcY += sliceHeightPx;
+
+          // If more content, add a new page
+          if (srcY < totalSrcHeight) {
+            addNewPage();
+          }
+        }
+      }
+    } finally {
+      document.body.removeChild(container);
+    }
   }
-  htmlContent += `<p style="font-size:0.85em;color:#999;margin:0 0 16px 0;">${note.estimated_read_time || 5} min read</p>`;
-  htmlContent += `<hr style="border:none;border-top:1px solid #ddd;margin:0 0 24px 0;">`;
+
+  function addNewPage(): void {
+    addPageDecorations();
+    pdf.addPage();
+    pageNum++;
+    currentY = contentStartY;
+  }
+
+  function addPageDecorations(): void {
+    if (include_header) {
+      pdf.setFontSize(8);
+      pdf.setTextColor(150, 150, 150);
+      pdf.text(note.title, margin, margin + 5);
+      pdf.setDrawColor(220, 220, 220);
+      pdf.line(margin, margin + 10, pageWidth - margin, margin + 10);
+    }
+    if (include_footer) {
+      pdf.setFontSize(8);
+      pdf.setTextColor(150, 150, 150);
+      const footerY = pageHeight - margin + 5;
+      pdf.text(`Page ${pageNum + 1}`, margin, footerY);
+      pdf.text('\u00A9 ' + new Date().getFullYear() + ' IGA Prep', pageWidth / 2, footerY, { align: 'center' });
+      pdf.text('For more, visit igaprep.com', pageWidth - margin, footerY, { align: 'right' });
+    }
+  }
+
+  // --- Build content blocks ---
+
+  // Title block
+  let titleHtml = `<h1 style="font-size:2em;font-weight:bold;margin:0 0 8px 0;color:#1a1a2e;">${escapeHtml(note.title)}</h1>`;
+  if (note.subtitle) {
+    titleHtml += `<p style="font-size:1.2em;color:#666;margin:0 0 12px 0;">${escapeHtml(note.subtitle)}</p>`;
+  }
+  titleHtml += `<p style="font-size:0.85em;color:#999;margin:0 0 16px 0;">${note.estimated_read_time || 5} min read</p>`;
+  titleHtml += `<hr style="border:none;border-top:1px solid #ddd;margin:0 0 16px 0;">`;
+  await addBlockToPDF(titleHtml);
 
   // Table of Contents
   if (include_toc && sections.length > 0) {
-    htmlContent += `<div style="margin-bottom:24px;">`;
-    htmlContent += `<h2 style="font-size:1.4em;font-weight:bold;margin:0 0 12px 0;">Table of Contents</h2>`;
-    htmlContent += `<ol style="padding-left:20px;margin:0;">`;
+    let tocHtml = `<div style="margin-bottom:16px;">`;
+    tocHtml += `<h2 style="font-size:1.4em;font-weight:bold;margin:0 0 12px 0;">Table of Contents</h2>`;
+    tocHtml += `<ol style="padding-left:20px;margin:0;">`;
     for (const section of sections) {
-      htmlContent += `<li style="margin:4px 0;color:#444;">${escapeHtml(section.title)}</li>`;
+      tocHtml += `<li style="margin:4px 0;color:#444;">${escapeHtml(section.title)}</li>`;
     }
-    htmlContent += `</ol>`;
-    htmlContent += `<hr style="border:none;border-top:1px solid #ddd;margin:24px 0;">`;
-    htmlContent += `</div>`;
+    tocHtml += `</ol>`;
+    tocHtml += `<hr style="border:none;border-top:1px solid #ddd;margin:16px 0 0 0;">`;
+    tocHtml += `</div>`;
+    await addBlockToPDF(tocHtml);
   }
 
-  // Content - use markdown rendered to simple HTML
+  // Content sections - each section is rendered as a separate block
   if (include_sections && sections.length > 0) {
     for (let i = 0; i < sections.length; i++) {
       const section = sections[i];
-      htmlContent += `<div style="margin-bottom:24px;">`;
-      htmlContent += `<h2 style="font-size:1.3em;font-weight:bold;margin:0 0 8px 0;color:#1a1a2e;">${i + 1}. ${escapeHtml(section.title)}</h2>`;
-      htmlContent += markdownToSimpleHtml(section.content_md);
-      htmlContent += `</div>`;
+      let sectionHtml = `<div style="margin-bottom:16px;">`;
+      sectionHtml += `<h2 style="font-size:1.3em;font-weight:bold;margin:0 0 8px 0;color:#1a1a2e;">${i + 1}. ${escapeHtml(section.title)}</h2>`;
+      sectionHtml += markdownToSimpleHtml(section.content_md);
+      sectionHtml += `</div>`;
+      await addBlockToPDF(sectionHtml);
     }
   } else {
-    htmlContent += markdownToSimpleHtml(note.content_md);
+    await addBlockToPDF(markdownToSimpleHtml(note.content_md));
   }
 
-  // Create temporary off-screen container
-  const container = document.createElement('div');
-  container.style.cssText = `
-    position: fixed;
-    left: -9999px;
-    top: 0;
-    width: ${contentWidth}px;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    font-size: ${baseFontSize};
-    line-height: 1.7;
-    color: #1a1a2e;
-    background: white;
-    padding: 0;
-  `;
-  container.innerHTML = htmlContent;
-  document.body.appendChild(container);
+  // Add decorations to the last page
+  addPageDecorations();
 
-  try {
-    // Capture with html2canvas
-    const canvas = await html2canvas(container, {
-      scale: 2,
-      useCORS: true,
-      logging: false,
-      backgroundColor: '#ffffff',
-      windowWidth: contentWidth,
-    });
-
-    // Create PDF and paginate
-    const pdf = new jsPDF('p', 'pt', paper_size);
-    const imgWidth = canvas.width;
-    const imgHeight = canvas.height;
-    const ratio = contentWidth / imgWidth;
-    const scaledHeight = imgHeight * ratio;
-
-    const headerY = include_header ? margin : margin - 15;
-    const footerSpace = include_footer ? 20 : 0;
-    const usableHeight = pageHeight - margin - headerY - footerSpace;
-
-    let yOffset = 0;
-    let pageNum = 0;
-
-    while (yOffset < scaledHeight) {
-      if (pageNum > 0) {
-        pdf.addPage();
-      }
-
-      // Header
-      if (include_header) {
-        pdf.setFontSize(8);
-        pdf.setTextColor(150, 150, 150);
-        pdf.text(note.title, margin, margin - 5);
-        pdf.setDrawColor(220, 220, 220);
-        pdf.line(margin, margin, pageWidth - margin, margin);
-      }
-
-      // Content image slice
-      pdf.addImage(
-        canvas.toDataURL('image/png'),
-        'PNG',
-        margin,
-        headerY + 5 - yOffset,
-        contentWidth,
-        scaledHeight
-      );
-
-      // Footer
-      if (include_footer) {
-        pdf.setFontSize(8);
-        pdf.setTextColor(150, 150, 150);
-        pdf.text(
-          `Page ${pageNum + 1}`,
-          pageWidth / 2,
-          pageHeight - margin + 10,
-          { align: 'center' }
-        );
-      }
-
-      yOffset += usableHeight;
-      pageNum++;
-    }
-
-    return pdf;
-  } finally {
-    document.body.removeChild(container);
-  }
+  return pdf;
 }
 
 // Convert markdown to simple inline HTML for PDF rendering
@@ -386,6 +424,9 @@ function markdownToSimpleHtml(md: string): string {
   html = html.replace(/^###\s+(.+)$/gm, '<h3 style="font-size:1.1em;font-weight:bold;margin:16px 0 6px 0;">$1</h3>');
   html = html.replace(/^##\s+(.+)$/gm, '<h2 style="font-size:1.2em;font-weight:bold;margin:20px 0 8px 0;color:#1a1a2e;">$1</h2>');
   html = html.replace(/^#\s+(.+)$/gm, '<h1 style="font-size:1.5em;font-weight:bold;margin:24px 0 10px 0;">$1</h1>');
+
+  // Fix bold markers with internal spaces: "** text **" → "**text**"
+  html = html.replace(/\*\*\s+(.+?)\s+\*\*/g, '**$1**');
 
   // Bold and italic
   html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');

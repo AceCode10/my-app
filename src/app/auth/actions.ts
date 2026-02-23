@@ -85,6 +85,16 @@ export async function signUp(formData: FormData) {
   redirect('/onboarding');
 }
 
+// Format email prefix as a readable name: "denny_sepiso" -> "Denny Sepiso"
+function formatEmailAsName(email?: string | null): string {
+  if (!email) return 'User';
+  const prefix = email.split('@')[0];
+  return prefix
+    .replace(/[._-]/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase())
+    .trim() || 'User';
+}
+
 // Handle OAuth user profile creation
 export async function handleOAuthUser(user: any, displayName?: string, role?: string) {
   const supabase = await createClient();
@@ -97,7 +107,7 @@ export async function handleOAuthUser(user: any, displayName?: string, role?: st
     .single();
 
   if (existingProfile) {
-    // Update display_name if it looks like an email prefix (no spaces, likely auto-generated)
+    // Update display_name if it looks like an email or auto-generated prefix
     const googleName = user.user_metadata?.full_name || user.user_metadata?.name;
     if (googleName) {
       const { data: currentProfile } = await supabase
@@ -106,7 +116,10 @@ export async function handleOAuthUser(user: any, displayName?: string, role?: st
         .eq('id', user.id)
         .single();
       
-      if (currentProfile?.display_name && !currentProfile.display_name.includes(' ') && currentProfile.display_name.includes('_')) {
+      const currentName = currentProfile?.display_name || '';
+      // Update if: contains @ (full email), or has no spaces and contains _ (email prefix),
+      // or is empty/missing
+      if (!currentName || currentName.includes('@') || (!currentName.includes(' ') && currentName.includes('_'))) {
         await supabase
           .from('users')
           .update({ display_name: googleName })
@@ -120,7 +133,7 @@ export async function handleOAuthUser(user: any, displayName?: string, role?: st
   const { error: profileError } = await supabase.from('users').insert({
     id: user.id,
     email: user.email?.toLowerCase().trim(),
-    display_name: displayName || user.user_metadata?.full_name || user.user_metadata?.name || user.user_metadata?.display_name || user.email?.split('@')[0],
+    display_name: displayName || user.user_metadata?.full_name || user.user_metadata?.name || user.user_metadata?.display_name || formatEmailAsName(user.email),
     role: role || 'student',
     subscription_tier: 'basic',
     onboarding_completed: false,
