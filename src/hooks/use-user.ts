@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useSyncExternalStore } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 
@@ -33,33 +33,65 @@ function formatEmailAsName(email?: string | null): string {
     .trim();
 }
 
-// Global cache for user profile to avoid refetching on every component mount
-let cachedUser: UserProfile | null = null;
-let cachedUserId: string | null = null; // Track which user the cache belongs to
+// ─── Global auth store ───────────────────────────────────────────────
+// All useUser() instances subscribe to this store. When the user profile
+// changes, EVERY mounted instance is notified — regardless of which
+// instance triggered the fetch. This fixes the core bug where React
+// strict mode / concurrent renders unmount the fetching instance before
+// the profile query resolves, leaving all other instances stuck on null.
+
+interface AuthStore {
+  user: UserProfile | null;
+  loading: boolean;
+}
+
+let store: AuthStore = { user: null, loading: true };
 let cacheTimestamp = 0;
+let cachedUserId: string | null = null;
+const subscribers = new Set<() => void>();
+
+function getSnapshot(): AuthStore {
+  return store;
+}
+
+function getServerSnapshot(): AuthStore {
+  return { user: null, loading: true };
+}
+
+function subscribe(callback: () => void): () => void {
+  subscribers.add(callback);
+  return () => subscribers.delete(callback);
+}
+
+function setStore(next: Partial<AuthStore>) {
+  const prev = store;
+  store = { ...store, ...next };
+  // Only notify if something actually changed
+  if (prev.user !== store.user || prev.loading !== store.loading) {
+    subscribers.forEach(cb => cb());
+  }
+}
+
+// Global fetch deduplication
 let globalFetchPromise: Promise<UserProfile | null> | null = null;
-let globalFetchResolve: ((user: UserProfile | null) => void) | null = null;
-let globalAuthInitialized = false; // Track if auth has been initialized globally
-let globalAuthPromise: Promise<void> | null = null; // Shared promise for initial auth
-const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes cache - shorter for better consistency
-const FETCH_TIMEOUT = 10000; // 10 second timeout for profile fetch
-const INIT_TIMEOUT = 8000; // 8 second timeout for initial auth check
-const AUTH_CALL_TIMEOUT = 4000; // Timebox auth SDK calls to avoid deadlocks blocking all hook instances
+let globalAuthInitialized = false;
+let globalAuthPromise: Promise<void> | null = null;
+let lastSignedInEventTime = 0; // Deduplicate rapid SIGNED_IN events
+
+const CACHE_DURATION = 2 * 60 * 1000;
+const FETCH_TIMEOUT = 10000;
+const INIT_TIMEOUT = 8000;
+const AUTH_CALL_TIMEOUT = 4000;
 
 // Helper to invalidate cache (can be called from other modules)
 export function invalidateUserCache() {
-  cachedUser = null;
   cachedUserId = null;
   cacheTimestamp = 0;
   globalFetchPromise = null;
-  globalFetchResolve = null;
-  globalAuthInitialized = false; // Reset so next mount re-initializes auth
+  globalAuthInitialized = false;
   globalAuthPromise = null;
-}
-
-// Diagnostic: snapshot all global state for debugging
-function logState(label: string) {
-  console.log(`[Auth State] ${label}: cached=${!!cachedUser} cachedId=${cachedUserId?.substring(0, 8) || 'null'} fetchPromise=${!!globalFetchPromise} authInit=${globalAuthInitialized} authPromise=${!!globalAuthPromise}`);
+  lastSignedInEventTime = 0;
+  setStore({ user: null, loading: true });
 }
 
 // Listen for auth events globally to clear cache on sign out
@@ -70,206 +102,151 @@ if (typeof window !== 'undefined') {
   });
 }
 
-export function useUser() {
-  const [user, setUser] = useState<UserProfile | null>(cachedUser);
-  const [loading, setLoading] = useState(!cachedUser);
-  const fetchingRef = useRef(false);
-  const mountedRef = useRef(true);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
-  // Create supabase client inside hook - singleton pattern ensures same instance
-  const supabase = createClient();
+// ─── Shared profile fetcher ─────────────────────────────────────────
+// Returns the fetched profile and updates the global store + cache.
+// All hook instances see the update via useSyncExternalStore.
 
-  const fetchUserProfile = useCallback(async (userId: string, forceRefresh = false): Promise<UserProfile | null> => {
-    // Clear cache if user ID changed (switching accounts)
-    if (cachedUserId && cachedUserId !== userId) {
-      invalidateUserCache();
-    }
+let supabaseInstance: ReturnType<typeof createClient> | null = null;
+function getSupabase() {
+  if (!supabaseInstance) supabaseInstance = createClient();
+  return supabaseInstance;
+}
 
-    // Check cache first - must match user ID
-    if (!forceRefresh && cachedUser && cachedUserId === userId && Date.now() - cacheTimestamp < CACHE_DURATION) {
-      if (mountedRef.current) {
-        setUser(cachedUser);
-        setLoading(false);
-      }
-      return cachedUser;
-    }
+async function fetchUserProfile(userId: string, forceRefresh = false): Promise<UserProfile | null> {
+  const supabase = getSupabase();
 
-    // If another fetch is in progress globally for the SAME user, wait for it
-    if (globalFetchPromise && cachedUserId === userId) {
-      const result = await globalFetchPromise;
-      if (mountedRef.current) {
-        setUser(result);
-        setLoading(false);
-      }
-      return result;
-    }
+  // Clear cache if user ID changed (switching accounts)
+  if (cachedUserId && cachedUserId !== userId) {
+    invalidateUserCache();
+  }
 
-    // Prevent duplicate fetches
-    if (fetchingRef.current) return cachedUser;
-    fetchingRef.current = true;
-    cachedUserId = userId; // Track which user we're fetching
+  // Check cache first
+  if (!forceRefresh && store.user && cachedUserId === userId && Date.now() - cacheTimestamp < CACHE_DURATION) {
+    setStore({ user: store.user, loading: false });
+    return store.user;
+  }
 
-    // Create global promise with proper typing
-    globalFetchPromise = new Promise<UserProfile | null>((resolve) => {
-      globalFetchResolve = resolve;
-    });
+  // If another fetch is in progress for the SAME user, wait for it
+  if (globalFetchPromise && cachedUserId === userId) {
+    const result = await globalFetchPromise;
+    return result;
+  }
 
-    // Set a timeout to prevent infinite loading on slow connections
-    timeoutRef.current = setTimeout(() => {
-      if (mountedRef.current && fetchingRef.current) {
-        console.warn('User fetch timeout - using cached data or null');
-        setLoading(false);
-        fetchingRef.current = false;
-        // Resolve global promise on timeout
-        if (globalFetchResolve) {
-          globalFetchResolve(cachedUser);
-          globalFetchResolve = null;
-        }
-        globalFetchPromise = null;
-      }
-    }, FETCH_TIMEOUT);
+  cachedUserId = userId;
 
-    let fetchedUser: UserProfile | null = null;
-    const fetchStart = Date.now();
+  // Create a shared promise so concurrent callers wait for the same fetch
+  let resolveFetch: (user: UserProfile | null) => void;
+  globalFetchPromise = new Promise<UserProfile | null>((resolve) => {
+    resolveFetch = resolve;
+  });
 
-    try {
-      console.log('[Auth] Profile fetch start for:', userId.substring(0, 8) + '...');
-      
-      // Select only essential fields for faster query
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, email, display_name, avatar_url, role, subscription_tier, leaderboard_opt_out, country, exam_boards, level, levels, subjects_of_interest, onboarding_completed, xp, streak_days, created_at')
-        .eq('id', userId)
-        .single();
+  // Timeout guard
+  const timeoutId = setTimeout(() => {
+    console.warn('[Auth] Profile fetch timeout');
+    setStore({ loading: false });
+    resolveFetch!(store.user);
+    globalFetchPromise = null;
+  }, FETCH_TIMEOUT);
 
-      const elapsed = Date.now() - fetchStart;
-      console.log(`[Auth] Profile query completed in ${elapsed}ms`, error ? `error: ${error.code} ${error.message}` : 'success');
+  let fetchedUser: UserProfile | null = null;
 
-      // Clear timeout on successful response
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
+  try {
+    console.log('[Auth] Profile fetch start for:', userId.substring(0, 8) + '...');
+    
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, email, display_name, avatar_url, role, subscription_tier, leaderboard_opt_out, country, exam_boards, level, levels, subjects_of_interest, onboarding_completed, xp, streak_days, created_at')
+      .eq('id', userId)
+      .single();
 
-      if (!mountedRef.current) {
-        fetchedUser = data || null;
-        return fetchedUser;
-      }
+    clearTimeout(timeoutId);
+    console.log(`[Auth] Profile query completed`, error ? `error: ${error.code}` : 'success');
 
-      if (error) {
-        if (error.code === 'PGRST116') {
-          // Profile doesn't exist, create it
-          console.log('[Auth] Profile not found, creating...');
-          const { data: { user: authUser } } = await supabase.auth.getUser();
-          if (authUser && mountedRef.current) {
-            const { error: insertError } = await supabase
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // Profile doesn't exist — create it
+        console.log('[Auth] Profile not found, creating...');
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser) {
+          const { error: insertError } = await supabase
+            .from('users')
+            .insert({
+              id: authUser.id,
+              email: authUser.email,
+              display_name: authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.user_metadata?.display_name || formatEmailAsName(authUser.email) || 'User',
+              role: authUser.user_metadata?.role || 'student',
+              subscription_tier: authUser.user_metadata?.role === 'teacher' ? 'pro' : 'basic',
+              onboarding_completed: false,
+            });
+          
+          if (!insertError) {
+            const { data: newData } = await supabase
               .from('users')
-              .insert({
-                id: authUser.id,
-                email: authUser.email,
-                display_name: authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.user_metadata?.display_name || formatEmailAsName(authUser.email) || 'User',
-                role: authUser.user_metadata?.role || 'student',
-                subscription_tier: authUser.user_metadata?.role === 'teacher' ? 'pro' : 'basic',
-                onboarding_completed: false,
-              });
-            
-            if (!insertError && mountedRef.current) {
-              const { data: newData } = await supabase
-                .from('users')
-                .select('*')
-                .eq('id', userId)
-                .single();
-              if (newData) {
-                cachedUser = newData;
-                cacheTimestamp = Date.now();
-                fetchedUser = newData;
-                if (mountedRef.current) {
-                  setUser(newData);
-                  setLoading(false);
-                }
-                return fetchedUser;
-              }
+              .select('*')
+              .eq('id', userId)
+              .single();
+            if (newData) {
+              fetchedUser = newData;
+              cacheTimestamp = Date.now();
+              setStore({ user: newData, loading: false });
+              return fetchedUser;
             }
           }
         }
-        // Log non-404 errors
-        if (error.code !== 'PGRST116') {
-          console.error('[Auth] Profile fetch error:', error.code, error.message);
-        }
-        if (mountedRef.current) {
-          setUser(null);
-          setLoading(false);
-        }
-        return null;
       }
-
-      if (data) {
-        cachedUser = data;
-        cacheTimestamp = Date.now();
-        fetchedUser = data;
-        if (mountedRef.current) {
-          setUser(data);
-        }
-      } else if (mountedRef.current) {
-        setUser(null);
+      if (error.code !== 'PGRST116') {
+        console.error('[Auth] Profile fetch error:', error.code, error.message);
       }
-    } catch (err: unknown) {
-      const elapsed = Date.now() - fetchStart;
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      const errorName = err instanceof Error ? err.name : 'Unknown';
-      console.error(`[Auth] Profile fetch threw after ${elapsed}ms:`, errorName, errorMessage);
-      if (mountedRef.current) {
-        setUser(null);
-      }
-    } finally {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-      if (mountedRef.current) {
-        setLoading(false);
-      }
-      fetchingRef.current = false;
-      // Resolve global promise
-      if (globalFetchResolve) {
-        globalFetchResolve(fetchedUser);
-        globalFetchResolve = null;
-      }
-      globalFetchPromise = null;
+      setStore({ user: null, loading: false });
+      return null;
     }
 
-    return fetchedUser;
-  }, [supabase]);
+    if (data) {
+      fetchedUser = data;
+      cacheTimestamp = Date.now();
+      setStore({ user: data, loading: false });
+    } else {
+      setStore({ user: null, loading: false });
+    }
+  } catch (err: unknown) {
+    clearTimeout(timeoutId);
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    console.error('[Auth] Profile fetch threw:', errorMessage);
+    setStore({ user: null, loading: false });
+  } finally {
+    resolveFetch!(fetchedUser);
+    globalFetchPromise = null;
+  }
+
+  return fetchedUser;
+}
+
+// ─── Hook ────────────────────────────────────────────────────────────
+
+export function useUser() {
+  // All instances share the same store via useSyncExternalStore.
+  // When setStore() is called from ANY code path (fetch, auth event, etc.),
+  // every mounted useUser() instance re-renders with the new value.
+  const { user, loading } = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  
+  const supabase = getSupabase();
 
   useEffect(() => {
-    mountedRef.current = true;
     let isSubscribed = true;
     let retryCount = 0;
     const MAX_RETRIES = 2;
-    let authStateReceived = false; // Track if we've received an auth state event
-    const effectId = Math.random().toString(36).substring(2, 6); // Unique ID for this effect run
-    console.log(`[Auth] useUser effect mounted (id=${effectId})`);
-    logState('effect-mount');
 
-    // Initialize auth - uses session first (fast, local), then validates with getUser if needed
     const initializeAuth = async (): Promise<void> => {
-      // If already initialized globally, just check cache
-      if (globalAuthInitialized && cachedUser && cachedUserId) {
-        if (mountedRef.current) {
-          setUser(cachedUser);
-          setLoading(false);
-        }
+      // If already initialized globally with a cached user, nothing to do
+      if (globalAuthInitialized && store.user && cachedUserId) {
+        setStore({ loading: false });
         return;
       }
 
       // If another init is in progress, wait for it
       if (globalAuthPromise) {
         await globalAuthPromise;
-        if (mountedRef.current) {
-          setUser(cachedUser);
-          setLoading(false);
-        }
+        setStore({ loading: false });
         return;
       }
 
@@ -280,9 +257,7 @@ export function useUser() {
       });
 
       try {
-        // First check local session (fast) to avoid showing loading state unnecessarily
-        const sessionStart = Date.now();
-        console.log(`[Auth] (${effectId}) Calling getSession()...`);
+        // Check local session first (fast)
         const sessionResult = await Promise.race<
           { timedOut: false; session: Session | null } |
           { timedOut: true }
@@ -294,44 +269,32 @@ export function useUser() {
         ]);
 
         if (sessionResult.timedOut) {
-          console.warn(`[Auth] (${effectId}) getSession() timed out after ${AUTH_CALL_TIMEOUT}ms — continuing with auth events`);
-          logState('getSession-timeboxed');
+          console.warn('[Auth] getSession() timed out — waiting for auth events');
           return;
         }
 
         const { session } = sessionResult;
-        console.log(`[Auth] (${effectId}) getSession() completed in ${Date.now() - sessionStart}ms, session: ${!!session?.user}`);
         
-        if (!isSubscribed || !mountedRef.current) {
-          resolveGlobalAuth!();
-          globalAuthPromise = null;
-          return;
-        }
+        if (!isSubscribed) return;
         
         if (session?.user) {
-          // Session exists locally - fetch profile while validating in background
-          console.log(`[Auth] (${effectId}) Session found, fetching profile for ${session.user.id.substring(0, 8)}...`);
+          console.log('[Auth] Session found, fetching profile for', session.user.id.substring(0, 8));
+          // Fire-and-forget: fetchUserProfile updates the global store
           fetchUserProfile(session.user.id);
           
-          // Also validate with server in background (don't block UI)
+          // Validate session in background
           supabase.auth.getUser().then(({ error }: { error: { message: string } | null }) => {
-            if (error && isSubscribed && mountedRef.current) {
-              // Session was invalid - clear state
+            if (error && isSubscribed) {
               console.log('[Auth] Session validation failed:', error.message);
               invalidateUserCache();
-              setUser(null);
             }
-          }).catch(() => {
-            // Ignore validation errors - we'll rely on session refresh
-          });
+          }).catch(() => {});
 
           globalAuthInitialized = true;
         } else {
-          // No session - try getUser as fallback (handles edge cases)
-          console.log(`[Auth] (${effectId}) No session, trying getUser() fallback...`);
-          const getUserStart = Date.now();
+          // No session — try getUser as fallback
           const getUserResult = await Promise.race<
-            { timedOut: false; user: Session['user']; error: { message: string } | null } |
+            { timedOut: false; user: any; error: { message: string } | null } |
             { timedOut: true }
           >([
             supabase.auth.getUser().then(({ data: { user }, error }: { data: { user: any }; error: { message: string } | null }) => ({ timedOut: false as const, user, error })),
@@ -341,167 +304,122 @@ export function useUser() {
           ]);
 
           if (getUserResult.timedOut) {
-            console.warn(`[Auth] (${effectId}) getUser() timed out after ${AUTH_CALL_TIMEOUT}ms — continuing with auth events`);
-            logState('getUser-timeboxed');
+            console.warn('[Auth] getUser() timed out — waiting for auth events');
             return;
           }
 
           const { user: authUser, error } = getUserResult;
-          console.log(`[Auth] (${effectId}) getUser() completed in ${Date.now() - getUserStart}ms, user: ${!!authUser}, error: ${error?.message || 'none'}`);
-          
-          if (!isSubscribed || !mountedRef.current) {
-            resolveGlobalAuth!();
-            globalAuthPromise = null;
-            return;
-          }
+          if (!isSubscribed) return;
           
           if (error) {
-            // Check if it's a network error - retry if so
-            if (error.message.includes('fetch') || error.message.includes('network') || error.message.includes('timeout')) {
-              if (retryCount < MAX_RETRIES) {
-                retryCount++;
-                console.log(`[Auth] Network error, retrying (${retryCount}/${MAX_RETRIES})...`);
-                await new Promise(r => setTimeout(r, 1000 * retryCount));
-                resolveGlobalAuth!();
-                globalAuthPromise = null;
-                return initializeAuth();
-              }
+            if ((error.message.includes('fetch') || error.message.includes('network')) && retryCount < MAX_RETRIES) {
+              retryCount++;
+              await new Promise(r => setTimeout(r, 1000 * retryCount));
+              resolveGlobalAuth!();
+              globalAuthPromise = null;
+              return initializeAuth();
             }
-            // No valid session
-            console.log('[Auth] No session:', error.message);
-            if (mountedRef.current) {
-              setLoading(false);
-            }
+            setStore({ loading: false });
             globalAuthInitialized = true;
           } else if (authUser) {
             fetchUserProfile(authUser.id);
             globalAuthInitialized = true;
           } else {
-            if (mountedRef.current) {
-              setLoading(false);
-            }
+            setStore({ loading: false });
             globalAuthInitialized = true;
           }
         }
       } catch (err: unknown) {
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-        // Retry on network errors
-        if (retryCount < MAX_RETRIES && (errorMessage.includes('fetch') || errorMessage.includes('network'))) {
+        const msg = err instanceof Error ? err.message : '';
+        if ((msg.includes('fetch') || msg.includes('network')) && retryCount < MAX_RETRIES) {
           retryCount++;
-          console.log(`[Auth] Error, retrying (${retryCount}/${MAX_RETRIES})...`);
           await new Promise(r => setTimeout(r, 1000 * retryCount));
           resolveGlobalAuth!();
           globalAuthPromise = null;
           return initializeAuth();
         }
-        console.error('[Auth] Init error:', errorMessage);
-        if (isSubscribed && mountedRef.current) {
-          setLoading(false);
-        }
+        console.error('[Auth] Init error:', msg);
+        setStore({ loading: false });
       } finally {
         resolveGlobalAuth!();
         globalAuthPromise = null;
       }
     };
 
-    // Timeout that only fires if no auth state received and still loading
+    // Safety timeout
     const timeoutId = setTimeout(() => {
-      if (isSubscribed && mountedRef.current && loading && !authStateReceived) {
-        console.warn(`[Auth] (${effectId}) Init timeout - authStateReceived=${authStateReceived}`);
-        logState('init-timeout');
-        // On timeout, do a quick session check before giving up
+      if (isSubscribed && store.loading) {
+        console.warn('[Auth] Init timeout — recovering');
         supabase.auth.getSession().then(({ data: { session } }: { data: { session: Session | null } }) => {
-          if (session?.user && isSubscribed && mountedRef.current) {
-            console.log('[Auth] Found session on timeout - recovering');
+          if (session?.user && isSubscribed) {
             fetchUserProfile(session.user.id);
-          } else if (isSubscribed && mountedRef.current) {
-            setLoading(false);
+          } else if (isSubscribed) {
+            setStore({ loading: false });
           }
         }).catch(() => {
-          if (isSubscribed && mountedRef.current) {
-            setLoading(false);
-          }
+          setStore({ loading: false });
         });
       }
     }, INIT_TIMEOUT);
 
     initializeAuth().finally(() => {
       clearTimeout(timeoutId);
-      // After init completes, sync cached user to local state.
-      // This handles the case where a concurrent fetch (from another hook instance
-      // or auth event) populated the cache while this instance was waiting.
-      if (mountedRef.current && cachedUser && !user) {
-        setUser(cachedUser);
-        setLoading(false);
-      }
     });
 
-    // Listen for auth changes - handles INITIAL_SESSION, SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED
+    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
-      if (!isSubscribed || !mountedRef.current) return;
-      
-      authStateReceived = true;
-      console.log('[Auth] State change:', event);
+      if (!isSubscribed) return;
       
       if (event === 'SIGNED_OUT') {
-        globalAuthInitialized = false; // Reset so next mount re-initializes
+        globalAuthInitialized = false;
         invalidateUserCache();
-        setUser(null);
-        setLoading(false);
-      } else if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
-        // Handle both SIGNED_IN and INITIAL_SESSION (fired on page load with existing session)
-        // Force refresh on sign in, use cache for initial session if available
+        return;
+      }
+      
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
+        // Deduplicate rapid SIGNED_IN events (Supabase fires multiple)
+        const now = Date.now();
+        if (event === 'SIGNED_IN' && now - lastSignedInEventTime < 2000) {
+          // Skip duplicate — already processing
+          return;
+        }
+        if (event === 'SIGNED_IN') {
+          lastSignedInEventTime = now;
+        }
+
+        if (!globalAuthInitialized) {
+          globalAuthInitialized = true;
+        }
+
+        // For INITIAL_SESSION, use cache if available
+        if (event === 'INITIAL_SESSION' && store.user && cachedUserId === session.user.id) {
+          setStore({ loading: false });
+          return;
+        }
+
+        // Set temporary user from session metadata for instant UI feedback
+        // while the real profile loads from the database
+        if (!store.user || cachedUserId !== session.user.id) {
+          const meta = session.user.user_metadata || {};
+          const tempName = meta.full_name || meta.name || formatEmailAsName(session.user.email);
+          const tempUser: UserProfile = {
+            id: session.user.id,
+            email: session.user.email || '',
+            display_name: tempName || 'User',
+            avatar_url: meta.avatar_url || meta.picture,
+            role: meta.role || 'student',
+            subscription_tier: 'basic',
+            onboarding_completed: false,
+            created_at: session.user.created_at || new Date().toISOString(),
+          };
+          setStore({ user: tempUser, loading: false });
+          console.log('[Auth] Set temporary user:', tempName);
+        }
+
+        // Fetch real profile (fire-and-forget — updates store when done)
         const forceRefresh = event === 'SIGNED_IN';
-        if (event === 'INITIAL_SESSION' && cachedUser && cachedUserId === session.user.id) {
-          // Use cached data for initial session
-          setUser(cachedUser);
-          setLoading(false);
-        } else {
-          // IMPORTANT: Do NOT await here. Awaiting blocks the auth state change
-          // listener, which prevents subsequent events from being processed.
-          // If the profile fetch hangs, it jams the entire auth pipeline.
-          fetchUserProfile(session.user.id, forceRefresh);
-        }
-
-        // When SIGNED_IN fires, _initializePromise may not have resolved yet
-        // (SIGNED_IN fires from within _initialize → _recoverAndRefresh).
-        // REST calls in fetchUserProfile block until _initializePromise resolves.
-        // Set a temporary user state from session metadata for instant UI feedback.
-        if (event === 'SIGNED_IN' && session?.user) {
-          if (!globalAuthInitialized) {
-            globalAuthInitialized = true;
-            console.log('[Auth] Marking auth initialized from SIGNED_IN event');
-          }
-
-          // Provide instant UI feedback for THIS hook instance while profile loads.
-          // We intentionally do this per-instance because many components mount useUser()
-          // concurrently and only one of them may have started global init.
-          if (mountedRef.current && (!cachedUser || cachedUserId !== session.user.id)) {
-            const meta = session.user.user_metadata || {};
-            const tempName = meta.full_name || meta.name || formatEmailAsName(session.user.email);
-            const tempUser: UserProfile = {
-              id: session.user.id,
-              email: session.user.email || '',
-              display_name: tempName || 'User',
-              avatar_url: meta.avatar_url || meta.picture,
-              role: meta.role || 'student',
-              subscription_tier: 'basic',
-              onboarding_completed: false,
-              created_at: session.user.created_at || new Date().toISOString(),
-            };
-
-            setUser((prev) => {
-              if (prev?.id === tempUser.id && prev.display_name && prev.role) {
-                return prev;
-              }
-              return tempUser;
-            });
-            setLoading(false);
-            console.log('[Auth] Set temporary user from session metadata:', tempName);
-          }
-        }
+        fetchUserProfile(session.user.id, forceRefresh);
       } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-        // Token refreshed - validate cache is still valid
         if (cachedUserId !== session.user.id) {
           fetchUserProfile(session.user.id, true);
         }
@@ -509,27 +427,19 @@ export function useUser() {
     });
 
     return () => {
-      console.log(`[Auth] useUser effect cleanup (id=${effectId})`);
       isSubscribed = false;
-      mountedRef.current = false;
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
       subscription.unsubscribe();
     };
-  }, [fetchUserProfile]);
+  }, [supabase]);
 
   // Provide a refresh function for manual refresh
-  // Accepts an optional userId so callers (e.g. StudentLayout) can force a fetch
-  // even when the hook's local user state is still null.
   const refresh = useCallback((userId?: string) => {
-    const id = userId || user?.id || cachedUserId;
+    const id = userId || store.user?.id || cachedUserId;
     if (id) {
       return fetchUserProfile(id, true);
     }
     return Promise.resolve(null);
-  }, [user?.id, fetchUserProfile]);
+  }, []);
 
   return { user, loading, refresh };
 }

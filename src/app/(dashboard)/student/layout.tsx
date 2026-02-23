@@ -52,7 +52,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
     return false;
   });
-  const [checkingSession, setCheckingSession] = useState(false);
   const sessionCheckDone = useRef(false);
 
   useEffect(() => {
@@ -61,37 +60,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [sidebarCollapsed]);
 
-  // If loading is done but no user, double-check with Supabase directly
-  // This handles the case where useUser times out but session actually exists
+  // Safety net: if loading finishes but user is null, do one getUser() check
+  // This handles edge cases where the auth init timed out but a session exists
   useEffect(() => {
     if (!loading && !user && !sessionCheckDone.current) {
       sessionCheckDone.current = true;
-      setCheckingSession(true);
-      console.log('[StudentLayout] loading=false, user=null — checking session with getUser()...');
-      
-      const checkStart = Date.now();
       supabase.auth.getUser().then((result: { data: { user: any }; error: { message: string } | null }) => {
-        const authUser = result.data.user;
-        const error = result.error;
-        console.log(`[StudentLayout] getUser() returned in ${Date.now() - checkStart}ms, authUser: ${!!authUser}, error: ${error?.message || 'none'}`);
-        if (authUser && !error) {
-          console.log('[StudentLayout] Valid session — calling refresh() with userId:', authUser.id?.substring(0, 8));
-          // Pass the auth user's ID so refresh() can fetch even when user state is null
-          const refreshPromise = refresh?.(authUser.id) ?? Promise.resolve(null);
-          refreshPromise.then((profile: unknown) => {
-            console.log(`[StudentLayout] refresh() resolved: ${profile ? 'got profile' : 'null'}`);
-            if (!profile) {
-              setCheckingSession(false);
-            }
-          });
-        } else {
-          console.log('[StudentLayout] No valid session — redirecting to login');
-          setCheckingSession(false);
+        if (result.data.user && !result.error) {
+          refresh?.(result.data.user.id);
         }
-      }).catch((err: unknown) => {
-        console.error('[StudentLayout] getUser() threw:', err);
-        setCheckingSession(false);
-      });
+      }).catch(() => {});
     }
   }, [loading, user, supabase, refresh]);
 
@@ -111,7 +89,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.push('/');
   };
 
-  if (loading || checkingSession) {
+  if (loading) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <KodiLoadingGif />

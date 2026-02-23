@@ -54,7 +54,7 @@ export default function SubjectRevisionNotesPage({
     try {
       setIsLoading(true);
       
-      // Fetch subject
+      // Fetch subject first (needed for topic query)
       const { data: subjectData, error: subjectError } = await supabase
         .from('subjects')
         .select('*')
@@ -66,33 +66,30 @@ export default function SubjectRevisionNotesPage({
       
       setSubject(subjectData);
 
-      // Fetch topics for this subject
-      const { data: topicsData, error: topicsError } = await supabase
-        .from('topics')
-        .select('*')
-        .eq('subject_id', subjectData.id)
-        .order('display_order', { ascending: true });
-
-      if (topicsError) throw topicsError;
-      setTopics(topicsData || []);
-
-      // Fetch note counts per topic
-      if (topicsData && topicsData.length > 0) {
-        const topicIds = topicsData.map((t: Topic) => t.id);
-        const { data: noteCounts, error: countError } = await supabase
+      // Fetch topics and note counts in parallel
+      const [topicsRes, notesRes] = await Promise.all([
+        supabase
+          .from('topics')
+          .select('*')
+          .eq('subject_id', subjectData.id)
+          .order('display_order', { ascending: true }),
+        supabase
           .from('notes')
           .select('topic_id')
-          .in('topic_id', topicIds)
+          .eq('subject_id', subjectData.id)
           .eq('visibility', 'public')
-          .not('published_at', 'is', null);
+          .not('published_at', 'is', null),
+      ]);
 
-        if (!countError && noteCounts) {
-          const counts: Record<string, number> = {};
-          noteCounts.forEach((n: any) => {
-            counts[n.topic_id] = (counts[n.topic_id] || 0) + 1;
-          });
-          setTopicNoteCounts(counts);
-        }
+      if (topicsRes.error) throw topicsRes.error;
+      setTopics(topicsRes.data || []);
+
+      if (notesRes.data) {
+        const counts: Record<string, number> = {};
+        notesRes.data.forEach((n: any) => {
+          counts[n.topic_id] = (counts[n.topic_id] || 0) + 1;
+        });
+        setTopicNoteCounts(counts);
       }
 
       setError(null);

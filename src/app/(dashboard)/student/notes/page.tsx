@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
 import { Button } from '@/components/ui/button';
@@ -60,75 +61,35 @@ interface Subject {
   slug: string;
 }
 
+const supabase = createClient();
+
 export default function StudentNotesPage() {
-  const supabase = createClient();
   const { user } = useUser();
 
-  const [notes, setNotes] = useState<NoteWithProgress[]>([]);
-  const [bookmarks, setBookmarks] = useState<NoteBookmark[]>([]);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
-
-  // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSubject, setSelectedSubject] = useState<string>('all');
 
-  // Stats
-  const [stats, setStats] = useState({
-    totalNotes: 0,
-    completedNotes: 0,
-    inProgressNotes: 0,
-    totalTimeSpent: 0,
-    bookmarkedCount: 0
-  });
-
-  useEffect(() => {
-    if (user) {
-      fetchData();
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (user) {
-      fetchNotes();
-    }
-  }, [selectedSubject, searchQuery, user]);
-
-  async function fetchData() {
-    try {
-      // Fetch subjects
-      const { data: subjectsData } = await supabase
+  // Fetch subjects (cached long-term)
+  const { data: subjects = [] } = useQuery({
+    queryKey: ['note-subjects'],
+    queryFn: async () => {
+      const { data } = await supabase
         .from('subjects')
         .select('id, name, slug')
         .order('name');
+      return (data || []) as Subject[];
+    },
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
 
-      if (subjectsData) setSubjects(subjectsData);
+  // Fetch all notes with progress in a single batched query
+  const { data: notesData, isLoading: loading } = useQuery({
+    queryKey: ['student-notes', user?.id, selectedSubject, searchQuery],
+    queryFn: async () => {
+      if (!user?.id) return { notes: [], stats: { totalNotes: 0, completedNotes: 0, inProgressNotes: 0, totalTimeSpent: 0, bookmarkedCount: 0 } };
 
-      // Fetch bookmarks
-      const { data: bookmarksData } = await supabase
-        .from('note_bookmarks')
-        .select(`
-          *,
-          note:notes(id, title, slug, subject_id, topic_id)
-        `)
-        .eq('user_id', user!.id)
-        .order('created_at', { ascending: false });
-
-      if (bookmarksData) setBookmarks(bookmarksData);
-
-      await fetchNotes();
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    }
-  }
-
-  async function fetchNotes() {
-    if (!user) return;
-    setLoading(true);
-
-    try {
-      // Optimized query: fetch notes with section counts in a single query
       let query = supabase
         .from('notes')
         .select(`
@@ -151,19 +112,13 @@ export default function StudentNotesPage() {
         query = query.or(`title.ilike.%${searchQuery}%,subtitle.ilike.%${searchQuery}%`);
       }
 
-      const { data: notesData, error } = await query;
-
+      const { data: rawNotes, error } = await query;
       if (error) throw error;
-      if (!notesData || notesData.length === 0) {
-        setNotes([]);
-        setStats({ totalNotes: 0, completedNotes: 0, inProgressNotes: 0, totalTimeSpent: 0, bookmarkedCount: 0 });
-        setLoading(false);
-        return;
-      }
+      if (!rawNotes?.length) return { notes: [], stats: { totalNotes: 0, completedNotes: 0, inProgressNotes: 0, totalTimeSpent: 0, bookmarkedCount: 0 } };
+
+      const noteIds = rawNotes.map(n => n.id);
 
       // Fetch progress and bookmarks in parallel
-      const noteIds = notesData.map(n => n.id);
-      
       const [progressResult, bookmarksResult] = await Promise.all([
         supabase
           .from('note_progress')
@@ -177,7 +132,6 @@ export default function StudentNotesPage() {
           .in('note_id', noteIds)
       ]);
 
-      // Build progress and bookmark maps
       const progressMap = new Map<string, NoteProgress[]>();
       (progressResult.data || []).forEach(p => {
         const existing = progressMap.get(p.note_id) || [];
@@ -187,13 +141,12 @@ export default function StudentNotesPage() {
 
       const bookmarkedNoteIds = new Set((bookmarksResult.data || []).map(b => b.note_id));
 
-      // Calculate progress for each note - section count from joined data
-      const notesWithProgress: NoteWithProgress[] = notesData.map(note => {
+      const notesWithProgress: NoteWithProgress[] = rawNotes.map(note => {
         const progress = progressMap.get(note.id) || [];
         const sectionCount = Array.isArray(note.note_sections) ? note.note_sections.length : 0;
         const mainProgress = progress.find(p => !p.section_id);
         const sectionProgress = progress.filter(p => p.section_id);
-        
+
         let progressPercentage = 0;
         if (sectionCount > 0) {
           const completedSections = sectionProgress.filter(p => p.completed).length;
@@ -201,56 +154,49 @@ export default function StudentNotesPage() {
         } else if (mainProgress?.completed) {
           progressPercentage = 100;
         } else if (mainProgress?.time_spent_seconds && mainProgress.time_spent_seconds > 0) {
-          // Estimate progress based on time spent vs estimated read time
           const estimatedSeconds = (note.estimated_read_time || 5) * 60;
           progressPercentage = Math.min(95, Math.round((mainProgress.time_spent_seconds / estimatedSeconds) * 100));
         }
 
         return {
-          id: note.id,
-          title: note.title,
-          subtitle: note.subtitle,
-          slug: note.slug,
-          visibility: note.visibility,
-          estimated_read_time: note.estimated_read_time,
-          view_count: note.view_count,
-          subject_id: note.subject_id,
-          topic_id: note.topic_id,
-          published_at: note.published_at,
-          display_order: note.display_order,
-          subject: note.subject,
-          topic: note.topic,
-          note_sections: note.note_sections,
+          id: note.id, title: note.title, subtitle: note.subtitle, slug: note.slug,
+          visibility: note.visibility, estimated_read_time: note.estimated_read_time,
+          view_count: note.view_count, subject_id: note.subject_id, topic_id: note.topic_id,
+          published_at: note.published_at, display_order: note.display_order,
+          subject: note.subject, topic: note.topic, note_sections: note.note_sections,
           progress_percentage: progressPercentage,
           is_bookmarked: bookmarkedNoteIds.has(note.id),
           last_accessed_at: mainProgress?.last_accessed_at || null
         };
       });
 
-      setNotes(notesWithProgress);
-
-      // Calculate stats
       const totalTimeSpent = (progressResult.data || []).reduce((acc, p) => acc + (p.time_spent_seconds || 0), 0);
-      setStats({
-        totalNotes: notesWithProgress.length,
-        completedNotes: notesWithProgress.filter(n => n.progress_percentage === 100).length,
-        inProgressNotes: notesWithProgress.filter(n => n.progress_percentage > 0 && n.progress_percentage < 100).length,
-        totalTimeSpent,
-        bookmarkedCount: bookmarkedNoteIds.size
-      });
-    } catch (error) {
-      console.error('Error fetching notes:', error);
-    } finally {
-      setLoading(false);
-    }
-  }
 
-  const filteredNotes = notes.filter(note => {
+      return {
+        notes: notesWithProgress,
+        stats: {
+          totalNotes: notesWithProgress.length,
+          completedNotes: notesWithProgress.filter(n => n.progress_percentage === 100).length,
+          inProgressNotes: notesWithProgress.filter(n => n.progress_percentage > 0 && n.progress_percentage < 100).length,
+          totalTimeSpent,
+          bookmarkedCount: bookmarkedNoteIds.size
+        }
+      };
+    },
+    enabled: !!user?.id,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
+
+  const notes = notesData?.notes || [];
+  const stats = notesData?.stats || { totalNotes: 0, completedNotes: 0, inProgressNotes: 0, totalTimeSpent: 0, bookmarkedCount: 0 };
+
+  const filteredNotes = useMemo(() => notes.filter(note => {
     if (activeTab === 'in-progress') return note.progress_percentage > 0 && note.progress_percentage < 100;
     if (activeTab === 'completed') return note.progress_percentage === 100;
     if (activeTab === 'bookmarked') return note.is_bookmarked;
     return true;
-  });
+  }), [notes, activeTab]);
 
   const formatTime = (seconds: number) => {
     if (seconds < 60) return `${seconds}s`;

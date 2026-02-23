@@ -65,95 +65,67 @@ export default function SubjectTopicalQuestionsPage({
     try {
       setIsLoading(true);
       
-      // First, get the exam_board_id from the exam_boards table if examBoard is provided
-      let examBoardId: string | null = null;
-      if (examBoard) {
-        // Map the URL param to database code
-        const codeMap: Record<string, string> = {
-          'cambridge': 'CIE',
-          'ib': 'IB',
-          'edexcel': 'EDEX',
-          'ocr': 'OCR',
-          'aqa': 'AQA',
-          'ap': 'AP'
-        };
-        const dbCode = codeMap[examBoard.toLowerCase()] || examBoard.toUpperCase();
-        
-        const { data: boardData } = await supabase
-          .from('exam_boards')
-          .select('id')
-          .eq('code', dbCode)
-          .single();
-        
-        if (boardData) {
-          examBoardId = boardData.id;
-        }
-      }
+      // Fetch subject and exam board in parallel
+      const codeMap: Record<string, string> = {
+        'cambridge': 'CIE', 'ib': 'IB', 'edexcel': 'EDEX',
+        'ocr': 'OCR', 'aqa': 'AQA', 'ap': 'AP'
+      };
+      const dbCode = codeMap[examBoard.toLowerCase()] || examBoard.toUpperCase();
 
-      // Fetch subject
-      const { data: subjectData, error: subjectError } = await supabase
-        .from('subjects')
-        .select('*')
-        .eq('slug', subjectSlug)
-        .single();
+      const [subjectRes, boardRes] = await Promise.all([
+        supabase.from('subjects').select('*').eq('slug', subjectSlug).single(),
+        supabase.from('exam_boards').select('id').eq('code', dbCode).single(),
+      ]);
 
-      if (subjectError) throw subjectError;
-      if (!subjectData) throw new Error('Subject not found');
+      if (subjectRes.error) throw subjectRes.error;
+      if (!subjectRes.data) throw new Error('Subject not found');
       
+      const subjectData = subjectRes.data;
       setSubject(subjectData);
 
-      // Fetch topics for this subject with optional exam board and level filters
-      let topicsQuery = supabase
-        .from('topics')
-        .select('*')
-        .eq('subject_id', subjectData.id);
+      // Fetch topics, question counts, and user progress in parallel
+      const parallelQueries: Promise<any>[] = [
+        supabase.from('topics').select('*').eq('subject_id', subjectData.id)
+          .order('display_order', { ascending: true }),
+        supabase.from('questions').select('topic_id').eq('subject_id', subjectData.id),
+      ];
 
-      // Note: exam_board_id and level filters will work after migration is applied
-      // For now, fetch all topics for the subject
-      const { data: topicsData, error: topicsError } = await topicsQuery.order('display_order', { ascending: true });
-
-      if (topicsError) throw topicsError;
-      setTopics(topicsData || []);
-
-      // Fetch question counts per topic
-      if (topicsData && topicsData.length > 0) {
-        const topicIds = topicsData.map((t: Topic) => t.id);
-        
-        const { data: questionCounts, error: countError } = await supabase
-          .from('questions')
-          .select('topic_id')
-          .in('topic_id', topicIds);
-
-        if (!countError && questionCounts) {
-          const counts: Record<string, number> = {};
-          questionCounts.forEach((q: any) => {
-            counts[q.topic_id] = (counts[q.topic_id] || 0) + 1;
-          });
-          setTopicQuestionCounts(counts);
-        }
-        
-        // Fetch user progress for logged-in users
-        const { data: { user: currentUser } } = await supabase.auth.getUser();
-        if (currentUser) {
-          const { data: progressData } = await supabase
-            .from('user_topic_progress')
+      // Only fetch progress if user is logged in (use useUser() instead of extra auth call)
+      if (user?.id) {
+        parallelQueries.push(
+          supabase.from('user_topic_progress')
             .select('topic_id, completed_questions, total_questions, progress_percentage')
-            .eq('user_id', currentUser.id)
-            .in('topic_id', topicIds);
-          
-          if (progressData) {
-            const progressMap: Record<string, TopicProgress> = {};
-            progressData.forEach((p: any) => {
-              progressMap[p.topic_id] = {
-                topic_id: p.topic_id,
-                completed_questions: p.completed_questions || 0,
-                total_questions: p.total_questions || 0,
-                progress_percentage: p.progress_percentage || 0
-              };
-            });
-            setTopicProgress(progressMap);
-          }
-        }
+            .eq('user_id', user.id)
+            .eq('subject_id', subjectData.id)
+        );
+      }
+
+      const results = await Promise.all(parallelQueries);
+      const [topicsRes, questionsRes] = results;
+      const progressRes = results[2];
+
+      if (topicsRes.error) throw topicsRes.error;
+      setTopics(topicsRes.data || []);
+
+      if (questionsRes.data) {
+        const counts: Record<string, number> = {};
+        questionsRes.data.forEach((q: any) => {
+          counts[q.topic_id] = (counts[q.topic_id] || 0) + 1;
+        });
+        setTopicQuestionCounts(counts);
+      }
+
+      if (progressRes?.data) {
+        const progressMap: Record<string, TopicProgress> = {};
+        progressRes.data.forEach((p: any) => {
+          progressMap[p.topic_id] = {
+            topic_id: p.topic_id,
+            completed_questions: p.completed_questions || 0,
+            total_questions: p.total_questions || 0,
+            progress_percentage: p.progress_percentage || 0
+          };
+        });
+        setTopicProgress(progressMap);
       }
 
       setError(null);

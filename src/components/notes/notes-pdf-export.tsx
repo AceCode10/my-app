@@ -277,11 +277,40 @@ async function generateNotePDF(
       font-size: ${baseFontSize};
       line-height: 1.7;
       color: #1a1a2e;
-      background: white;
+      background: #ffffff;
       padding: 0;
+      color-scheme: light;
     `;
     container.innerHTML = htmlBlock;
+
+    // Force all images inside to have a max-height so they don't exceed a page
+    const maxImgHeightPx = (usableHeight / contentWidth) * renderWidth * 0.85;
+    const imgs = container.querySelectorAll('img');
+    imgs.forEach((img) => {
+      img.style.maxHeight = `${maxImgHeightPx}px`;
+      img.style.width = 'auto';
+      img.style.maxWidth = '100%';
+      img.style.objectFit = 'contain';
+    });
+
     document.body.appendChild(container);
+
+    // Wait for images to load before capturing
+    const imageElements = container.querySelectorAll('img');
+    if (imageElements.length > 0) {
+      await Promise.all(
+        Array.from(imageElements).map(
+          (img) =>
+            new Promise<void>((resolve) => {
+              if (img.complete) return resolve();
+              img.onload = () => resolve();
+              img.onerror = () => resolve();
+              // Timeout after 5s per image
+              setTimeout(resolve, 5000);
+            })
+        )
+      );
+    }
 
     try {
       const canvas = await html2canvas(container, {
@@ -295,7 +324,7 @@ async function generateNotePDF(
 
       const imgData = canvas.toDataURL('image/png');
       const ratio = contentWidth / canvas.width;
-      const blockHeight = canvas.height * ratio;
+      let blockHeight = canvas.height * ratio;
 
       // If block fits on current page, add it
       if (currentY + blockHeight <= margin + usableHeight + headerSpace) {
@@ -307,40 +336,14 @@ async function generateNotePDF(
         pdf.addImage(imgData, 'PNG', margin, currentY, contentWidth, blockHeight);
         currentY += blockHeight;
       } else {
-        // Block is taller than a page — slice it across pages
-        // This should be rare since we break content into small blocks
-        let srcY = 0;
-        const totalSrcHeight = canvas.height;
-
-        while (srcY < totalSrcHeight) {
-          const remainingPagePts = margin + usableHeight + headerSpace - currentY;
-          const remainingPagePx = remainingPagePts / ratio;
-          const sliceHeightPx = Math.min(remainingPagePx, totalSrcHeight - srcY);
-          const sliceHeightPts = sliceHeightPx * ratio;
-
-          const sliceCanvas = document.createElement('canvas');
-          sliceCanvas.width = canvas.width;
-          sliceCanvas.height = Math.ceil(sliceHeightPx);
-          const ctx = sliceCanvas.getContext('2d');
-          if (ctx) {
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
-            ctx.drawImage(
-              canvas,
-              0, Math.floor(srcY), canvas.width, Math.ceil(sliceHeightPx),
-              0, 0, canvas.width, Math.ceil(sliceHeightPx)
-            );
-          }
-
-          const sliceData = sliceCanvas.toDataURL('image/png');
-          pdf.addImage(sliceData, 'PNG', margin, currentY, contentWidth, sliceHeightPts);
-          currentY += sliceHeightPts;
-          srcY += sliceHeightPx;
-
-          if (srcY < totalSrcHeight) {
-            addNewPage();
-          }
-        }
+        // Block is taller than a page — scale it down to fit one page
+        // This prevents cutting through images/diagrams
+        addNewPage();
+        const scaleFactor = usableHeight / blockHeight;
+        const scaledWidth = contentWidth * scaleFactor;
+        const xOffset = margin + (contentWidth - scaledWidth) / 2; // center horizontally
+        pdf.addImage(imgData, 'PNG', xOffset, currentY, scaledWidth, usableHeight);
+        currentY += usableHeight;
       }
     } finally {
       document.body.removeChild(container);
@@ -588,9 +591,9 @@ function markdownToSimpleHtml(md: string): string {
   // Inline code
   html = html.replace(/`([^`]+)`/g, '<code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;font-size:0.9em;">$1</code>');
 
-  // Images - render as inline images
+  // Images - render as inline images with max-height constraint
   html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, 
-    '<div style="text-align:center;margin:12px 0;"><img src="$2" alt="$1" style="max-width:100%;border-radius:8px;" crossorigin="anonymous"><div style="font-size:0.85em;color:#666;margin-top:4px;font-style:italic;">$1</div></div>');
+    '<div style="text-align:center;margin:12px 0;"><img src="$2" alt="$1" style="max-width:100%;max-height:600px;object-fit:contain;border-radius:8px;" crossorigin="anonymous"><div style="font-size:0.85em;color:#666;margin-top:4px;font-style:italic;">$1</div></div>');
 
   // Links
   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<span style="color:#2563eb;text-decoration:underline;">$1</span>');

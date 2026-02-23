@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useUser } from '@/hooks/use-user';
@@ -123,11 +123,24 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, loading } = useUser();
+  const { user, loading, refresh } = useUser();
   const router = useRouter();
   const pathname = usePathname();
   const supabase = createClient();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const sessionCheckDone = useRef(false);
+
+  // Safety net: if loading finishes but user is null, do one getUser() check
+  useEffect(() => {
+    if (!loading && !user && !sessionCheckDone.current) {
+      sessionCheckDone.current = true;
+      supabase.auth.getUser().then((result: { data: { user: any }; error: { message: string } | null }) => {
+        if (result.data.user && !result.error) {
+          refresh?.(result.data.user.id);
+        }
+      }).catch(() => {});
+    }
+  }, [loading, user, supabase, refresh]);
 
   useEffect(() => {
     if (!loading && !user) {

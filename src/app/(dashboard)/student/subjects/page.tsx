@@ -122,25 +122,30 @@ export default function SubjectsPage() {
                 progressBySubject[tp.subject_id].questionsAttempted += (tp.questions_attempted || 0);
             });
             
-            // Fetch resource counts for ALL subjects in parallel (not sequentially)
-            const resourceCounts = await Promise.all(
-                subjectIds.map(async (subjectId) => {
-                    const [notesResult, questionsResult, papersResult] = await Promise.all([
-                        supabase.from('notes').select('*', { count: 'exact', head: true })
-                            .eq('subject_id', subjectId).in('visibility', ['public', 'registered']).not('published_at', 'is', null),
-                        supabase.from('questions').select('*', { count: 'exact', head: true })
-                            .eq('subject_id', subjectId),
-                        supabase.from('past_papers').select('*', { count: 'exact', head: true })
-                            .eq('subject_id', subjectId).eq('status', 'published'),
-                    ]);
-                    return {
-                        subjectId,
-                        totalNotes: notesResult.count || 0,
-                        totalQuestions: questionsResult.count || 0,
-                        totalPapers: papersResult.count || 0,
-                    };
-                })
-            );
+            // Fetch resource counts for ALL subjects in 3 batch queries (instead of 3N)
+            const [allNotesRes, allQuestionsRes, allPapersRes] = await Promise.all([
+                supabase.from('notes').select('subject_id')
+                    .in('subject_id', subjectIds).in('visibility', ['public', 'registered']).not('published_at', 'is', null),
+                supabase.from('questions').select('subject_id')
+                    .in('subject_id', subjectIds),
+                supabase.from('past_papers').select('subject_id')
+                    .in('subject_id', subjectIds).eq('status', 'published'),
+            ]);
+
+            // Count per subject client-side
+            const notesCounts: Record<string, number> = {};
+            const questionsCounts: Record<string, number> = {};
+            const papersCounts: Record<string, number> = {};
+            (allNotesRes.data || []).forEach((r: any) => { notesCounts[r.subject_id] = (notesCounts[r.subject_id] || 0) + 1; });
+            (allQuestionsRes.data || []).forEach((r: any) => { questionsCounts[r.subject_id] = (questionsCounts[r.subject_id] || 0) + 1; });
+            (allPapersRes.data || []).forEach((r: any) => { papersCounts[r.subject_id] = (papersCounts[r.subject_id] || 0) + 1; });
+
+            const resourceCounts = subjectIds.map(subjectId => ({
+                subjectId,
+                totalNotes: notesCounts[subjectId] || 0,
+                totalQuestions: questionsCounts[subjectId] || 0,
+                totalPapers: papersCounts[subjectId] || 0,
+            }));
             
             // Calculate progress for each subject
             const progressMap: Record<string, number> = {};
