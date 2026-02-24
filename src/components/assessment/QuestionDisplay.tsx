@@ -8,6 +8,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { AnswerInput } from './AnswerInput';
 import { Flag, Image as ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getDifficultyColor, getQuestionTypeLabel } from '@/lib/assessment-utils';
@@ -226,18 +227,18 @@ export function QuestionDisplay({
         {needsAnswer && (isShortAnswer || isCalculation) && (
           <div className="space-y-2">
             <Label htmlFor="answer">Your Answer</Label>
-            <Input
-              id="answer"
-              type={isCalculation ? 'text' : 'text'}
+            <AnswerInput
               value={answer || ''}
-              onChange={(e) => onAnswerChange(e.target.value)}
+              onChange={onAnswerChange}
               disabled={disabled}
               placeholder={isCalculation ? 'Enter your calculation and answer' : 'Type your answer here'}
-              className="text-lg"
+              showFormatting={isCalculation}
+              autoResize={false}
+              className="min-h-[100px]"
             />
             {isCalculation && (
               <p className="text-sm text-gray-500">
-                Show your working and final answer
+                Show your working and final answer. Use formatting tools for equations.
               </p>
             )}
           </div>
@@ -247,18 +248,16 @@ export function QuestionDisplay({
         {needsAnswer && isEssay && (
           <div className="space-y-2">
             <Label htmlFor="essay">Your Answer</Label>
-            <Textarea
-              id="essay"
+            <AnswerInput
               value={answer || ''}
-              onChange={(e) => onAnswerChange(e.target.value)}
+              onChange={onAnswerChange}
               disabled={disabled}
               placeholder="Write your answer here..."
-              rows={8}
-              className="resize-none"
+              showFormatting={true}
+              autoResize={true}
+              maxHeight={500}
+              className="min-h-[200px]"
             />
-            <p className="text-sm text-gray-500">
-              {answer?.length || 0} characters
-            </p>
           </div>
         )}
 

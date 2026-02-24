@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
+import { AnswerInput } from '@/components/assessment/AnswerInput';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -440,10 +441,13 @@ export default function PaperQuestionsPage({
                 {/* Answer Input */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Your Answer:</label>
-                  <Textarea
+                  <AnswerInput
                     value={questionStatuses[currentQuestion.id]?.answer || ''}
-                    onChange={(e) => handleAnswerChange(e.target.value)}
+                    onChange={handleAnswerChange}
                     placeholder="Type your answer here..."
+                    showFormatting={true}
+                    autoResize={true}
+                    maxHeight={400}
                     className="min-h-[120px]"
                   />
                 </div>
