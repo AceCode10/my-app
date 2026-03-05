@@ -62,14 +62,16 @@ function TeacherDashboardLayout({ children }: { children: React.ReactNode }) {
             sessionCheckDone.current = true;
             setCheckingSession(true);
             
-            // Check if there's actually a session
-            supabase.auth.getSession().then(({ data: { session } }) => {
-                if (session?.user) {
-                    console.log('[Layout] Session exists but user was null - refreshing');
-                    // Session exists, try to refresh user data
+            // Check if there's actually a valid session with server validation
+            supabase.auth.getUser().then(({ data: { user: authUser }, error }) => {
+                if (authUser && !error) {
+                    console.log('[Layout] Valid session exists but user was null - refreshing');
+                    // Session exists and is valid, try to refresh user data
                     refresh?.();
+                } else {
+                    // No valid session - user truly not logged in
+                    setCheckingSession(false);
                 }
-                setCheckingSession(false);
             }).catch(() => {
                 setCheckingSession(false);
             });

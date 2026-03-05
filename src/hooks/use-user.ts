@@ -29,9 +29,11 @@ let cachedUserId: string | null = null; // Track which user the cache belongs to
 let cacheTimestamp = 0;
 let globalFetchPromise: Promise<UserProfile | null> | null = null;
 let globalFetchResolve: ((user: UserProfile | null) => void) | null = null;
+let globalAuthInitialized = false; // Track if auth has been initialized globally
+let globalAuthPromise: Promise<void> | null = null; // Shared promise for initial auth
 const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes cache - shorter for better consistency
 const FETCH_TIMEOUT = 30000; // 30 second timeout - production can be slow
-const INIT_TIMEOUT = 20000; // 20 second timeout for initial auth check
+const INIT_TIMEOUT = 15000; // 15 second timeout for initial auth check
 
 // Helper to invalidate cache (can be called from other modules)
 export function invalidateUserCache() {
@@ -40,6 +42,8 @@ export function invalidateUserCache() {
   cacheTimestamp = 0;
   globalFetchPromise = null;
   globalFetchResolve = null;
+  globalAuthInitialized = false; // Reset so next mount re-initializes auth
+  globalAuthPromise = null;
 }
 
 // Listen for auth events globally to clear cache on sign out
@@ -220,38 +224,100 @@ export function useUser() {
     let isSubscribed = true;
     let retryCount = 0;
     const MAX_RETRIES = 2;
+    let authStateReceived = false; // Track if we've received an auth state event
 
-    // Use getUser() instead of getSession() - it validates with the server
-    // This prevents issues where stale session data causes logout on refresh
+    // Initialize auth - uses session first (fast, local), then validates with getUser if needed
     const initializeAuth = async (): Promise<void> => {
-      try {
-        // First try to get and validate the user with the server
-        const { data: { user: authUser }, error } = await supabase.auth.getUser();
-        
-        if (!isSubscribed || !mountedRef.current) return;
-        
-        if (error) {
-          // Check if it's a network error - retry if so
-          if (error.message.includes('fetch') || error.message.includes('network') || error.message.includes('timeout')) {
-            if (retryCount < MAX_RETRIES) {
-              retryCount++;
-              console.log(`[Auth] Network error, retrying (${retryCount}/${MAX_RETRIES})...`);
-              await new Promise(r => setTimeout(r, 1000 * retryCount));
-              return initializeAuth();
-            }
-          }
-          // Session is invalid or expired
-          console.log('[Auth] Session validation failed:', error.message);
-          invalidateUserCache();
-          setUser(null);
+      // If already initialized globally, just check cache
+      if (globalAuthInitialized && cachedUser && cachedUserId) {
+        if (mountedRef.current) {
+          setUser(cachedUser);
           setLoading(false);
+        }
+        return;
+      }
+
+      // If another init is in progress, wait for it
+      if (globalAuthPromise) {
+        await globalAuthPromise;
+        if (mountedRef.current) {
+          setUser(cachedUser);
+          setLoading(false);
+        }
+        return;
+      }
+
+      // Create shared promise for this init
+      let resolveGlobalAuth: () => void;
+      globalAuthPromise = new Promise<void>((resolve) => {
+        resolveGlobalAuth = resolve;
+      });
+
+      try {
+        // First check local session (fast) to avoid showing loading state unnecessarily
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!isSubscribed || !mountedRef.current) {
+          resolveGlobalAuth!();
+          globalAuthPromise = null;
           return;
         }
         
-        if (authUser) {
-          await fetchUserProfile(authUser.id);
+        if (session?.user) {
+          // Session exists locally - fetch profile while validating in background
+          const profilePromise = fetchUserProfile(session.user.id);
+          
+          // Also validate with server in background (don't block UI)
+          supabase.auth.getUser().then(({ error }) => {
+            if (error && isSubscribed && mountedRef.current) {
+              // Session was invalid - clear state
+              console.log('[Auth] Session validation failed:', error.message);
+              invalidateUserCache();
+              setUser(null);
+            }
+          }).catch(() => {
+            // Ignore validation errors - we'll rely on session refresh
+          });
+          
+          await profilePromise;
+          globalAuthInitialized = true;
         } else {
-          setLoading(false);
+          // No session - try getUser as fallback (handles edge cases)
+          const { data: { user: authUser }, error } = await supabase.auth.getUser();
+          
+          if (!isSubscribed || !mountedRef.current) {
+            resolveGlobalAuth!();
+            globalAuthPromise = null;
+            return;
+          }
+          
+          if (error) {
+            // Check if it's a network error - retry if so
+            if (error.message.includes('fetch') || error.message.includes('network') || error.message.includes('timeout')) {
+              if (retryCount < MAX_RETRIES) {
+                retryCount++;
+                console.log(`[Auth] Network error, retrying (${retryCount}/${MAX_RETRIES})...`);
+                await new Promise(r => setTimeout(r, 1000 * retryCount));
+                resolveGlobalAuth!();
+                globalAuthPromise = null;
+                return initializeAuth();
+              }
+            }
+            // No valid session
+            console.log('[Auth] No session:', error.message);
+            if (mountedRef.current) {
+              setLoading(false);
+            }
+            globalAuthInitialized = true;
+          } else if (authUser) {
+            await fetchUserProfile(authUser.id);
+            globalAuthInitialized = true;
+          } else {
+            if (mountedRef.current) {
+              setLoading(false);
+            }
+            globalAuthInitialized = true;
+          }
         }
       } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
@@ -260,22 +326,37 @@ export function useUser() {
           retryCount++;
           console.log(`[Auth] Error, retrying (${retryCount}/${MAX_RETRIES})...`);
           await new Promise(r => setTimeout(r, 1000 * retryCount));
+          resolveGlobalAuth!();
+          globalAuthPromise = null;
           return initializeAuth();
         }
         console.error('[Auth] Init error:', errorMessage);
         if (isSubscribed && mountedRef.current) {
           setLoading(false);
         }
+      } finally {
+        resolveGlobalAuth!();
+        globalAuthPromise = null;
       }
     };
 
-    // Add timeout wrapper for slow connections - but don't set user to null
-    // Just stop the loading indicator so UI is responsive
+    // Timeout that only fires if no auth state received and still loading
     const timeoutId = setTimeout(() => {
-      if (isSubscribed && mountedRef.current && loading) {
-        console.warn('[Auth] Init timeout - but keeping any existing user state');
-        // Only set loading false, don't clear user - auth state change will handle it
-        setLoading(false);
+      if (isSubscribed && mountedRef.current && loading && !authStateReceived) {
+        console.warn('[Auth] Init timeout - checking session directly');
+        // On timeout, do a quick session check before giving up
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (session?.user && isSubscribed && mountedRef.current) {
+            console.log('[Auth] Found session on timeout - recovering');
+            fetchUserProfile(session.user.id);
+          } else if (isSubscribed && mountedRef.current) {
+            setLoading(false);
+          }
+        }).catch(() => {
+          if (isSubscribed && mountedRef.current) {
+            setLoading(false);
+          }
+        });
       }
     }, INIT_TIMEOUT);
 
@@ -283,19 +364,29 @@ export function useUser() {
       clearTimeout(timeoutId);
     });
 
-    // Listen for auth changes
+    // Listen for auth changes - handles INITIAL_SESSION, SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
       if (!isSubscribed || !mountedRef.current) return;
       
+      authStateReceived = true;
       console.log('[Auth] State change:', event);
       
       if (event === 'SIGNED_OUT') {
+        globalAuthInitialized = false; // Reset so next mount re-initializes
         invalidateUserCache();
         setUser(null);
         setLoading(false);
-      } else if (event === 'SIGNED_IN' && session?.user) {
-        // Force refresh on sign in to get fresh user data
-        await fetchUserProfile(session.user.id, true);
+      } else if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
+        // Handle both SIGNED_IN and INITIAL_SESSION (fired on page load with existing session)
+        // Force refresh on sign in, use cache for initial session if available
+        const forceRefresh = event === 'SIGNED_IN';
+        if (event === 'INITIAL_SESSION' && cachedUser && cachedUserId === session.user.id) {
+          // Use cached data for initial session
+          setUser(cachedUser);
+          setLoading(false);
+        } else {
+          await fetchUserProfile(session.user.id, forceRefresh);
+        }
       } else if (event === 'TOKEN_REFRESHED' && session?.user) {
         // Token refreshed - validate cache is still valid
         if (cachedUserId !== session.user.id) {
