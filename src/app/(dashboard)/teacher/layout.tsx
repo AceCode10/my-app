@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import {
@@ -13,6 +13,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { NotificationBell } from '@/components/notification-bell';
 import withRole from '@/hooks/withRole';
+import { useClasses } from '@/hooks/use-classes';
 import { cn } from '@/lib/utils';
 import { KodiLoadingGif } from '@/components/ui/kodi-loading-gif';
 import { IGALogoIcon } from '@/components/ui/iga-logo';
@@ -27,10 +28,9 @@ const navItems = [
     { href: '/teacher', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/teacher/classes', label: 'My Classes', icon: Users },
     { href: '/teacher/subjects', label: 'Subjects', icon: GraduationCap },
-
     { href: '/teacher/test-builder', label: 'Test Builder', icon: Hammer },
     { href: '/teacher/tests', label: 'My Tests', icon: FileText },
-    { href: '/teacher/submissions', label: 'Submissions', icon: ClipboardCheck },
+    { href: '/teacher/submissions', label: 'Submissions', icon: ClipboardCheck, badgeKey: 'pendingReviews' as const },
     { href: '/teacher/analytics', label: 'Analytics', icon: BarChart3 },
 ];
 
@@ -48,6 +48,26 @@ function TeacherDashboardLayout({ children }: { children: React.ReactNode }) {
         return false;
     });
     const sessionCheckDone = useRef(false);
+    const { classes } = useClasses();
+    const [pendingReviews, setPendingReviews] = useState(0);
+
+    const classIds = useMemo(() => classes?.map(c => c.id) || [], [classes]);
+
+    // Fetch pending reviews count for sidebar badge
+    useEffect(() => {
+        if (!user?.id || classIds.length === 0) return;
+        supabase
+            .from('assessment_attempts')
+            .select('*', { count: 'exact', head: true })
+            .in('class_id', classIds)
+            .eq('status', 'submitted')
+            .eq('review_status', 'pending')
+            .then(({ count }: { count: number | null }) => {
+                setPendingReviews(count || 0);
+            });
+    }, [user?.id, classIds, supabase]);
+
+    const badgeCounts: Record<string, number> = { pendingReviews };
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -147,6 +167,7 @@ function TeacherDashboardLayout({ children }: { children: React.ReactNode }) {
                             {navItems.map((item) => {
                                 const Icon = item.icon;
                                 const isActive = pathname === item.href || (item.href !== '/teacher' && pathname.startsWith(item.href));
+                                const badgeCount = (item as any).badgeKey ? badgeCounts[(item as any).badgeKey] || 0 : 0;
                                 
                                 const linkContent = (
                                     <Link
@@ -154,7 +175,7 @@ function TeacherDashboardLayout({ children }: { children: React.ReactNode }) {
                                         href={item.href}
                                         onClick={() => setSidebarOpen(false)}
                                         className={cn(
-                                            'flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                                            'flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors relative',
                                             sidebarCollapsed ? 'justify-center' : 'space-x-3',
                                             isActive
                                                 ? 'bg-primary text-primary-foreground'
@@ -162,7 +183,18 @@ function TeacherDashboardLayout({ children }: { children: React.ReactNode }) {
                                         )}
                                     >
                                         <Icon className="h-5 w-5 flex-shrink-0" />
-                                        {!sidebarCollapsed && <span>{item.label}</span>}
+                                        {!sidebarCollapsed && <span className="flex-1">{item.label}</span>}
+                                        {badgeCount > 0 && !sidebarCollapsed && (
+                                            <span className={cn(
+                                                'ml-auto px-1.5 py-0.5 text-[10px] font-bold rounded-full min-w-[18px] text-center',
+                                                isActive ? 'bg-primary-foreground text-primary' : 'bg-destructive text-destructive-foreground'
+                                            )}>
+                                                {badgeCount > 99 ? '99+' : badgeCount}
+                                            </span>
+                                        )}
+                                        {badgeCount > 0 && sidebarCollapsed && (
+                                            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-destructive rounded-full border-2 border-card" />
+                                        )}
                                     </Link>
                                 );
 
@@ -173,7 +205,7 @@ function TeacherDashboardLayout({ children }: { children: React.ReactNode }) {
                                                 {linkContent}
                                             </TooltipTrigger>
                                             <TooltipContent side="right">
-                                                <p>{item.label}</p>
+                                                <p>{item.label}{badgeCount > 0 ? ` (${badgeCount})` : ''}</p>
                                             </TooltipContent>
                                         </Tooltip>
                                     );

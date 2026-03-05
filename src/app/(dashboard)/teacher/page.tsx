@@ -237,9 +237,9 @@ const DashboardView = ({
             <CardContent className="pt-0">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
                     <Button variant="default" className="h-16 sm:h-20 flex-col gap-1 sm:gap-2 relative text-xs sm:text-sm" asChild>
-                        <Link href="/teacher/test-builder">
+                        <Link href="/teacher/test-builder/new">
                             <Hammer className="h-5 w-5 sm:h-6 sm:w-6" />
-                            <span className="leading-tight text-center">Test Builder</span>
+                            <span className="leading-tight text-center">Create Test</span>
                         </Link>
                     </Button>
                     <Button variant="outline" className="h-16 sm:h-20 flex-col gap-1 sm:gap-2 relative text-xs sm:text-sm" asChild>

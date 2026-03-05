@@ -6,7 +6,13 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
     LayoutDashboard, BookCopy, BarChart3, Trophy, Users, Settings,
     LogOut, Menu, X, FileText, BookOpen, ChevronLeft, ChevronRight,
+    ChevronDown, FolderOpen, Layers,
 } from 'lucide-react';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { useUser } from '@/hooks/use-user';
 import { createClient } from '@/lib/supabase/client';
 import { NotificationBell } from '@/components/gamification';
@@ -23,20 +29,21 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
-const navItems = [
+const topNavItems = [
     { href: '/student', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/student/subjects', label: 'Subjects', icon: BookCopy },
+];
+
+const resourceItems = [
+    { href: '/student/papers', label: 'Past Papers', icon: FileText },
+    { href: '/student/notes', label: 'Revision Notes', icon: BookOpen },
+    { href: '/student/flashcards', label: 'Flashcards', icon: Layers },
+];
+
+const bottomNavItems = [
     { href: '/student/classes', label: 'My Classes', icon: Users },
     { href: '/student/progress', label: 'Progress', icon: BarChart3 },
     { href: '/student/leaderboard', label: 'Leaderboard', icon: Trophy },
-];
-
-const searchItems = [
-    { name: 'Maths', category: 'subjects', path: '/student/subjects' },
-    { name: 'Physics', category: 'subjects', path: '/student/subjects' },
-    { name: 'ICT', category: 'subjects', path: '/student/subjects' },
-    { name: 'Algebra Quiz', category: 'quizzes', path: '/subjects/maths' },
-    { name: 'Forces Flashcards', category: 'flashcards', path: '/subjects/physics' },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -53,12 +60,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return false;
   });
   const sessionCheckDone = useRef(false);
+  const [resourcesOpen, setResourcesOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('student-resources-open') !== 'false';
+    }
+    return true;
+  });
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('student-sidebar-collapsed', String(sidebarCollapsed));
     }
   }, [sidebarCollapsed]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('student-resources-open', String(resourcesOpen));
+    }
+  }, [resourcesOpen]);
 
   // Safety net: if loading finishes but user is null, do one getUser() check
   // This handles edge cases where the auth init timed out but a session exists
@@ -171,7 +190,131 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             {/* Navigation */}
             <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
-              {navItems.map((item) => {
+              {/* Top nav items */}
+              {topNavItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = pathname === item.href || (item.href !== '/student' && pathname.startsWith(item.href));
+                
+                const linkContent = (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setSidebarOpen(false)}
+                    className={cn(
+                      'flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                      sidebarCollapsed ? 'justify-center' : 'space-x-3',
+                      isActive
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    )}
+                  >
+                    <Icon className="h-5 w-5 flex-shrink-0" />
+                    {!sidebarCollapsed && <span>{item.label}</span>}
+                  </Link>
+                );
+
+                if (sidebarCollapsed) {
+                  return (
+                    <Tooltip key={item.href} delayDuration={0}>
+                      <TooltipTrigger asChild>
+                        {linkContent}
+                      </TooltipTrigger>
+                      <TooltipContent side="right">
+                        <p>{item.label}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  );
+                }
+
+                return linkContent;
+              })}
+
+              {/* Resources Dropdown */}
+              {sidebarCollapsed ? (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      className={cn(
+                        'flex items-center justify-center w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                        resourceItems.some(item => pathname.startsWith(item.href))
+                          ? 'bg-primary/10 text-primary'
+                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                      )}
+                      title="Resources"
+                    >
+                      <FolderOpen className="h-5 w-5 flex-shrink-0" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent side="right" align="start" className="w-48 p-1" sideOffset={8}>
+                    <p className="px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Resources</p>
+                    {resourceItems.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = pathname.startsWith(item.href);
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={() => setSidebarOpen(false)}
+                          className={cn(
+                            'flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                            isActive
+                              ? 'bg-primary text-primary-foreground'
+                              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                          )}
+                        >
+                          <Icon className="h-4 w-4 flex-shrink-0" />
+                          <span>{item.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </PopoverContent>
+                </Popover>
+              ) : (
+                <div>
+                  <button
+                    onClick={() => setResourcesOpen(!resourcesOpen)}
+                    className={cn(
+                      'flex items-center justify-between w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                      resourceItems.some(item => pathname.startsWith(item.href))
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    )}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <FolderOpen className="h-5 w-5 flex-shrink-0" />
+                      <span>Resources</span>
+                    </div>
+                    <ChevronDown className={cn('h-4 w-4 transition-transform duration-200', resourcesOpen && 'rotate-180')} />
+                  </button>
+                  {resourcesOpen && (
+                    <div className="mt-1 ml-4 space-y-0.5 border-l-2 border-muted pl-3">
+                      {resourceItems.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = pathname.startsWith(item.href);
+                        return (
+                          <Link
+                            key={item.href}
+                            href={item.href}
+                            onClick={() => setSidebarOpen(false)}
+                            className={cn(
+                              'flex items-center space-x-3 px-3 py-2 rounded-lg text-sm transition-colors',
+                              isActive
+                                ? 'bg-primary text-primary-foreground font-medium'
+                                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                            )}
+                          >
+                            <Icon className="h-4 w-4 flex-shrink-0" />
+                            <span>{item.label}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Bottom nav items */}
+              {bottomNavItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = pathname === item.href || (item.href !== '/student' && pathname.startsWith(item.href));
                 

@@ -6,7 +6,7 @@ import {
   Star, Flame, ChevronRight, Award,
   FileText, Target, Clock, Play,
   GraduationCap, ClipboardList, AlertCircle, Globe,
-  ChevronDown
+  ChevronDown, BookOpen, Layers
 } from 'lucide-react';
 import { CollapsibleCard } from '@/components/ui/collapsible-section';
 import Link from 'next/link';
@@ -343,7 +343,7 @@ const StudentDashboard = () => {
           <CardDescription>Choose how you want to practice today</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
             <Button variant="default" className="h-20 sm:h-24 flex-col gap-1 sm:gap-2" asChild>
               <Link href="/student/subjects">
                 <Target className="h-5 w-5 sm:h-6 sm:w-6" />
@@ -359,10 +359,17 @@ const StudentDashboard = () => {
               </Link>
             </Button>
             <Button variant="outline" className="h-20 sm:h-24 flex-col gap-1 sm:gap-2" asChild>
-              <Link href="/student/classes">
-                <GraduationCap className="h-5 w-5 sm:h-6 sm:w-6" />
-                <span className="text-sm sm:text-base">My Classes</span>
-                <span className="text-xs opacity-80 hidden sm:inline">View assignments</span>
+              <Link href="/student/notes">
+                <BookOpen className="h-5 w-5 sm:h-6 sm:w-6" />
+                <span className="text-sm sm:text-base">Revision Notes</span>
+                <span className="text-xs opacity-80 hidden sm:inline">Read & review</span>
+              </Link>
+            </Button>
+            <Button variant="outline" className="h-20 sm:h-24 flex-col gap-1 sm:gap-2" asChild>
+              <Link href="/student/flashcards">
+                <Layers className="h-5 w-5 sm:h-6 sm:w-6" />
+                <span className="text-sm sm:text-base">Flashcards</span>
+                <span className="text-xs opacity-80 hidden sm:inline">Quick recall</span>
               </Link>
             </Button>
           </div>
