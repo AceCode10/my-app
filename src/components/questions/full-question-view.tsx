@@ -774,7 +774,7 @@ function AnswerInput({ question, currentText, currentOption, onAnswerChange, use
               value={subAnswers[index] || ''}
               onChange={(e) => handleSubInputChange(index, e.target.value)}
               placeholder={`Enter answer for ${label}...`}
-              className="bg-background"
+              className="bg-background rounded-xl border-2 border-emerald-300 focus-visible:border-emerald-500 focus-visible:ring-emerald-500/20 px-4 py-3 text-base"
             />
           </div>
         ))}
@@ -782,27 +782,28 @@ function AnswerInput({ question, currentText, currentOption, onAnswerChange, use
     );
   }
 
-  // Short answer (1-2 marks) - use Input
+  // Short answer (1-2 marks) - use single-row Textarea for consistent styling
   if (question.marks <= 2 || question.question_type === 'short_answer' || question.question_type === 'calculation') {
     return (
-      <Input
+      <Textarea
         value={currentText}
         onChange={(e) => onAnswerChange(question.id, e.target.value, null)}
         placeholder="Type your answer here..."
-        className="bg-background"
+        rows={2}
+        className="resize-none bg-background rounded-xl border-2 border-emerald-300 focus-visible:border-emerald-500 focus-visible:ring-emerald-500/20 px-4 py-3 text-base min-h-[56px]"
       />
     );
   }
 
-  // Extended response (3+ marks) - use Textarea
-  const rows = question.marks >= 6 ? 8 : question.marks >= 4 ? 6 : 4;
+  // Extended response (3+ marks) - use larger Textarea
+  const rows = question.marks >= 8 ? 10 : question.marks >= 6 ? 8 : question.marks >= 4 ? 6 : 4;
   return (
     <Textarea
       value={currentText}
       onChange={(e) => onAnswerChange(question.id, e.target.value, null)}
-      placeholder="Write your answer here..."
+      placeholder="Type your answer here..."
       rows={rows}
-      className="resize-none bg-background"
+      className="resize-none bg-background rounded-xl border-2 border-emerald-300 focus-visible:border-emerald-500 focus-visible:ring-emerald-500/20 px-4 py-3 text-base"
     />
   );
 }

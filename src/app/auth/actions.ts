@@ -218,9 +218,19 @@ export async function signIn(formData: FormData) {
     if (redirectTo) {
       redirect(redirectTo);
     }
+
+    // Redirect based on role
+    if (profile?.role === 'super_admin' || profile?.role === 'content_moderator') {
+      redirect('/admin');
+    } else if (profile?.role === 'teacher') {
+      redirect('/teacher');
+    } else {
+      redirect('/student');
+    }
   }
 
-  redirect('/dashboard');
+  // Fallback: redirect to home
+  redirect('/');
 }
 
 export async function signOut() {

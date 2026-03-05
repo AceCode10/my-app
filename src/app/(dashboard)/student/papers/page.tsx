@@ -205,13 +205,13 @@ function StudentPapersContent() {
     setSelectedSlug(slug);
     setYearFilter('all');
     setSessionFilter('all');
-    window.history.replaceState(null, '', `/student/papers?subject=${slug}`);
-  }, []);
+    router.replace(`/student/papers?subject=${slug}`, { scroll: false });
+  }, [router]);
 
   const goBack = useCallback(() => {
     setSelectedSlug(null);
-    window.history.replaceState(null, '', '/student/papers');
-  }, []);
+    router.replace('/student/papers', { scroll: false });
+  }, [router]);
 
   const getAttemptBadge = (paperId: string) => {
     const attempt = attempts[paperId];
@@ -232,6 +232,21 @@ function StudentPapersContent() {
   // ── LOADING ──
 
   if (loadingSubjects) {
+    // If a subject slug was provided via URL, show papers-style loading
+    if (selectedSlug) {
+      return (
+        <div className="space-y-5">
+          <Skeleton className="h-6 w-48" />
+          <div>
+            <Skeleton className="h-10 w-72" />
+            <Skeleton className="h-4 w-40 mt-2" />
+          </div>
+          <div className="space-y-4">
+            {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-40 rounded-xl" />)}
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="space-y-6">
         <Skeleton className="h-10 w-64" />
