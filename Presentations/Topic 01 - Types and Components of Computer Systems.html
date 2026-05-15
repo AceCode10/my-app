@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Topic 1: Types and Components of Computer Systems – eSCholr ICT</title>
+<style>
+:root {
+  --g: #1a9b8e; --b: #2563eb; --o: #f97316; --p: #8b5cf6;
+  --dk: #1f2937; --lt: #f9fafb; --bd: #e5e7eb;
+  --tt: 64px; --ts: 44px; --tb: 34px; --sm: 28px;
+  --px: 100px; --pt: 90px; --pb: 70px; --g1: 48px; --g2: 24px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',sans-serif;background:var(--lt);color:var(--dk)}
+section{color:var(--dk);display:flex;flex-direction:column;background:var(--lt);padding:var(--pt) var(--px) var(--pb);min-height:100%;gap:var(--g2)}
+section.cover{justify-content:center;align-items:center;text-align:center;background:linear-gradient(135deg,var(--g),#0e6b63);gap:28px}
+section.dark{background:var(--dk);color:var(--lt)}
+section.teal{background:#f0fdfb}
+h1{font-size:var(--tt);font-weight:800;color:var(--lt)}
+h2{font-size:var(--tt);font-weight:700;color:var(--g);margin-bottom:8px}
+h3{font-size:var(--ts);font-weight:600;color:var(--dk);margin-bottom:4px}
+h4{font-size:var(--tb);font-weight:600;color:var(--g)}
+p,li{font-size:var(--tb);line-height:1.6;color:var(--dk)}
+ul,ol{margin-left:36px}
+li{margin-bottom:14px}
+.sub{font-size:var(--ts);color:rgba(255,255,255,.85);font-weight:500}
+.chip{display:inline-block;padding:10px 22px;border-radius:999px;font-size:var(--sm);font-weight:700;color:#fff;margin:6px 8px 6px 0}
+.cg{background:var(--g)} .cb{background:var(--b)} .co{background:var(--o)} .cp{background:var(--p)}
+.cr{background:#dc2626}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:60px;width:100%}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:40px;width:100%}
+.box{background:#fff;border:2.5px solid var(--g);border-radius:12px;padding:36px;font-size:var(--sm);color:var(--dk)}
+.box.blue{border-color:var(--b)}
+.box.orange{border-color:var(--o)}
+.box.purple{border-color:var(--p)}
+table{width:100%;border-collapse:collapse;font-size:var(--sm)}
+thead{background:var(--g);color:#fff}
+th,td{padding:18px 22px;border:1px solid var(--bd);text-align:left}
+tbody tr:nth-child(even){background:rgba(26,155,142,.06)}
+.note{background:#fef9c3;border-left:6px solid #eab308;padding:22px 28px;border-radius:8px;font-size:var(--sm);color:var(--dk)}
+@media(max-width:1200px){:root{--tt:48px;--ts:34px;--tb:26px;--sm:22px;--px:70px} .row,.row3{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<deck-stage width="1920" height="1080">
+
+<!-- 01 Cover -->
+<section class="cover" data-label="01 Cover">
+  <div style="font-size:28px;color:rgba(255,255,255,.7);letter-spacing:3px;text-transform:uppercase"> </div>
+  <h1>Types & Components of<br>Computer Systems</h1>
+  <div class="sub">
+</div>
+</section>
+
+<!-- 02 Hardware Definition -->
+<section data-label="02 Hardware">
+  <h2>1.1 Hardware &amp; Software</h2>
+  <h4><span class="chip cg">Hardware</span> — the electronic, physical components of a computer system</h4>
+  <div class="row">
+    <div>
+      <h3>Internal Hardware</h3>
+      <ul>
+        <li>Central Processing Unit <span class="chip cg">CPU</span></li>
+        <li>Motherboard</li>
+        <li>Internal memory — <span class="chip cb">RAM</span> &amp; <span class="chip cb">ROM</span></li>
+        <li>Graphics &amp; Sound Cards</li>
+        <li>Storage: <span class="chip co">HDD</span> / <span class="chip co">SSD</span></li>
+        <li>Network Interface Card <span class="chip cp">NIC</span></li>
+      </ul>
+    </div>
+    <div>
+      <h3>External Hardware</h3>
+      <ul>
+        <li>Monitor</li>
+        <li>Keyboard</li>
+        <li>Mouse</li>
+        <li>Printer</li>
+        <li>External Storage Devices</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 03 Software -->
+<section data-label="03 Software">
+  <h2>Software</h2>
+  <p><span class="chip cg">Software</span> — the techniques, methods, commands and instructions that tell a device what to do and how to do it; the programs which control the computer and process data.</p>
+  <div class="row">
+    <div class="box">
+      <h3 style="color:var(--b)">Application Software</h3>
+      <ul style="margin-top:16px">
+        <li>Provides services for specific user tasks</li>
+        <li>General-purpose <em>or</em> custom-made (specialist)</li>
+        <li>E.g. spreadsheets, databases, word processors</li>
+      </ul>
+    </div>
+    <div class="box blue">
+      <h3 style="color:var(--g)">System Software</h3>
+      <ul style="margin-top:16px">
+        <li><strong>Compilers</strong> — translate high-level language to machine code</li>
+        <li><strong>Linkers</strong> — create links between language processors</li>
+        <li><strong>Device Drivers</strong> — enable external devices to work</li>
+        <li><strong>Utilities</strong> — antivirus, scan disk, defragmentation</li>
+        <li><strong>Operating Systems</strong> — platform for all other software</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 04 Analogue vs Digital -->
+<section data-label="04 Analogue vs Digital">
+  <h2>Analogue &amp; Digital Data</h2>
+  <div class="row">
+    <div>
+      <p>Computers only understand <span class="chip cg">digital data</span> — binary digits (0 and 1). Real-world data is <span class="chip co">analogue</span> — not limited to two values.</p>
+      <ul style="margin-top:24px">
+        <li>Analogue data forms <strong>smooth curves</strong></li>
+        <li>Digital data changes in <strong>discrete steps</strong></li>
+        <li><span class="chip cb">ADC</span> — Analogue-to-Digital Converter: converts real-world signals for the computer</li>
+        <li><span class="chip cb">DAC</span> — Digital-to-Analogue Converter: converts output back to analogue form</li>
+      </ul>
+    </div>
+    <div class="box" style="justify-content:center;display:flex;flex-direction:column;gap:20px;align-items:center">
+      <div style="width:100%;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;align-items:center;gap:20px">
+          <span style="font-size:var(--sm);font-weight:700;color:var(--o);min-width:180px">Analogue (smooth)</span>
+          <svg viewBox="0 0 200 60" style="flex:1;height:56px"><path d="M 10 50 Q 60 10 110 50 Q 160 10 190 50" stroke="#f97316" stroke-width="3" fill="none"/></svg>
+        </div>
+        <div style="display:flex;align-items:center;gap:20px">
+          <span style="font-size:var(--sm);font-weight:700;color:var(--b);min-width:180px">Digital (steps)</span>
+          <svg viewBox="0 0 200 60" style="flex:1;height:56px"><polyline points="10,50 10,15 60,15 60,50 110,50 110,15 160,15 160,50 190,50" stroke="#2563eb" stroke-width="3" fill="none"/></svg>
+        </div>
+        <p style="font-size:var(--sm);text-align:center;color:#6b7280">Real-world data → <strong>ADC</strong> → Computer processes → <strong>DAC</strong> → Output</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 05 CPU -->
+<section data-label="05 CPU">
+  <h2>1.2 Central Processing Unit (CPU)</h2>
+  <p>The component that understands and executes hardware and software operations — also called a <span class="chip cg">microprocessor</span>.</p>
+  <div class="row" style="margin-top:12px">
+    <div>
+      <h3>Three Key Parts</h3>
+      <ul style="margin-top:16px">
+        <li><span class="chip cb">Control Unit (CU)</span> — manages input &amp; output devices; controls flow of data</li>
+        <li><span class="chip co">ALU</span> — Arithmetic &amp; Logic Unit; performs calculations and logical decisions</li>
+        <li><span class="chip cp">Registers</span> — tiny, ultra-fast memory regions inside the CPU</li>
+      </ul>
+    </div>
+    <div class="box blue" style="font-size:var(--sm)">
+      <h3 style="color:var(--b);margin-bottom:16px">CPU Role</h3>
+      <p>Receives <strong>input</strong> → processes instructions → produces <strong>output</strong></p>
+      <p style="margin-top:20px">Present in most PCs and also in household gadgets where control or monitoring is required.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 06 Internal Memory -->
+<section data-label="06 RAM vs ROM">
+  <h2>Internal Memory: RAM vs ROM</h2>
+  <table>
+    <thead><tr><th>Feature</th><th>RAM</th><th>ROM</th></tr></thead>
+    <tbody>
+      <tr><td>Full Name</td><td>Random Access Memory</td><td>Read-Only Memory</td></tr>
+      <tr><td>Volatility</td><td><span class="chip co">Volatile</span> — lost when power off</td><td><span class="chip cg">Non-volatile</span> — permanent</td></tr>
+      <tr><td>Access</td><td>Read &amp; Write</td><td>Read only</td></tr>
+      <tr><td>Used for</td><td>Data/programs currently in use; can be increased</td><td>Start-up data, BIOS configuration</td></tr>
+    </tbody>
+  </table>
+  <div class="note">💡 <strong>BIOS</strong> (Basic Input/Output System) stores date, time &amp; system config on a non-volatile <strong>CMOS</strong> chip — usually battery powered.</div>
+</section>
+
+<!-- 07 Internal Memory vs Backing Storage -->
+<section data-label="07 Memory vs Storage">
+  <h2>Internal Memory vs Backing Storage</h2>
+  <p><span class="chip cg">Backing storage</span> stores large amounts of data permanently — most commonly HDD and SSD.</p>
+  <table style="margin-top:12px">
+    <thead><tr><th>Comparison</th><th>Internal Memory (RAM/ROM)</th><th>Backing Storage</th></tr></thead>
+    <tbody>
+      <tr><td>Permanence</td><td>RAM lost on power off; ROM read-only</td><td>Permanent even without power</td></tr>
+      <tr><td>Size</td><td>Much smaller</td><td>Much larger capacity</td></tr>
+      <tr><td>Speed</td><td>Significantly faster</td><td>Slower</td></tr>
+      <tr><td>Cost</td><td>More expensive per GB</td><td>Much cheaper per GB</td></tr>
+      <tr><td>Portability</td><td>Fixed inside computer</td><td>Fixed or portable</td></tr>
+      <tr><td>CPU Access</td><td>Directly read by CPU</td><td>Must be moved to RAM first</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- 08 Operating Systems -->
+<section data-label="08 Operating Systems">
+  <h2>1.3 Operating Systems</h2>
+  <p>Special software that enables computer systems to function and allows users to communicate with them.</p>
+  <div class="row" style="margin-top:8px">
+    <div>
+      <h3>OS Functions</h3>
+      <ul style="margin-top:16px">
+        <li>Controls operation of input, output &amp; backing storage</li>
+        <li>Supervises loading, running &amp; storage of programs</li>
+        <li>Deals with errors in application programs</li>
+        <li>Maintains security of the whole system</li>
+        <li>Maintains a computer log</li>
+      </ul>
+    </div>
+    <div class="box">
+      <h3 style="color:var(--g)">User Interface Types</h3>
+      <ul style="margin-top:16px">
+        <li><span class="chip cb">CLI</span> Command Line Interface</li>
+        <li><span class="chip cg">GUI</span> Graphical User Interface</li>
+        <li><span class="chip co">Dialogue-based</span> Voice commands</li>
+        <li><span class="chip cp">Gesture-based</span> Movement input</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 09 CLI -->
+<section data-label="09 CLI">
+  <h2>Command Line Interface <span class="chip cb">CLI</span></h2>
+  <p>User types commands directly to communicate with the computer. Mainly used by <strong>programmers</strong> who need direct communication.</p>
+  <div class="row" style="margin-top:12px">
+    <div class="box">
+      <h3 style="color:var(--g)">Advantages</h3>
+      <ul style="margin-top:14px">
+        <li>User in direct communication with computer</li>
+        <li>Not restricted to pre-defined options</li>
+        <li>Can alter computer configuration settings</li>
+      </ul>
+    </div>
+    <div class="box blue">
+      <h3 style="color:var(--b)">Disadvantages</h3>
+      <ul style="margin-top:14px">
+        <li>Must learn many commands for basic operations</li>
+        <li>Time-consuming — all commands typed manually</li>
+        <li>Very error-prone — commands need correct format, spelling</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 10 GUI -->
+<section data-label="10 GUI">
+  <h2>Graphical User Interface <span class="chip cg">GUI</span></h2>
+  <p>Uses <span class="chip co">WIMP</span> — Windows, Icons, Menus, Pointing device. Mainly used by end-users.</p>
+  <div class="row" style="margin-top:12px">
+    <div class="box">
+      <h3 style="color:var(--g)">Advantages</h3>
+      <ul style="margin-top:14px">
+        <li>No need to learn commands</li>
+        <li>More user-friendly — icons represent applications</li>
+        <li>Click on icon to launch — simpler than typing</li>
+      </ul>
+    </div>
+    <div class="box blue">
+      <h3 style="color:var(--b)">Disadvantages</h3>
+      <ul style="margin-top:14px">
+        <li>Uses considerably more computer memory than CLI</li>
+        <li>User limited to icons provided on screen</li>
+        <li>Needs a more complex operating system</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 11 Dialogue & Gesture -->
+<section data-label="11 Dialogue and Gesture UI">
+  <h2>Dialogue &amp; Gesture-Based Interfaces</h2>
+  <div class="row">
+    <div>
+      <h3><span class="chip co">Dialogue-Based</span> — Voice Commands</h3>
+      <ul style="margin-top:14px">
+        <li>No need to take hands off steering wheel</li>
+        <li>Useful for people with disabilities</li>
+        <li>Can be used as a security/voice recognition feature</li>
+        <li><em>Disadvantages:</em> still unreliable; background noise causes errors; complex to setup; limited commands</li>
+      </ul>
+    </div>
+    <div>
+      <h3><span class="chip cp">Gesture-Based</span> — Movement Input</h3>
+      <ul style="margin-top:14px">
+        <li>Replaces mechanical input devices</li>
+        <li>No physical contact required — very natural interface</li>
+        <li>No training needed</li>
+        <li><em>Disadvantages:</em> unintentional movement picked up; only works within ~1.5 m of sensor; limited gestures recognised</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 12 Desktop Computers -->
+<section data-label="12 Desktop Computers">
+  <h2>1.4 Desktop Computers</h2>
+  <p>General-purpose computer made of <strong>separate</strong> monitor, keyboard, mouse and processor unit — not very portable.</p>
+  <p><strong>Uses:</strong> office &amp; business, education, entertainment, gaming</p>
+  <div class="row" style="margin-top:8px">
+    <div class="box">
+      <h3 style="color:var(--g)">Advantages</h3>
+      <ul style="margin-top:12px">
+        <li>Easier and less costly to upgrade/expand</li>
+        <li>Standardised spare parts — cheaper</li>
+        <li>Better specifications for a given price</li>
+        <li>No critical power consumption — plugs into wall</li>
+        <li>Fixed position — less likely to be stolen/damaged</li>
+        <li>Wired connections — more stable internet</li>
+      </ul>
+    </div>
+    <div class="box blue">
+      <h3 style="color:var(--b)">Disadvantages</h3>
+      <ul style="margin-top:12px">
+        <li>Not portable — made of separate components</li>
+        <li>Wiring clutters desk space</li>
+        <li>Files must be copied to portable media to work elsewhere</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 13 Laptops -->
+<section data-label="13 Laptops">
+  <h2>Laptop Computers</h2>
+  <p>All components (monitor, keyboard, pointer, processor) in <strong>one unit</strong> — extremely portable. Lightweight, low power, low heat output.</p>
+  <p><strong>Uses:</strong> office &amp; business, education, gaming, entertainment</p>
+  <div class="row" style="margin-top:8px">
+    <div class="box">
+      <h3 style="color:var(--g)">Advantages</h3>
+      <ul style="margin-top:12px">
+        <li>Portable — all components in one unit</li>
+        <li>No trailing wires or desk clutter</li>
+        <li>Takes up less desk space; usable in public</li>
+        <li>Takes advantage of Wi-Fi features</li>
+      </ul>
+    </div>
+    <div class="box blue">
+      <h3 style="color:var(--b)">Disadvantages</h3>
+      <ul style="margin-top:12px">
+        <li>Portability makes it easier to be stolen</li>
+        <li>Limited battery life — must carry charger</li>
+        <li>Keyboard/pointing devices can be awkward</li>
+        <li>Not easy to upgrade (e.g. adding more RAM)</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 14 Smartphones -->
+<section data-label="14 Smartphones">
+  <h2>Smartphones</h2>
+  <p>Phones with an OS (iOS, Android) allowing computer applications (<span class="chip cg">apps</span>). Connect via <span class="chip cb">Wi-Fi</span> or <span class="chip co">3G/4G/5G</span>.</p>
+  <p><strong>Uses:</strong> emails, apps, camera/video, music/video player, GPS, banking, VoIP, social media</p>
+  <div class="row" style="margin-top:8px">
+    <div class="box">
+      <h3 style="color:var(--g)">Advantages</h3>
+      <ul style="margin-top:12px">
+        <li>Very small &amp; lightweight — portable</li>
+        <li>Internet on the move</li>
+        <li>Usable almost anywhere (Wi-Fi + mobile networks)</li>
+        <li>GPS/location apps not available on desktop/laptop</li>
+        <li>Reasonable battery life</li>
+      </ul>
+    </div>
+    <div class="box blue">
+      <h3 style="color:var(--b)">Disadvantages</h3>
+      <ul style="margin-top:12px">
+        <li>Small screen &amp; keyboard — difficult to read/type</li>
+        <li>Browsing &amp; camera drain battery quickly</li>
+        <li>Limited memory vs laptops/desktops</li>
+        <li>Not all websites compatible with smartphone OS</li>
+        <li>Easier to lose or be stolen</li>
+        <li>Mobile network can be slower than Wi-Fi</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 15 Tablets & Phablets -->
+<section data-label="15 Tablets and Phablets">
+  <h2>Tablets &amp; Phablets</h2>
+  <div class="row">
+    <div>
+      <h3><span class="chip cb">Tablets</span></h3>
+      <p style="margin:10px 0">Similar to smartphones but larger. Uses: emails, apps, camera, media player.</p>
+      <p><strong>Advantages vs Laptops:</strong></p>
+      <ul>
+        <li>Very fast to switch on — no OS loading delay</li>
+        <li>Fully portable and lightweight</li>
+        <li>Touch screen — simple, no extra input devices</li>
+        <li>Low heat output — solid-state technology</li>
+        <li>Longer battery life; stays connected in standby</li>
+      </ul>
+      <p style="margin-top:12px"><strong>Disadvantages vs Laptops:</strong> more expensive, limited storage, slow touch-screen typing, fewer file formats supported</p>
+    </div>
+    <div>
+      <h3><span class="chip cp">Phablets</span></h3>
+      <p style="margin:10px 0">Hybrid between a tablet and smartphone — larger screen than a phone but smaller than a tablet.</p>
+      <h4 style="margin-top:16px">Additional Uses:</h4>
+      <ul>
+        <li>Entertainment — streaming music, video, TV</li>
+        <li>Gaming including group games</li>
+        <li>Camera &amp; video</li>
+        <li>Internet, social networks, QR codes</li>
+        <li>GPS navigation</li>
+        <li>Telephone banking</li>
+        <li>VoIP &amp; video calling</li>
+        <li>Instant messaging &amp; social contact</li>
+        <li>Remote device control</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 16 Comparing Mobile Devices -->
+<section data-label="16 Comparing Devices">
+  <h2>Comparing Mobile Devices</h2>
+  <table>
+    <thead><tr><th>Feature</th><th>Laptop</th><th>Smartphone</th><th>Tablet</th><th>Phablet</th></tr></thead>
+    <tbody>
+      <tr><td>Portability</td><td>Good</td><td><span class="chip cg">Best</span></td><td>Very Good</td><td>Very Good</td></tr>
+      <tr><td>Expandability</td><td><span class="chip cg">Best</span></td><td>Limited</td><td>Limited</td><td>Limited</td></tr>
+      <tr><td>Screen Size</td><td>Large</td><td>Small</td><td>Medium-Large</td><td>Medium</td></tr>
+      <tr><td>Battery Life</td><td>Moderate</td><td>Moderate</td><td><span class="chip cg">Longest</span></td><td>Good</td></tr>
+      <tr><td>Storage</td><td><span class="chip cg">Largest</span></td><td>Small</td><td>Small–Medium</td><td>Small–Medium</td></tr>
+    </tbody>
+  </table>
+  <div class="note">Laptops are the most expandable. Smartphones are the most portable. Tablets &amp; phablets offer a balance.</div>
+</section>
+
+<!-- 17 AI -->
+<section data-label="17 Artificial Intelligence">
+  <h2>1.5 Emerging Technologies — Artificial Intelligence</h2>
+  <p><span class="chip cg">AI</span> — a machine or application that carries out tasks requiring some degree of intelligence, such as:</p>
+  <div class="row" style="margin-top:12px">
+    <div>
+      <h3>AI Applications</h3>
+      <ul style="margin-top:14px">
+        <li>Use of language &amp; face recognition</li>
+        <li>Operating machinery — cars, aeroplanes, trains</li>
+        <li>Weather forecasting from data analysis</li>
+        <li>Driverless (autonomous) vehicles</li>
+        <li>Robotics for amputees &amp; disability assistance</li>
+        <li>Bomb disposal &amp; dangerous tasks</li>
+      </ul>
+    </div>
+    <div class="box orange">
+      <h3 style="color:var(--o)">Negative Impacts of AI</h3>
+      <ul style="margin-top:14px">
+        <li><strong>Unemployment</strong> — robots do tedious human tasks with greater efficiency</li>
+        <li><strong>Dependency</strong> on technology — could cause future problems</li>
+        <li><strong>De-skilling</strong> — tasks once considered talents are now routine machine processes</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 18 Extended Reality -->
+<section data-label="18 Extended Reality">
+  <h2>Extended Reality <span class="chip cp">XR</span></h2>
+  <p>Combined real and virtual environments. Two main types:</p>
+  <div class="row" style="margin-top:16px">
+    <div class="box">
+      <h3 style="color:var(--g)">Augmented Reality <span class="chip cg">AR</span></h3>
+      <p style="margin:12px 0">Merger of virtual and physical world — lays digital objects onto real ones. Example: <em>Pokémon GO!</em></p>
+      <h4>Impacts:</h4>
+      <ul style="margin-top:10px">
+        <li>Safety &amp; rescue operation training</li>
+        <li>Shopping/retail — better product preview</li>
+        <li>Healthcare — better understanding of patient's body</li>
+      </ul>
+    </div>
+    <div class="box blue">
+      <h3 style="color:var(--b)">Virtual Reality <span class="chip cb">VR</span></h3>
+      <p style="margin:12px 0">Creates an entirely new virtual world — no link to actual surroundings. Requires VR headset, joystick &amp; headphones.</p>
+      <h4>Impacts:</h4>
+      <ul style="margin-top:10px">
+        <li>Military applications &amp; training</li>
+        <li>Education — viewing ancient buildings</li>
+        <li>Healthcare &amp; surgery simulation</li>
+        <li>Media — interactive special effects</li>
+        <li>Scientific visualisation — molecular structures/cells</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 19 Summary -->
+<section class="dark" data-label="19 Summary">
+  <h2 style="color:var(--g)">Topic 1 — Key Points</h2>
+  <div class="row3" style="margin-top:16px">
+    <div class="box" style="border-color:var(--g)">
+      <h3 style="color:var(--g)">1.1 Hardware &amp; Software</h3>
+      <ul style="margin-top:12px;font-size:var(--sm)">
+        <li>Hardware = physical components</li>
+        <li>Software = programs &amp; instructions</li>
+        <li>ADC/DAC convert analogue ↔ digital</li>
+      </ul>
+    </div>
+    <div class="box" style="border-color:var(--b)">
+      <h3 style="color:var(--b)">1.2 Components</h3>
+      <ul style="margin-top:12px;font-size:var(--sm)">
+        <li>CPU: CU + ALU + Registers</li>
+        <li>RAM = volatile; ROM = non-volatile</li>
+        <li>Backing storage: permanent, portable</li>
+      </ul>
+    </div>
+    <div class="box" style="border-color:var(--o)">
+      <h3 style="color:var(--o)">1.3 – 1.5</h3>
+      <ul style="margin-top:12px;font-size:var(--sm)">
+        <li>OS manages all resources</li>
+        <li>CLI / GUI / Dialogue / Gesture UIs</li>
+        <li>Desktop, Laptop, Smartphone, Tablet, Phablet</li>
+        <li>AI &amp; XR (AR/VR) emerging technologies</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+</deck-stage>
+<script src="deck-stage.js"></script>
+</body>
+</html>

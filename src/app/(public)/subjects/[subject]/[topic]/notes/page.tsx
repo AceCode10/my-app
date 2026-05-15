@@ -43,20 +43,24 @@ export default function NotesPage({
   useEffect(() => {
     async function fetchNote() {
       try {
-        // First try to find by topic_id (legacy format)
-        let topicId = `${subjectSlug}-${topicSlug}`;
-        
-        // Try to get the actual topic from database
+        // Resolve subject -> topic UUID (subject-scoped to avoid cross-subject slug collisions)
+        const { data: subjectRow } = await supabase
+          .from('subjects')
+          .select('id')
+          .eq('slug', subjectSlug)
+          .single();
+
+        if (!subjectRow) { setIsLoading(false); return; }
+
         const { data: topicData } = await supabase
           .from('topics')
           .select('id')
+          .eq('subject_id', subjectRow.id)
           .eq('slug', topicSlug)
           .single();
 
-        if (topicData) {
-          topicId = topicData.id;
-        }
-        
+        if (!topicData) { setIsLoading(false); return; }
+
         const { data, error } = await supabase
           .from('notes')
           .select(`
@@ -64,7 +68,7 @@ export default function NotesPage({
             subject:subjects(id, name, slug),
             topic:topics(id, name, slug)
           `)
-          .or(`topic_id.eq.${topicId},topic_id.eq.${subjectSlug}-${topicSlug}`)
+          .eq('topic_id', topicData.id)
           .eq('visibility', 'public')
           .not('published_at', 'is', null)
           .order('display_order', { ascending: true })

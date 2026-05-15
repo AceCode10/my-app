@@ -80,6 +80,7 @@ export function NoteEditor({ noteId }: NoteEditorProps) {
     slug: '',
     content_md: '',
     pdf_url: '' as string,
+    presentation_url: '' as string,
     subject_id: '',
     topic_id: '',
     exam_board_id: '',
@@ -91,6 +92,7 @@ export function NoteEditor({ noteId }: NoteEditorProps) {
   });
 
   const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [uploadingHtml, setUploadingHtml] = useState(false);
 
   const [tagInput, setTagInput] = useState('');
 
@@ -157,6 +159,7 @@ export function NoteEditor({ noteId }: NoteEditorProps) {
           slug: data.slug || '',
           content_md: data.content_md || '',
           pdf_url: data.pdf_url || '',
+          presentation_url: data.presentation_url || '',
           subject_id: data.subject_id || '',
           topic_id: data.topic_id || '',
           exam_board_id: data.exam_board_id || '',
@@ -245,6 +248,7 @@ export function NoteEditor({ noteId }: NoteEditorProps) {
         slug: form.slug || generateSlug(form.title),
         content_md: form.content_md,
         pdf_url: form.pdf_url || null,
+        presentation_url: form.presentation_url || null,
         subject_id: form.subject_id || null,
         topic_id: form.topic_id || null,
         exam_board_id: form.exam_board_id || null,
@@ -611,6 +615,102 @@ export function NoteEditor({ noteId }: NoteEditorProps) {
                   />
                   <p className="text-xs text-muted-foreground">
                     Max 50MB. Users can view in presenter mode.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Presentation HTML Upload */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Presentation className="h-4 w-4" />
+                Presentation HTML
+              </CardTitle>
+              <CardDescription>
+                Upload an HTML slide deck for fullscreen presenter mode
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {form.presentation_url ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                    <FileText className="h-5 w-5 text-green-600" />
+                    <span className="text-sm flex-1 truncate">HTML deck uploaded</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setForm(prev => ({ ...prev, presentation_url: '' }))}
+                      className="h-8 w-8 text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <a
+                    href={form.presentation_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary hover:underline"
+                  >
+                    View raw HTML
+                  </a>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <Label
+                    htmlFor="html-upload"
+                    className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+                  >
+                    {uploadingHtml ? (
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    ) : (
+                      <>
+                        <Upload className="h-6 w-6 text-muted-foreground mb-1" />
+                        <span className="text-xs text-muted-foreground">Click to upload HTML deck</span>
+                      </>
+                    )}
+                  </Label>
+                  <input
+                    id="html-upload"
+                    type="file"
+                    accept=".html,text/html"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+
+                      setUploadingHtml(true);
+                      try {
+                        const fileName = `presentations/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+                        const { data, error } = await supabase.storage
+                          .from('documents')
+                          .upload(fileName, file, { contentType: 'text/html', cacheControl: '3600', upsert: false });
+
+                        if (error) throw error;
+
+                        const { data: urlData } = supabase.storage
+                          .from('documents')
+                          .getPublicUrl(data.path);
+
+                        setForm(prev => ({ ...prev, presentation_url: urlData.publicUrl }));
+                        toast({ title: 'Success', description: 'HTML deck uploaded successfully' });
+                      } catch (error: any) {
+                        console.error('Error uploading HTML:', error);
+                        toast({
+                          variant: 'destructive',
+                          title: 'Upload Failed',
+                          description: error.message || 'Failed to upload HTML deck'
+                        });
+                      } finally {
+                        setUploadingHtml(false);
+                        e.target.value = '';
+                      }
+                    }}
+                    disabled={uploadingHtml}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Max 5MB. Self-contained HTML deck (no external dependencies).
                   </p>
                 </div>
               )}

@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { ChevronRight, ChevronLeft, Download, Loader2, Info, Bookmark, Share2, ArrowLeft, PanelLeft, PanelLeftClose } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Download, Loader2, Info, Bookmark, Share2, ArrowLeft, PanelLeft, PanelLeftClose, Presentation } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -50,20 +50,43 @@ export default function NotesPage({
 
   useEffect(() => {
     async function fetchNote() {
-      const topicId = `${subjectSlug}-${topicSlug}`;
-      
+      // Resolve subject -> topic UUID from slugs (subject-scoped to avoid cross-subject slug collisions)
+      const { data: subjectRow } = await supabase
+        .from('subjects')
+        .select('id')
+        .eq('slug', subjectSlug)
+        .single();
+
+      if (!subjectRow) {
+        setIsLoading(false);
+        return;
+      }
+
+      const { data: topicRow } = await supabase
+        .from('topics')
+        .select('id')
+        .eq('subject_id', subjectRow.id)
+        .eq('slug', topicSlug)
+        .single();
+
+      if (!topicRow) {
+        setIsLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('notes')
         .select('*')
-        .eq('topic_id', topicId)
+        .eq('topic_id', topicRow.id)
         .in('visibility', ['public', 'registered', 'premium'])
+        .order('display_order', { ascending: true })
         .limit(1)
         .single();
 
       if (error && error.code !== 'PGRST116') {
         console.error('Error fetching note:', error);
       }
-      
+
       setNoteData(data);
       setIsLoading(false);
 
@@ -386,6 +409,14 @@ export default function NotesPage({
                   {isSaving ? 'Saving...' : (isNoteSaved ? 'Saved' : 'Save')}
                 </Button>
                 <Button variant="outline" onClick={handleShare}><Share2 className="mr-2 h-4 w-4"/>Share</Button>
+                {noteData?.presentation_url && (
+                  <Button variant="outline" asChild>
+                    <Link href={`/student/subjects/${subjectSlug}/${topicSlug}/presentation`}>
+                      <Presentation className="mr-2 h-4 w-4" />
+                      Present Slides
+                    </Link>
+                  </Button>
+                )}
               </div>
             </div>
 

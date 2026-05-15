@@ -403,12 +403,24 @@ export default function AdminNotesPage() {
                   <TableRow key={note.id}>
                     <TableCell>
                       <div>
-                        <Link 
-                          href={`/admin/notes/${note.id}`}
-                          className="font-medium hover:text-primary transition-colors"
-                        >
-                          {note.title}
-                        </Link>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Link
+                            href={`/admin/notes/${note.id}`}
+                            className="font-medium hover:text-primary transition-colors"
+                          >
+                            {note.title}
+                          </Link>
+                          {note.presentation_url && (
+                            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 border-emerald-500/30 text-[10px] px-1.5 py-0">
+                              Slides
+                            </Badge>
+                          )}
+                          {note.pdf_url && (
+                            <Badge variant="outline" className="bg-red-500/10 text-red-700 border-red-500/30 text-[10px] px-1.5 py-0">
+                              PDF
+                            </Badge>
+                          )}
+                        </div>
                         {note.subtitle && (
                           <p className="text-sm text-muted-foreground truncate max-w-[300px]">
                             {note.subtitle}

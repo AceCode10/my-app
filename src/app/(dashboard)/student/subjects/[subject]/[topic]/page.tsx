@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { BookOpen, Layers, ChevronRight, ClipboardList, FileText } from 'lucide-react';
+import { BookOpen, Layers, ChevronRight, ClipboardList, FileText, Presentation } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMemo, useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -16,29 +16,54 @@ export default function TopicPage({ params }: { params: { subject: string, topic
 
   const [notes, setNotes] = useState<Note[]>([]);
   const [isLoadingNotes, setIsLoadingNotes] = useState(true);
+  const [hasPresentation, setHasPresentation] = useState(false);
 
   const subjectData = allSubjects.find(s => s.slug === subjectSlug);
   const topicName = useMemo(() => topicSlug.replace(/-/g, ' '), [topicSlug]);
-  const topicId = `${subjectSlug}-${topicSlug}`;
 
   useEffect(() => {
     async function fetchNotes() {
+      // Resolve subject -> topic UUID from slugs
+      const { data: subjectRow } = await supabase
+        .from('subjects')
+        .select('id')
+        .eq('slug', subjectSlug)
+        .single();
+
+      if (!subjectRow) {
+        setIsLoadingNotes(false);
+        return;
+      }
+
+      const { data: topicRow } = await supabase
+        .from('topics')
+        .select('id')
+        .eq('subject_id', subjectRow.id)
+        .eq('slug', topicSlug)
+        .single();
+
+      if (!topicRow) {
+        setIsLoadingNotes(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('notes')
-        .select('*')
-        .eq('topic_id', topicId)
+        .select('id, title, presentation_url')
+        .eq('topic_id', topicRow.id)
         .in('visibility', ['public', 'registered', 'premium']);
 
       if (error) {
         console.error('Error fetching notes:', error);
       } else {
         setNotes(data || []);
+        setHasPresentation((data || []).some((n: any) => !!n.presentation_url));
       }
       setIsLoadingNotes(false);
     }
 
     fetchNotes();
-  }, [topicId]);
+  }, [subjectSlug, topicSlug]);
 
   if (!subjectData) {
     return <div>Subject not found.</div>;
@@ -54,6 +79,7 @@ export default function TopicPage({ params }: { params: { subject: string, topic
     { name: "Revision Notes", href: `/student/subjects/${subjectSlug}/${topicSlug}/notes`, icon: BookOpen, enabled: true },
     { name: "Flashcards", href: `/student/subjects/${subjectSlug}/${topicSlug}/flashcards`, icon: Layers, enabled: true },
     { name: "Topical Quiz", href: `/student/subjects/${subjectSlug}/${topicSlug}/quiz`, icon: FileText, enabled: true },
+    { name: "Presentation", href: `/student/subjects/${subjectSlug}/${topicSlug}/presentation`, icon: Presentation, enabled: hasPresentation },
   ];
 
   return (
@@ -97,7 +123,7 @@ export default function TopicPage({ params }: { params: { subject: string, topic
               <p className="text-muted-foreground mt-2">{topicData.description}</p>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {resources.map(resource => (
                 <Link 
                   href={resource.enabled ? resource.href : '#'} 

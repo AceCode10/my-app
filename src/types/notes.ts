@@ -8,6 +8,7 @@ export interface Note {
   content_md: string;
   rendered_html?: string | null;
   pdf_url?: string | null;
+  presentation_url?: string | null;
   subject_id?: string | null;
   topic_id?: string | null;
   exam_board_id?: string | null;

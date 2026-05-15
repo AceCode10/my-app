@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Topic 3: Storage Devices and Media – eSCholr ICT</title>
+<style>
+:root{--g:#1a9b8e;--b:#2563eb;--o:#f97316;--p:#8b5cf6;--r:#dc2626;--dk:#1f2937;--lt:#f9fafb;--bd:#e5e7eb;--tt:64px;--ts:44px;--tb:32px;--sm:27px;--px:100px;--pt:80px;--pb:60px;--g2:20px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',sans-serif;background:var(--lt);color:var(--dk)}
+section{color:var(--dk);display:flex;flex-direction:column;background:var(--lt);padding:var(--pt) var(--px) var(--pb);min-height:100%;gap:var(--g2)}
+section.cover{justify-content:center;align-items:center;text-align:center;background:linear-gradient(135deg,#7c3aed,#4c1d95);gap:24px}
+section.dark{background:#0f172a;color:var(--lt)}
+h1{font-size:var(--tt);font-weight:800;color:var(--lt)}
+h2{font-size:var(--tt);font-weight:700;color:var(--g);margin-bottom:4px}
+h3{font-size:var(--ts);font-weight:600;color:var(--dk);margin-bottom:4px}
+h4{font-size:var(--tb);font-weight:600;color:var(--g)}
+p,li{font-size:var(--tb);line-height:1.6;color:var(--dk)}
+ul{margin-left:32px}
+li{margin-bottom:10px}
+.sub{font-size:var(--ts);color:rgba(255,255,255,.85);font-weight:500}
+.chip{display:inline-block;padding:9px 20px;border-radius:999px;font-size:var(--sm);font-weight:700;color:#fff;margin:5px 6px 5px 0}
+.cg{background:var(--g)}.cb{background:var(--b)}.co{background:var(--o)}.cp{background:var(--p)}.cr{background:var(--r)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:48px;width:100%}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:32px;width:100%}
+.box{background:#fff;border:2.5px solid var(--g);border-radius:12px;padding:28px;font-size:var(--sm);color:var(--dk)}
+.box.b{border-color:var(--b)}.box.o{border-color:var(--o)}.box.p{border-color:var(--p)}.box.r{border-color:var(--r)}
+table{width:100%;border-collapse:collapse;font-size:var(--sm)}
+thead{background:var(--g);color:#fff}
+th,td{padding:15px 18px;border:1px solid var(--bd);text-align:left;vertical-align:top}
+tbody tr:nth-child(even){background:rgba(26,155,142,.06)}
+.note{background:#fef9c3;border-left:6px solid #eab308;padding:18px 24px;border-radius:8px;font-size:var(--sm);color:var(--dk)}
+.adv{color:#15803d;font-weight:600;margin-top:10px}.dis{color:#dc2626;font-weight:600;margin-top:8px}
+@media(max-width:1200px){:root{--tt:48px;--ts:34px;--tb:26px;--sm:22px;--px:60px}.row,.row3{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<deck-stage width="1920" height="1080">
+
+<section class="cover" data-label="01 Cover">
+  <div style="font-size:26px;color:rgba(255,255,255,.7);letter-spacing:3px;text-transform:uppercase">eSCholr · IGCSE ICT</div>
+  <h1>Storage Devices &amp; Media</h1>
+  <div class="sub">Topic 3 · Sections 3.1 – 3.4</div>
+</section>
+
+<section data-label="02 Backing Up Data">
+  <h2>3.1 Backing Up Data</h2>
+  <p><span class="chip cg">Backing Up</span> — copying files or data to a different medium in case of damage or loss of the original.</p>
+  <h3 style="margin-top:16px">Why Back Up Data?</h3>
+  <ul style="margin-top:12px">
+    <li>To safeguard against <strong>loss of data</strong></li>
+    <li>To safeguard against damage caused by <strong>hackers</strong></li>
+    <li>In case files need to be sent elsewhere, to protect the original file format</li>
+    <li>Backups can be stored <strong>online</strong> for easy access from anywhere</li>
+  </ul>
+  <h3 style="margin-top:16px">Types of Backing Storage</h3>
+  <div class="row3" style="margin-top:12px">
+    <div class="box"><h4><span class="chip cg">Magnetic</span></h4><p>Data held magnetically on a magnetised surface. Includes tapes and hard disk drives.</p></div>
+    <div class="box b"><h4><span class="chip cb">Optical</span></h4><p>Data burned as 'dots' onto surface with a laser. Includes CDs, DVDs, Blu-ray.</p></div>
+    <div class="box o"><h4><span class="chip co">Solid-State</span></h4><p>No moving parts. Includes SSDs, pen drives, flash memory cards.</p></div>
+  </div>
+</section>
+
+<section data-label="03 Magnetic Tape">
+  <h2>3.2 Magnetic Storage — Tape Drives</h2>
+  <p>Surface area of media is magnetised to hold bits of data. Read/write device reads bits on the surface.</p>
+  <div class="row" style="margin-top:16px">
+    <div>
+      <h3><span class="chip cg">Magnetic Tape Drives</span></h3>
+      <p style="font-size:var(--sm);margin:12px 0"><strong>Uses:</strong> batch processing applications; backup of vast amounts of data; long-term archiving (very stable, huge capacity)</p>
+      <p class="adv">Advantages:</p>
+      <ul style="font-size:var(--sm)">
+        <li>Generally less expensive than hard disk drives</li>
+        <li>Very robust technology</li>
+        <li>Huge data storage capacity</li>
+        <li>Fast data transfer rate</li>
+      </ul>
+      <p class="dis">Disadvantages:</p>
+      <ul style="font-size:var(--sm)">
+        <li>Prolonged data access times — uses <span class="chip cr">serial access</span></li>
+        <li>Updating requires a new tape to store the final version</li>
+        <li>Affected by magnetic fields — strong fields can corrupt data</li>
+      </ul>
+    </div>
+    <div class="box" style="font-size:var(--sm)">
+      <h4 style="margin-bottom:16px">Access Methods</h4>
+      <p><strong>Serial Access (Tape):</strong></p>
+      <ul style="margin-top:8px"><li>Must read through all data before reaching required data</li><li>Slow for random access</li><li>Good for sequential batch processing</li></ul>
+      <p style="margin-top:20px"><strong>Direct/Random Access (Disk):</strong></p>
+      <ul style="margin-top:8px"><li>Can go directly to any data location</li><li>Much faster for retrieving specific files</li></ul>
+    </div>
+  </div>
+</section>
+
+<section data-label="04 Hard Disk Drives">
+  <h2>Magnetic Hard Disk Drives</h2>
+  <div class="row">
+    <div>
+      <h3><span class="chip cg">Fixed Hard Disk Drive</span></h3>
+      <p style="font-size:var(--sm);margin:10px 0"><strong>Uses:</strong> store OS, system software and working data; application files; real-time and online systems; file servers for networks</p>
+      <p class="adv">Advantages:</p>
+      <ul style="font-size:var(--sm)"><li>Very fast data transfer rate and access times</li><li>Very large memory capacity</li></ul>
+      <p class="dis">Disadvantages:</p>
+      <ul style="font-size:var(--sm)"><li>Can be fairly easily damaged</li><li>Many moving parts reduce reliability</li><li>Read/write operation can be noisy vs SSD</li></ul>
+    </div>
+    <div>
+      <h3><span class="chip cb">Portable Hard Disk Drive</span></h3>
+      <p style="font-size:var(--sm);margin:10px 0"><strong>Uses:</strong> backup to prevent data loss; transfer data/files/software between computers</p>
+      <p class="adv">Advantages:</p>
+      <ul style="font-size:var(--sm)"><li>Fast data access time and transfer rate</li><li>Very large memory capacity</li><li>Portable method of transferring information between computers</li></ul>
+      <p class="dis">Disadvantages:</p>
+      <ul style="font-size:var(--sm)"><li>Easily damaged if dropped or incorrectly shut down</li><li>Data transfer rate not as fast as fixed HDD</li></ul>
+    </div>
+  </div>
+</section>
+
+<section data-label="05 Optical Media">
+  <h2>3.3 Optical Storage Media</h2>
+  <p>Data burned as 'dots' onto surface using a high-powered laser. Lower-powered laser reads the data back.</p>
+  <table style="margin-top:16px">
+    <thead><tr><th>Type</th><th>Read/Write</th><th>Uses</th><th>Advantages</th><th>Disadvantages</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="chip cg">CD-R / DVD-R</span></td>
+        <td>Write Once Only</td>
+        <td>Home music/film recording; data storage for transfer</td>
+        <td>Cheaper than RW disks; behaves like ROM once finalised</td>
+        <td>Can only be recorded once — errors mean disposal; not all players compatible</td>
+      </tr>
+      <tr>
+        <td><span class="chip cb">CD-RW / DVD-RW</span></td>
+        <td>Read &amp; Write</td>
+        <td>Recording TV programmes; CCTV systems; backup device</td>
+        <td>Can be written over many times; different file formats each use; less wasteful</td>
+        <td>Relatively expensive; risk of accidentally overwriting data</td>
+      </tr>
+      <tr>
+        <td><span class="chip co">CD-ROM / DVD-ROM</span></td>
+        <td>Read Only</td>
+        <td>Music; software; games; reference software; films (DVD); prevents accidental deletion</td>
+        <td>Less expensive than HDD; portable (small &amp; light); data cannot be overwritten</td>
+        <td>Holds far less than HDD; very slow transfer rate; cannot add files</td>
+      </tr>
+      <tr>
+        <td><span class="chip cp">Blu-ray</span></td>
+        <td>Read &amp; Write</td>
+        <td>Home video consoles; movies; data storage; camcorders</td>
+        <td>Very large capacity; fast transfer (36 Mbps); built-in encryption</td>
+        <td>Relatively expensive; encryption issues for video; HD DVD competition</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section data-label="06 Blu-ray Details">
+  <h2>Blu-ray vs DVD</h2>
+  <p>Three key differences between Blu-ray and DVD:</p>
+  <div class="row3" style="margin-top:20px">
+    <div class="box">
+      <h4><span class="chip cp">Blue Laser</span></h4>
+      <p style="margin-top:12px">Blu-ray uses a <strong>blue laser (405 nm)</strong> vs red laser (650 nm) on DVD. Smaller wavelength = smaller pits and lands = <strong>5× more storage than DVD</strong></p>
+    </div>
+    <div class="box b">
+      <h4><span class="chip cb">Encryption</span></h4>
+      <p style="margin-top:12px">Blu-ray discs automatically include a <strong>secure encryption system</strong>, helping prevent piracy and copyright infringement</p>
+    </div>
+    <div class="box o">
+      <h4><span class="chip co">Data Transfer Rate</span></h4>
+      <p style="margin-top:12px">DVD: <strong>10 Mbps</strong><br>Blu-ray: <strong>36 Mbps</strong> — much faster data transfer and access speed</p>
+    </div>
+  </div>
+</section>
+
+<section data-label="07 SSD vs HDD">
+  <h2>3.4 Solid-State Storage — SSD vs HDD</h2>
+  <table style="margin-top:16px">
+    <thead><tr><th>Feature</th><th>SSD (Solid-State Drive)</th><th>HDD (Hard Disk Drive)</th></tr></thead>
+    <tbody>
+      <tr><td>Moving Parts</td><td><span class="chip cg">None</span> — more reliable</td><td><span class="chip cr">Yes</span> — more prone to damage</td></tr>
+      <tr><td>Data Access Time</td><td><span class="chip cg">0.1 ms</span> — extremely fast</td><td><span class="chip co">10 ms</span> — slower</td></tr>
+      <tr><td>Data Transfer Speed</td><td>Much faster</td><td>Slower</td></tr>
+      <tr><td>Weight &amp; Size</td><td>Lighter; no warm-up time; very thin</td><td>Heavier and bulkier</td></tr>
+      <tr><td>Power &amp; Heat</td><td>Lower consumption; runs cooler</td><td>Higher consumption; generates heat &amp; noise</td></tr>
+      <tr><td>Storage Capacity</td><td>Smaller capacity</td><td><span class="chip cg">Larger capacity</span></td></tr>
+      <tr><td>Cost per GB</td><td>More expensive</td><td><span class="chip cg">More affordable</span></td></tr>
+      <tr><td>Endurance</td><td>~20 GB writes/day over 3 years</td><td>Suited to long-term storage</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section data-label="08 Pen Drives and Flash Cards">
+  <h2>Pen Drives &amp; Flash Memory Cards</h2>
+  <div class="row">
+    <div>
+      <h3><span class="chip cg">Pen Drives (Memory Sticks)</span></h3>
+      <p style="font-size:var(--sm);margin:10px 0"><strong>Uses:</strong> transporting files between computers; backing store; security device (dongle) to prevent software piracy</p>
+      <p class="adv">Advantages:</p>
+      <ul style="font-size:var(--sm)"><li>Very compact and portable</li><li>Very robust</li><li>No additional software needed on most computers</li><li>Not affected by magnetic fields</li></ul>
+      <p class="dis">Disadvantages:</p>
+      <ul style="font-size:var(--sm)"><li>Cannot make data 'read-only' to protect it</li><li>Easy to lose due to small size</li><li>Incorrect removal corrupts data and makes it useless</li></ul>
+    </div>
+    <div>
+      <h3><span class="chip cb">Flash Memory Cards</span></h3>
+      <p style="font-size:var(--sm);margin:10px 0"><strong>Types:</strong> <span class="chip cg">SD</span> (secure digital — widely used) · <span class="chip cb">xD</span> (extreme digital — older cameras) · <span class="chip co">CFast</span> (compact fast — professional cameras)</p>
+      <p style="font-size:var(--sm);margin:10px 0"><strong>Uses:</strong> digital camera photos; mobile phone memory; MP3 players; hand-held devices</p>
+      <p class="adv">Advantages:</p>
+      <ul style="font-size:var(--sm)"><li>Very compact; durable (no moving parts)</li><li>Can hold large amounts of data</li><li>Cameras and smartphones can read/write them</li></ul>
+      <p class="dis">Disadvantages:</p>
+      <ul style="font-size:var(--sm)"><li>Expensive per GB vs HDDs</li><li>Lower capacity than hard disks</li><li>Finite read/write lifespan</li><li>Very small — easily lost/stolen/damaged</li><li>Often requires card reader/USB converter</li></ul>
+    </div>
+  </div>
+</section>
+
+<section data-label="09 Storage Comparison">
+  <h2>Storage Comparison Summary</h2>
+  <table>
+    <thead><tr><th>Storage Type</th><th>Speed</th><th>Capacity</th><th>Portability</th><th>Cost</th><th>Reliability</th></tr></thead>
+    <tbody>
+      <tr><td><span class="chip cg">SSD</span></td><td>Fastest</td><td>Medium</td><td>Good</td><td>Highest</td><td>Highest (no moving parts)</td></tr>
+      <tr><td><span class="chip cb">Fixed HDD</span></td><td>Fast</td><td>Largest</td><td>Fixed</td><td>Moderate</td><td>Good (moving parts)</td></tr>
+      <tr><td><span class="chip co">Portable HDD</span></td><td>Fast</td><td>Large</td><td>Portable</td><td>Moderate</td><td>Fragile if dropped</td></tr>
+      <tr><td><span class="chip cp">Pen Drive</span></td><td>Moderate</td><td>Small-Medium</td><td>Very Portable</td><td>Low</td><td>Good</td></tr>
+      <tr><td><span class="chip cr">Magnetic Tape</span></td><td>Slow (serial)</td><td>Very Large</td><td>Portable</td><td>Low</td><td>Very Robust</td></tr>
+      <tr><td><span class="chip cg">Blu-ray</span></td><td>36 Mbps</td><td>Large</td><td>Portable</td><td>Moderate</td><td>Good</td></tr>
+      <tr><td><span class="chip cb">DVD/CD</span></td><td>Slow</td><td>Small</td><td>Very Portable</td><td>Very Low</td><td>Fragile</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="dark" data-label="10 Summary">
+  <h2 style="color:var(--g)">Topic 3 — Key Points</h2>
+  <div class="row3" style="margin-top:16px">
+    <div class="box"><h3 style="color:var(--g)">Magnetic</h3><ul style="font-size:var(--sm);margin-top:12px"><li>Tapes: serial access, archiving, batch</li><li>Fixed HDD: fast, large, OS storage</li><li>Portable HDD: backup, file transfer</li></ul></div>
+    <div class="box b"><h3 style="color:var(--b)">Optical</h3><ul style="font-size:var(--sm);margin-top:12px"><li>CD/DVD-R: write once, cheapest</li><li>CD/DVD-RW: rewritable, backup</li><li>Blu-ray: largest, fastest, encrypted</li></ul></div>
+    <div class="box o"><h3 style="color:var(--o)">Solid-State</h3><ul style="font-size:var(--sm);margin-top:12px"><li>SSD: fastest, reliable, no moving parts</li><li>Pen Drives: portable, compact transport</li><li>Flash Cards: cameras, phones, media</li></ul></div>
+  </div>
+  <div class="note" style="margin-top:20px">Always choose the storage type based on the need: speed (SSD), capacity (HDD), portability (pen drive), archiving (tape), or low cost (optical).</div>
+</section>
+
+</deck-stage>
+<script src="deck-stage.js"></script>
+</body>
+</html>

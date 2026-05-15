@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Topic 7: The Systems Life Cycle – eSCholr ICT</title>
+<style>
+:root{--g:#1a9b8e;--b:#2563eb;--o:#f97316;--p:#8b5cf6;--r:#dc2626;--dk:#1f2937;--lt:#f9fafb;--bd:#e5e7eb;--tt:64px;--ts:42px;--tb:30px;--sm:25px;--px:100px;--pt:72px;--pb:56px;--g2:18px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',sans-serif;background:var(--lt);color:var(--dk)}
+section{color:var(--dk);display:flex;flex-direction:column;background:var(--lt);padding:var(--pt) var(--px) var(--pb);min-height:100%;gap:var(--g2)}
+section.cover{justify-content:center;align-items:center;text-align:center;background:linear-gradient(135deg,#0f766e,#134e4a);gap:22px}
+section.dark{background:#0f172a;color:var(--lt)}
+h1{font-size:var(--tt);font-weight:800;color:var(--lt)}
+h2{font-size:var(--tt);font-weight:700;color:var(--g);margin-bottom:4px}
+h3{font-size:var(--ts);font-weight:600;color:var(--dk);margin-bottom:4px}
+h4{font-size:var(--tb);font-weight:600;color:var(--g)}
+p,li{font-size:var(--tb);line-height:1.55;color:var(--dk)}
+ul,ol{margin-left:28px}
+li{margin-bottom:8px}
+.sub{font-size:var(--ts);color:rgba(255,255,255,.85);font-weight:500}
+.chip{display:inline-block;padding:8px 18px;border-radius:999px;font-size:var(--sm);font-weight:700;color:#fff;margin:4px 5px 4px 0}
+.cg{background:var(--g)}.cb{background:var(--b)}.co{background:var(--o)}.cp{background:var(--p)}.cr{background:var(--r)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:44px;width:100%}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:28px;width:100%}
+.row4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:24px;width:100%}
+.box{background:#fff;border:2.5px solid var(--g);border-radius:12px;padding:26px;font-size:var(--sm);color:var(--dk)}
+.box.b{border-color:var(--b)}.box.o{border-color:var(--o)}.box.p{border-color:var(--p)}.box.r{border-color:var(--r)}
+table{width:100%;border-collapse:collapse;font-size:var(--sm)}
+thead{background:var(--g);color:#fff}
+th,td{padding:13px 16px;border:1px solid var(--bd);text-align:left;vertical-align:top}
+tbody tr:nth-child(even){background:rgba(26,155,142,.06)}
+.note{background:#fef9c3;border-left:6px solid #eab308;padding:16px 22px;border-radius:8px;font-size:var(--sm);color:var(--dk)}
+.adv{color:#15803d;font-weight:600;margin-top:8px}.dis{color:#dc2626;font-weight:600;margin-top:6px}
+@media(max-width:1200px){:root{--tt:46px;--ts:32px;--tb:24px;--sm:20px;--px:60px}.row,.row3,.row4{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<deck-stage width="1920" height="1080">
+
+<section class="cover" data-label="01 Cover">
+  <div style="font-size:24px;color:rgba(255,255,255,.7);letter-spacing:3px;text-transform:uppercase">eSCholr · IGCSE ICT</div>
+  <h1>The Systems Life Cycle</h1>
+  <div class="sub">Topic 7 · Sections 7.1 – 7.6</div>
+</section>
+
+<section data-label="02 SDLC Overview">
+  <h2>7.1 The Systems Life Cycle</h2>
+  <p>A structured process for developing, implementing and maintaining computer systems.</p>
+  <div class="row4" style="margin-top:20px">
+    <div class="box"><h4 style="color:var(--g)">1. Analysis</h4><p style="margin-top:10px">Study current system; identify problems; gather requirements</p></div>
+    <div class="box b"><h4 style="color:var(--b)">2. Design</h4><p style="margin-top:10px">Design file structures, input/output formats, validation</p></div>
+    <div class="box o"><h4 style="color:var(--o)">3. Development &amp; Testing</h4><p style="margin-top:10px">Build and test the system with test data</p></div>
+    <div class="box p"><h4 style="color:var(--p)">4. Implementation</h4><p style="margin-top:10px">Switch from old to new system using a chosen method</p></div>
+  </div>
+  <div class="row" style="margin-top:18px">
+    <div class="box r"><h4 style="color:var(--r)">5. Documentation</h4><p style="margin-top:10px">Create technical and user documentation for the system</p></div>
+    <div class="box"><h4>6. Evaluation</h4><p style="margin-top:10px">Assess efficiency, ease of use and suitability against original requirements</p></div>
+  </div>
+</section>
+
+<section data-label="03 Analysis Methods">
+  <h2>7.1 Analysis — Research Methods</h2>
+  <p>The current system is studied using four techniques:</p>
+  <table style="margin-top:16px">
+    <thead><tr><th>Method</th><th>Description</th><th>Advantages</th><th>Disadvantages</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="chip cg">Observation</span></td>
+        <td>Watch users interact with the system to understand its workings</td>
+        <td>First-hand, unbiased information</td>
+        <td>Time-consuming; may not reveal all issues</td>
+      </tr>
+      <tr>
+        <td><span class="chip cb">Interviews</span></td>
+        <td>Direct one-to-one conversations with users about their experience</td>
+        <td>In-depth exploration of issues</td>
+        <td>Expensive; time-consuming; no anonymity may affect responses</td>
+      </tr>
+      <tr>
+        <td><span class="chip co">Questionnaires</span></td>
+        <td>Predetermined questions given to users to gather opinions</td>
+        <td>Quantitative analysis; efficient; answers given quickly</td>
+        <td>Limited by predetermined questions; low response rates; anonymity may lead to exaggerated answers</td>
+      </tr>
+      <tr>
+        <td><span class="chip cp">Examination of Existing Documents</span></td>
+        <td>Review system documentation, user guides, reports</td>
+        <td>Insights into system history; reveals unknown issues</td>
+        <td>May be outdated; incomplete; time-consuming; expensive</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section data-label="04 Analysis Requirements">
+  <h2>Analysis — Requirements &amp; Specification</h2>
+  <div class="row">
+    <div>
+      <h3>Recording &amp; Analysing the Current System</h3>
+      <ul style="margin-top:12px">
+        <li>Identify data <strong>input, processed and output</strong> by the current system</li>
+        <li>Identify <strong>problems</strong> with the current system — what could be improved?</li>
+        <li>Identify <strong>user requirements</strong> — what does the new system need to do?</li>
+        <li>Identify <strong>information requirements</strong> — data the new system must process</li>
+      </ul>
+      <div class="note" style="margin-top:16px">The Systems Analyst creates a <strong>Requirements Specification</strong> outlining improvements and expectations for the new system.</div>
+    </div>
+    <div class="box b">
+      <h3 style="color:var(--b)">System Specification — Hardware &amp; Software</h3>
+      <p style="margin-top:12px"><strong>Hardware to consider:</strong></p>
+      <ul style="font-size:var(--sm)"><li>Barcode readers, scanners, touch screens</li><li>3D printers, monitors, speakers</li></ul>
+      <p style="margin-top:12px"><strong>Software to consider:</strong></p>
+      <ul style="font-size:var(--sm)"><li>Operating system</li><li>Applications software</li><li>Size and type of storage needed</li></ul>
+      <p style="font-size:var(--sm);margin-top:12px">Choices justified based on: system requirements, compatibility, costs, user needs, system performance.</p>
+    </div>
+  </div>
+</section>
+
+<section data-label="05 Design">
+  <h2>7.2 Design</h2>
+  <div class="row">
+    <div>
+      <h3>File/Data Structures</h3>
+      <ul style="margin-top:12px">
+        <li><span class="chip cg">Field length</span> — number of characters allowed in a field</li>
+        <li><span class="chip cb">Field name</span> — identifier for the field</li>
+        <li><span class="chip co">Data type</span> — specifies kind of data (text, number, date)</li>
+        <li><span class="chip cp">Coding of data</span> — e.g. M for male, F for female</li>
+      </ul>
+      <h3 style="margin-top:20px">Input &amp; Output Formats</h3>
+      <ul style="margin-top:12px">
+        <li><strong>Data capture forms:</strong> paper-based or electronic; collect data in structured format</li>
+        <li><strong>Screen layouts:</strong> how information is presented on screen</li>
+        <li><strong>Report layouts:</strong> how information is organised in printed/digital reports</li>
+      </ul>
+    </div>
+    <div class="box b">
+      <h3 style="color:var(--b)">Validation Routines</h3>
+      <p style="font-size:var(--sm);margin:10px 0">Examines data submitted to determine if it meets specific requirements — automatic check performed by programming.</p>
+      <ul style="font-size:var(--sm)">
+        <li><span class="chip cg">Range check</span> — data within a specified range of values</li>
+        <li><span class="chip cb">Character check</span> — data contains only allowed characters</li>
+        <li><span class="chip co">Length check</span> — data is of a specified length</li>
+        <li><span class="chip cp">Type check</span> — data is the correct data type</li>
+        <li><span class="chip cr">Format check</span> — data conforms to a specific format</li>
+        <li><span class="chip cg">Presence check</span> — data is present and not blank</li>
+        <li><span class="chip cb">Check digit</span> — digit added to verify accuracy of a number</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section data-label="06 Testing">
+  <h2>7.3 Development &amp; Testing</h2>
+  <div class="row">
+    <div>
+      <h3>Test Strategies</h3>
+      <ul style="margin-top:12px">
+        <li>Test <strong>each module</strong> — verify individual components function correctly</li>
+        <li>Test <strong>each function</strong> — ensure all features work correctly</li>
+        <li>Test the <strong>whole system</strong> — confirm overall performance and integration</li>
+      </ul>
+      <h3 style="margin-top:20px">Test Plan Components</h3>
+      <ul style="margin-top:12px">
+        <li><span class="chip cg">Test data</span> — specific data used for testing</li>
+        <li><span class="chip cb">Expected outcomes</span> — predicted results from test data</li>
+        <li><span class="chip co">Actual outcomes</span> — results obtained from testing</li>
+        <li><span class="chip cp">Remedial action</span> — steps taken to fix identified issues</li>
+      </ul>
+    </div>
+    <div class="box b">
+      <h3 style="color:var(--b)">Types of Test Data</h3>
+      <p style="font-size:var(--sm);margin:10px 0"><em>Example used: months in a year (valid: 1–12)</em></p>
+      <ul style="font-size:var(--sm)">
+        <li><span class="chip cg">Normal data</span> — valid, expected values within acceptable range<br><em>e.g. any whole number 1–12</em></li>
+        <li><span class="chip cr">Abnormal data</span> — invalid or unexpected values:<br>• outside range: 0, -6, 13, 15<br>• wrong type: "July", 3.5, 4.2</li>
+        <li><span class="chip co">Extreme data</span> — values at the limits of acceptability<br><em>e.g. 1 or 12</em></li>
+      </ul>
+      <p style="font-size:var(--sm);margin-top:14px"><strong>Live data:</strong> data already used with current system — results already known, used to verify new system gives same results.</p>
+    </div>
+  </div>
+</section>
+
+<section data-label="07 Implementation Methods">
+  <h2>7.4 Implementation — 4 Methods</h2>
+  <table>
+    <thead><tr><th>Method</th><th>Description</th><th>Used When</th><th>Advantages</th><th>Disadvantages</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="chip cr">Direct Changeover</span></td>
+        <td>Old system replaced immediately by new system</td>
+        <td>Quick implementation necessary</td>
+        <td>Fast; cost-effective (one system only)</td>
+        <td>High risk of failure; no fallback; users can't train beforehand</td>
+      </tr>
+      <tr>
+        <td><span class="chip cg">Parallel Running</span></td>
+        <td>Both old and new systems run simultaneously until old is phased out</td>
+        <td>Smooth transition with minimal risk needed</td>
+        <td>Lower risk; easy to compare systems</td>
+        <td>Time-consuming; resource-intensive (double the work)</td>
+      </tr>
+      <tr>
+        <td><span class="chip cb">Pilot Running</span></td>
+        <td>New system implemented in one small department/branch first</td>
+        <td>Testing in real-world setting before full rollout</td>
+        <td>Low risk; allows fine-tuning; staff training time; few errors</td>
+        <td>Slower; potential inconsistencies; two systems in use cause confusion; no backup for pilot department</td>
+      </tr>
+      <tr>
+        <td><span class="chip co">Phased Implementation</span></td>
+        <td>New system implemented in stages, each replacing part of old system</td>
+        <td>Gradual transition preferred to minimise disruption</td>
+        <td>Reduced risk; easier to manage</td>
+        <td>Takes longer; potential compatibility issues between stages</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section data-label="08 Technical Documentation">
+  <h2>7.5 Documentation — Technical</h2>
+  <p><span class="chip cg">Technical documentation</span> — detailed information on the system's inner workings for developers and IT staff. Used to maintain, repair and update the system.</p>
+  <div class="row" style="margin-top:14px">
+    <div>
+      <h3>Components Include:</h3>
+      <ul style="margin-top:10px">
+        <li>Purpose of the system/program</li>
+        <li>Limitations of the system</li>
+        <li>Program listing (source code)</li>
+        <li>Program language used</li>
+        <li>Program flowcharts/algorithms</li>
+        <li>System flowcharts</li>
+        <li>Hardware and software requirements</li>
+      </ul>
+    </div>
+    <div>
+      <ul style="margin-top:10px">
+        <li>File structures</li>
+        <li>List of variables (names and purposes)</li>
+        <li>Input format</li>
+        <li>Output format</li>
+        <li>Sample runs/test runs</li>
+        <li>Validation routines</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section data-label="09 User Documentation">
+  <h2>7.5 Documentation — User</h2>
+  <p><span class="chip cb">User documentation</span> — instructions and guidance for end-users on how to operate the system.</p>
+  <div class="row" style="margin-top:14px">
+    <div>
+      <h3>Components Include:</h3>
+      <ul style="margin-top:10px">
+        <li>Purpose of the system</li>
+        <li>Limitations of the system</li>
+        <li>Hardware and software requirements</li>
+        <li>How to load/run/install software</li>
+        <li>How to save a file</li>
+        <li>How to print data</li>
+        <li>How to add records</li>
+        <li>How to delete/edit records</li>
+      </ul>
+    </div>
+    <div>
+      <ul style="margin-top:10px">
+        <li>Input format</li>
+        <li>Output format</li>
+        <li>Sample runs</li>
+        <li>Error messages and their meanings</li>
+        <li>Error handling steps</li>
+        <li>Troubleshooting guide/helpline</li>
+        <li>Frequently Asked Questions (FAQ)</li>
+        <li>Glossary of terms</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section data-label="10 Evaluation">
+  <h2>7.6 Evaluation</h2>
+  <p>Measures a system's productivity, efficiency and compliance with its goals to identify strengths, weaknesses and development areas.</p>
+  <div class="row3" style="margin-top:16px">
+    <div class="box">
+      <h4><span class="chip cg">Efficiency</span></h4>
+      <p style="margin-top:10px">Analyse time, money and resource use. Is the system performing at its best?</p>
+      <p style="margin-top:10px"><em>Questions: Does it operate faster than old system? Does it reduce staff time? Does it reduce costs?</em></p>
+    </div>
+    <div class="box b">
+      <h4><span class="chip cb">Ease of Use</span></h4>
+      <p style="margin-top:10px">Check usability and accessibility. Is it simple to understand? Can users complete tasks easily?</p>
+      <p style="margin-top:10px"><em>Questions: Can users make bookings easily? Can staff use it with minimal training?</em></p>
+    </div>
+    <div class="box o">
+      <h4><span class="chip co">Suitability</span></h4>
+      <p style="margin-top:10px">Compare solution against original task requirements. Does it meet user and business needs?</p>
+      <p style="margin-top:10px"><em>Questions: Is it suitable for all departments? Does it meet customer needs? Does it match original requirements?</em></p>
+    </div>
+  </div>
+  <div class="note" style="margin-top:16px">Also: Collect and examine <strong>user feedback</strong> from testing. Identify <strong>limitations</strong> and suggest <strong>necessary improvements</strong>.</div>
+</section>
+
+<section class="dark" data-label="11 Summary">
+  <h2 style="color:var(--g)">Topic 7 — Key Points</h2>
+  <div class="row" style="margin-top:16px">
+    <div>
+      <ul style="font-size:var(--sm)">
+        <li><span class="chip cg">Analysis:</span> Observation · Interview · Questionnaire · Document examination → Requirements Specification</li>
+        <li><span class="chip cb">Design:</span> Field structures · Data types · Input/output formats · 7 validation routines</li>
+        <li><span class="chip co">Testing:</span> Module · Function · System tests · Normal / Abnormal / Extreme data · Live data</li>
+        <li><span class="chip cp">Implementation:</span> Direct (fast, risky) · Parallel (safe, costly) · Pilot (low risk, slow) · Phased (gradual)</li>
+      </ul>
+    </div>
+    <div>
+      <ul style="font-size:var(--sm)">
+        <li><span class="chip cr">Technical Docs:</span> For developers — code, flowcharts, file structures, test runs</li>
+        <li><span class="chip cg">User Docs:</span> For end-users — how to use, error messages, FAQ, glossary</li>
+        <li><span class="chip cb">Evaluation:</span> Efficiency · Ease of Use · Suitability vs original requirements · User feedback · Identify limitations</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+</deck-stage>
+<script src="deck-stage.js"></script>
+</body>
+</html>

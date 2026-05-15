@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Topic 6: ICT Applications – eSCholr ICT</title>
+<style>
+:root{--g:#1a9b8e;--b:#2563eb;--o:#f97316;--p:#8b5cf6;--r:#dc2626;--dk:#1f2937;--lt:#f9fafb;--bd:#e5e7eb;--tt:64px;--ts:42px;--tb:30px;--sm:25px;--px:100px;--pt:72px;--pb:56px;--g2:18px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',sans-serif;background:var(--lt);color:var(--dk)}
+section{color:var(--dk);display:flex;flex-direction:column;background:var(--lt);padding:var(--pt) var(--px) var(--pb);min-height:100%;gap:var(--g2)}
+section.cover{justify-content:center;align-items:center;text-align:center;background:linear-gradient(135deg,#059669,#065f46);gap:22px}
+section.dark{background:#0f172a;color:var(--lt)}
+h1{font-size:var(--tt);font-weight:800;color:var(--lt)}
+h2{font-size:var(--tt);font-weight:700;color:var(--g);margin-bottom:4px}
+h3{font-size:var(--ts);font-weight:600;color:var(--dk);margin-bottom:4px}
+h4{font-size:var(--tb);font-weight:600;color:var(--g)}
+p,li{font-size:var(--tb);line-height:1.55;color:var(--dk)}
+ul{margin-left:28px}
+li{margin-bottom:8px}
+.sub{font-size:var(--ts);color:rgba(255,255,255,.85);font-weight:500}
+.chip{display:inline-block;padding:8px 18px;border-radius:999px;font-size:var(--sm);font-weight:700;color:#fff;margin:4px 5px 4px 0}
+.cg{background:var(--g)}.cb{background:var(--b)}.co{background:var(--o)}.cp{background:var(--p)}.cr{background:var(--r)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:44px;width:100%}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:28px;width:100%}
+.box{background:#fff;border:2.5px solid var(--g);border-radius:12px;padding:26px;font-size:var(--sm);color:var(--dk)}
+.box.b{border-color:var(--b)}.box.o{border-color:var(--o)}.box.p{border-color:var(--p)}.box.r{border-color:var(--r)}
+table{width:100%;border-collapse:collapse;font-size:var(--sm)}
+thead{background:var(--g);color:#fff}
+th,td{padding:13px 16px;border:1px solid var(--bd);text-align:left;vertical-align:top}
+tbody tr:nth-child(even){background:rgba(26,155,142,.06)}
+.note{background:#fef9c3;border-left:6px solid #eab308;padding:16px 22px;border-radius:8px;font-size:var(--sm);color:var(--dk)}
+.adv{color:#15803d;font-weight:600;margin-top:8px}.dis{color:#dc2626;font-weight:600;margin-top:6px}
+@media(max-width:1200px){:root{--tt:46px;--ts:32px;--tb:24px;--sm:20px;--px:60px}.row,.row3{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<deck-stage width="1920" height="1080">
+
+<section class="cover" data-label="01 Cover">
+  <div style="font-size:24px;color:rgba(255,255,255,.7);letter-spacing:3px;text-transform:uppercase">eSCholr · IGCSE ICT</div>
+  <h1>ICT Applications</h1>
+  <div class="sub">Topic 6 · Sections 6.1 – 6.11</div>
+</section>
+
+<!-- 6.1 Communication Media -->
+<section data-label="02 Communication Media">
+  <h2>6.1 Communication Media</h2>
+  <table>
+    <thead><tr><th>Medium</th><th>Purpose</th><th>Advantages</th><th>Disadvantages</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="chip cg">Newsletter</span></td>
+        <td>Inform subscribers; build long-term relationships</td>
+        <td>Direct communication; builds trust; detailed content; targets interested audience</td>
+        <td>Requires subscription; can be ignored/spam; time-consuming to create</td>
+      </tr>
+      <tr>
+        <td><span class="chip cb">Poster</span></td>
+        <td>Attract attention; promote events/products</td>
+        <td>Eye-catching; communicates quickly; works online and offline</td>
+        <td>Limited info space; not interactive; printing costs; easily overlooked</td>
+      </tr>
+      <tr>
+        <td><span class="chip co">Website</span></td>
+        <td>Online presence; worldwide advertising</td>
+        <td>Sound/video/animation; hyperlinks; hit counters; global reach</td>
+        <td>Can be hacked; needs computer &amp; internet; requires maintenance</td>
+      </tr>
+      <tr>
+        <td><span class="chip cp">Multimedia Presentation</span></td>
+        <td>Present info to large audiences using projectors</td>
+        <td>Sound/animation/video effects; interactive hyperlinks; holds audience attention</td>
+        <td>Special equipment needed; may need internet; too many features can distract</td>
+      </tr>
+      <tr>
+        <td><span class="chip cg">Media Streaming</span></td>
+        <td>Real-time delivery of audio/video over internet</td>
+        <td>Any time, any location; extensive content library; more cost-effective than cable TV</td>
+        <td>Needs stable high-speed internet; content may be removed; you don't own the media</td>
+      </tr>
+      <tr>
+        <td><span class="chip cr">ePublications</span></td>
+        <td>Digital books, magazines, newspapers</td>
+        <td>Portable; often cheaper than print; interactive elements</td>
+        <td>Eyestrain; lacks tactile experience; compatibility issues</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- Mobile Communication -->
+<section data-label="03 Mobile Communication">
+  <h2>Mobile Communication</h2>
+  <p>Mobile devices support many forms of communication:</p>
+  <div class="row3" style="margin-top:12px">
+    <div class="box">
+      <h4><span class="chip cg">SMS Messaging</span></h4>
+      <p style="margin-top:10px">Quick communication via typed text. Recipient can read it at any time — no need to be available when sent.</p>
+    </div>
+    <div class="box b">
+      <h4><span class="chip cb">Phone Calls</span></h4>
+      <p style="margin-top:10px">Most fundamental mobile feature. Compact &amp; battery-powered — usable anywhere with a network signal.</p>
+    </div>
+    <div class="box o">
+      <h4><span class="chip co">VoIP</span></h4>
+      <p style="margin-top:10px">Voice over Internet Protocol — converts sound into data packets transmitted over the internet.</p>
+    </div>
+  </div>
+  <div class="row" style="margin-top:14px">
+    <div class="box p">
+      <h4><span class="chip cp">Video Calls</span></h4>
+      <p style="margin-top:10px">Real-time video conversations. Requires camera-enabled device and internet. Examples: FaceTime, Skype, Zoom.</p>
+    </div>
+    <div class="box">
+      <h4><span class="chip cg">Internet Access</span></h4>
+      <p style="margin-top:10px">Mobile devices connect to the internet via wireless broadband or mobile phone networks (3G/4G/5G).</p>
+    </div>
+  </div>
+</section>
+
+<!-- 6.2 Modelling -->
+<section data-label="04 Modelling Applications">
+  <h2>6.2 Computer Modelling Applications</h2>
+  <div class="row">
+    <div>
+      <h3>Applications</h3>
+      <ul style="margin-top:12px">
+        <li><span class="chip cg">Personal Finance</span> — simulates investment strategies, retirement planning, risk assessment</li>
+        <li><span class="chip cb">Bridge &amp; Building Design</span> — simulates structural behaviour, load capacities, response to forces</li>
+        <li><span class="chip co">Flood Water Management</span> — predicts flood extents, designs mitigation measures (levees, zoning)</li>
+        <li><span class="chip cp">Traffic Management</span> — simulates traffic flow, predicts congestion, optimises signal timings</li>
+        <li><span class="chip cr">Weather Forecasting</span> — simulates atmosphere and oceanic conditions to predict temperature, precipitation, wind, storms</li>
+      </ul>
+    </div>
+    <div>
+      <div class="box">
+        <h3 style="color:var(--g)">Advantages of Computer Modelling over Humans</h3>
+        <ul style="margin-top:12px">
+          <li>Less expensive than building the real thing</li>
+          <li>Safer to test dangerous scenarios</li>
+          <li>Try various scenarios in advance</li>
+          <li>More precise and accurate results</li>
+          <li>Analyses large datasets faster</li>
+          <li>Can be reused and updated easily</li>
+        </ul>
+      </div>
+      <div class="box r" style="margin-top:14px">
+        <h3 style="color:var(--r)">Disadvantages</h3>
+        <ul style="margin-top:12px">
+          <li>Output entirely based on input — not 100% reliable</li>
+          <li>Can be very costly</li>
+          <li>May miss nuanced/intangible human factors</li>
+          <li>Based on assumptions — uncertainty exists</li>
+          <li>Struggles with unforeseen or rapidly changing conditions</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 6.3 Computer-Controlled Systems -->
+<section data-label="05 Computer-Controlled Systems">
+  <h2>6.3 Computer-Controlled Systems</h2>
+  <div class="row">
+    <div>
+      <h3><span class="chip cg">Robotics in Manufacturing</span></h3>
+      <p style="font-size:var(--sm);margin:8px 0">Automated machines perform tasks like assembly, welding, packaging — mimic human actions with precision and speed.</p>
+      <p class="adv" style="font-size:var(--sm)">Advantages:</p>
+      <ul style="font-size:var(--sm)"><li>Work in harmful/hazardous environments</li><li>Work non-stop</li><li>Low running costs (fewer employees/wages)</li><li>Higher productivity and consistency</li><li>Can do tedious, repetitive tasks</li><li>Different end-effectors for different tasks</li></ul>
+      <p class="dis" style="font-size:var(--sm)">Disadvantages:</p>
+      <ul style="font-size:var(--sm)"><li>Difficult to handle unusual tasks</li><li>Causes higher unemployment</li><li>De-skilling of workforce</li><li>Can move factory headquarters internationally</li><li>High initial setup and maintenance costs</li></ul>
+    </div>
+    <div>
+      <h3><span class="chip cb">General Computer-Controlled Systems</span></h3>
+      <p style="font-size:var(--sm);margin:8px 0">Also includes: <strong>Production line control</strong> (monitors, coordinates, optimises manufacturing), <strong>Autonomous vehicles</strong> (self-driving cars/drones)</p>
+      <div class="box" style="margin-top:12px">
+        <p class="adv" style="font-size:var(--sm)">General Advantages over Humans:</p>
+        <ul style="font-size:var(--sm)"><li>Increased efficiency and productivity</li><li>Greater consistency</li><li>Works in any environment</li><li>Reduced human error</li><li>Can work with large or delicate items</li></ul>
+        <p class="dis" style="font-size:var(--sm)">General Disadvantages:</p>
+        <ul style="font-size:var(--sm)"><li>Very high installation and maintenance costs</li><li>Dependency on reliability</li><li>Lack of flexibility</li><li>Requires costly backup systems</li></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 6.4 School Management Systems -->
+<section data-label="06 School Management Systems">
+  <h2>6.4 School Management Systems</h2>
+  <p>Comprehensive software automating admin tasks: attendance, grading, scheduling, student info management.</p>
+  <div class="row" style="margin-top:12px">
+    <div>
+      <p class="adv">System Advantages:</p>
+      <ul style="font-size:var(--sm)"><li>Absenteeism addressed more quickly</li><li>Parents kept updated</li><li>Reduced workload for teachers</li></ul>
+      <p class="dis">System Disadvantages:</p>
+      <ul style="font-size:var(--sm)"><li>Staff training required</li><li>High initial software cost</li><li>Unauthorised access must be prevented (personal data)</li></ul>
+      <h3 style="margin-top:16px">Attendance Methods</h3>
+      <ul style="font-size:var(--sm);margin-top:8px">
+        <li><span class="chip cg">Magnetic ID Cards</span> — students swipe on entry/exit; stores name, school, DOB, registration ID</li>
+        <li><span class="chip cb">Biometrics</span> — fingerprint stored in database; student scans finger to enter/exit</li>
+      </ul>
+    </div>
+    <div class="box b">
+      <h3 style="color:var(--b)">Biometrics vs Magnetic ID Cards</h3>
+      <p class="adv" style="font-size:var(--sm)">Biometrics Advantages over ID Cards:</p>
+      <ul style="font-size:var(--sm)"><li>Unique fingerprints prevent attendance forgery</li><li>Cards can be easily cloned</li><li>Cards can be lost (portable)</li></ul>
+      <p class="dis" style="font-size:var(--sm)">Biometrics Disadvantages:</p>
+      <ul style="font-size:var(--sm)"><li>Time-consuming to collect all fingerprints initially</li><li>Expensive fingerprint-reading equipment</li><li>Cut/damaged finger → access denied</li><li>Invasion of privacy — fingerprints stored in database</li></ul>
+      <h3 style="color:var(--g);margin-top:16px">Computer-Aided Learning (CAL)</h3>
+      <p style="font-size:var(--sm);margin-top:8px">Technology helps students acquire academic material. Supplements classroom instruction. Students take online assessments to track progress. Cannot always assist with every problem — additional support may be needed.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 6.5 Booking Systems -->
+<section data-label="07 Booking Systems">
+  <h2>6.5 Online Booking Systems</h2>
+  <p>Web-based platforms allowing users to reserve and purchase tickets or services.</p>
+  <div class="row" style="margin-top:12px">
+    <div>
+      <h3>Applications</h3>
+      <ul style="margin-top:10px">
+        <li><span class="chip cg">Travel</span> — flights, hotels, holiday packages</li>
+        <li><span class="chip cb">Concerts</span> — reserve tickets for live music events</li>
+        <li><span class="chip co">Cinemas</span> — book seats in advance, avoid queues</li>
+        <li><span class="chip cp">Sporting Events</span> — purchase tickets for matches</li>
+      </ul>
+    </div>
+    <div>
+      <p class="adv">Advantages:</p>
+      <ul style="font-size:var(--sm)">
+        <li>Convenience and accessibility</li>
+        <li>Instant confirmation and ticketing</li>
+        <li>Easy price comparison</li>
+        <li>Automated reminders via email/text</li>
+        <li>Repeated bookings easily made</li>
+        <li>Cost-saving — fewer staff wages needed</li>
+      </ul>
+      <p class="dis">Disadvantages:</p>
+      <ul style="font-size:var(--sm)">
+        <li>Potential technical issues</li>
+        <li>Security and privacy concerns</li>
+        <li>Transaction and booking fees</li>
+        <li>Impersonal customer service</li>
+        <li>Requires stable internet connection</li>
+        <li>Can lead to unemployment</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 6.6 Banking ATM -->
+<section data-label="08 Banking - ATMs">
+  <h2>6.6 Banking — Automated Teller Machines (ATMs)</h2>
+  <p>ATMs allow customers to perform banking transactions using credit/debit cards.</p>
+  <div class="row" style="margin-top:12px">
+    <div>
+      <h3>ATM Transaction Sequence</h3>
+      <ol style="margin-top:10px;font-size:var(--sm)">
+        <li>Customer inserts card → contact made with bank's computer</li>
+        <li>PIN entered → checked for correctness; card validated; card blocked if stolen or too many failed attempts</li>
+        <li>Options displayed: change PIN, balance, cash, bill pay, mini-statement</li>
+        <li>Customer selects cash → account checked for sufficient funds and daily limit</li>
+        <li>If all checks pass → transaction authorised → cash counted and dispensed</li>
+        <li>Receipt offered → card returned → account updated</li>
+      </ol>
+    </div>
+    <div>
+      <p class="adv">Advantages:</p>
+      <ul style="font-size:var(--sm)">
+        <li>Withdraw cash at any time of day</li>
+        <li>Many banking services without visiting a branch</li>
+        <li>Access account from anywhere in the world</li>
+        <li>Usually quicker than queuing in a bank</li>
+      </ul>
+      <p class="dis">Disadvantages:</p>
+      <ul style="font-size:var(--sm)">
+        <li>Often in places where theft can occur at night</li>
+        <li>Potential for <span class="chip cr">shoulder surfing</span></li>
+        <li>Some banks charge customers for use</li>
+        <li>Cash withdrawal limits imposed</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 6.6 EFT and Cards -->
+<section data-label="09 Banking - EFT and Cards">
+  <h2>6.6 Banking — EFT, Credit/Debit Cards &amp; Cheques</h2>
+  <div class="row">
+    <div>
+      <h3><span class="chip cg">Electronic Funds Transfer (EFT)</span></h3>
+      <p style="font-size:var(--sm);margin:8px 0"><strong>Steps:</strong> Initiation → Authorisation → Processing → Transfer of funds → Confirmation</p>
+      <p class="adv" style="font-size:var(--sm)">Adv: Very secure; very quick; less expensive than cheques; dispute right up to 60 days</p>
+      <p class="dis" style="font-size:var(--sm)">Dis: Transaction can't be reversed without dispute investigation; funds needed immediately; can't guarantee recipient's identity</p>
+
+      <h3 style="margin-top:16px"><span class="chip cb">Cheques</span></h3>
+      <p class="adv" style="font-size:var(--sm)">Adv: Safer/more convenient than cash; can be post-dated; traceable if lost</p>
+      <p class="dis" style="font-size:var(--sm)">Dis: Not legal tender — can be refused; slow payment; easier for fraudsters; relatively expensive</p>
+    </div>
+    <div>
+      <div class="box">
+        <h3 style="color:var(--g)">Credit vs Debit Cards</h3>
+        <p class="adv" style="font-size:var(--sm)">Credit Card Adv: Customer protection if goods don't arrive; internationally accepted; interest-free loan if paid in time; online purchases</p>
+        <p class="dis" style="font-size:var(--sm)">Credit Card Dis: High interest rates; annual fees; risk of credit damage; security risks online</p>
+        <p class="adv" style="font-size:var(--sm)">Debit Card Adv: No interest — money from current account; safer than cash; online purchases</p>
+        <p class="dis" style="font-size:var(--sm)">Debit Card Dis: Less customer protection; funds needed immediately; security risks online</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Internet Banking -->
+<section data-label="10 Internet Banking">
+  <h2>Internet Banking</h2>
+  <p>Online access to banking services via a secure website or app — transfers, bill payments, account management.</p>
+  <div class="row" style="margin-top:12px">
+    <div class="box">
+      <p class="adv">Advantages:</p>
+      <ul style="margin-top:10px">
+        <li>Convenience — available 24/7</li>
+        <li>Easy account management</li>
+        <li>No need to visit a branch</li>
+        <li>Interest rates may be better (lower overheads)</li>
+        <li>Easier to shop around for the best account</li>
+      </ul>
+    </div>
+    <div class="box r">
+      <p class="dis">Disadvantages:</p>
+      <ul style="margin-top:10px">
+        <li>Security of transactions is a concern</li>
+        <li>Requires reliable internet connection</li>
+        <li>Higher risk of fraud</li>
+        <li>Easier to make errors</li>
+        <li>Physical cash cannot be deposited or withdrawn</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 6.7 Medicine -->
+<section data-label="11 Computers in Medicine">
+  <h2>6.7 Computers in Medicine</h2>
+  <div class="row">
+    <div>
+      <h3><span class="chip cg">Patient Records</span></h3>
+      <p style="font-size:var(--sm);margin:8px 0"><strong>Characteristics:</strong> Accurate and complete; confidential; up-to-date; organised (personal info, history, medications, tests); accessible to authorised staff; legally important</p>
+      <p style="font-size:var(--sm);margin-top:8px"><strong>Uses:</strong> Correct diagnoses and treatment; tracking patient history; communication between healthcare professionals; legal/insurance evidence; research and planning</p>
+
+      <h3 style="margin-top:16px"><span class="chip cb">Pharmacy Records</span></h3>
+      <p style="font-size:var(--sm);margin:8px 0"><strong>Characteristics:</strong> Accurate with drug names, doses, quantities; confidential; systematic; traceable; regulated</p>
+      <p style="font-size:var(--sm);"><strong>Uses:</strong> Correct dispensing; prevent medication errors and drug interactions; track inventory; auditing compliance; monitor patient medication history</p>
+    </div>
+    <div class="box o">
+      <h3 style="color:var(--o)"><span class="chip co">3D Printing in Medicine</span></h3>
+      <ul style="margin-top:12px">
+        <li><strong>Prosthetics:</strong> artificial limbs, false teeth, hearing aids — less expensive than traditional methods</li>
+        <li><strong>Tissue Engineering:</strong> combines cells, biomaterials and engineering to create functional tissues/organs for repair</li>
+        <li><strong>Artificial Blood Vessels:</strong> synthetic structures that mimic natural vessels to support tissue repair</li>
+        <li><strong>Customised Medicines:</strong> personalised drug formulations with accurate dosages tailored to individual patients</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 6.8 Expert Systems -->
+<section data-label="12 Expert Systems">
+  <h2>6.8 Expert Systems</h2>
+  <p>AI-based programs that emulate human expert decision-making using knowledge and rules.</p>
+  <p><strong>Examples:</strong> Medical diagnosis · Mineral prospecting · Car engine fault diagnosis · Tax/financial calculations · Strategy games · Plant/animal identification · Route scheduling</p>
+  <div class="row" style="margin-top:12px">
+    <div>
+      <h3>5 Components</h3>
+      <ul style="margin-top:10px">
+        <li><span class="chip cg">User Interface</span> — the only part the end user sees; allows interaction; often needs training</li>
+        <li><span class="chip cb">Explanation System</span> — explains reasoning behind conclusions; gives probability percentages</li>
+        <li><span class="chip co">Inference Engine</span> — main processing element; acts as search engine on the knowledge base; problem-solving part</li>
+        <li><span class="chip cp">Knowledge Base</span> — repository of facts; stores all domain knowledge; collection of objects and attributes</li>
+        <li><span class="chip cr">Rules Base</span> — set of inference rules used by inference engine to draw conclusions; follows logical thinking</li>
+      </ul>
+    </div>
+    <div class="box b">
+      <h3 style="color:var(--b)">How an Expert System Works (Medical Example)</h3>
+      <ol style="margin-top:12px;font-size:var(--sm)">
+        <li>Interactive screen asks doctor questions (keyboard or touch screen)</li>
+        <li>Inference engine compares symptoms with knowledge base using rule base</li>
+        <li>System suggests possible illness with probability percentages, cures, and next steps</li>
+        <li>Explanation system explains how the diagnosis was reached</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<!-- 6.9 Retail -->
+<section data-label="13 Computers in Retail">
+  <h2>6.9 Computers in the Retail Industry</h2>
+  <div class="row">
+    <div>
+      <h3><span class="chip cg">POS Terminals</span></h3>
+      <p style="font-size:var(--sm);margin:8px 0">Point of Sale — computerised checkout systems handling purchases and stock.</p>
+      <ul style="font-size:var(--sm)"><li>Update stock files immediately after each sale</li><li>Track inventory levels in real-time</li><li>Prevent stock discrepancies</li><li>Auto-reorder when stock falls below predefined value</li><li>Streamline supply chain management</li></ul>
+
+      <h3 style="margin-top:16px"><span class="chip co">Internet Shopping</span></h3>
+      <p class="adv" style="font-size:var(--sm)">Customer Adv: Global market access; easy comparison; shop from anywhere; avoid queues</p>
+      <p class="adv" style="font-size:var(--sm)">Business Adv: Target prices from buying data; quick stock updates; cheaper promotions; international customer base; lower staff costs</p>
+      <p class="dis" style="font-size:var(--sm)">Customer Dis: Security concerns; can't examine product; slow delivery; extra shipping costs</p>
+      <p class="dis" style="font-size:var(--sm)">Business Dis: Increased competition; fraud; technical issues; delivery costs; fake reviews</p>
+    </div>
+    <div class="box b">
+      <h3 style="color:var(--b)"><span class="chip cb">EFTPOS Terminals</span></h3>
+      <p style="font-size:var(--sm);margin:8px 0">Electronic funds transfer at point of sale — enables electronic card payments in real-time.</p>
+      <ul style="font-size:var(--sm);margin-top:8px">
+        <li><strong>Chip &amp; PIN:</strong> two-factor authentication; customer enters PIN</li>
+        <li><strong>Contactless:</strong> faster; tap card on terminal</li>
+        <li><strong>NFC:</strong> payments via smartphones and devices</li>
+        <li><strong>Bank communication:</strong> share transaction details securely; instant payment verification</li>
+      </ul>
+      <div class="note" style="margin-top:12px">
+        <strong>Chip &amp; PIN visual:</strong> metal chip on front of card → insert and enter PIN<br>
+        <strong>Contactless visual:</strong> wave symbol → tap card<br>
+        <strong>NFC visual:</strong> "tap to pay" symbol → wireless payment
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 6.10 Recognition Systems -->
+<section data-label="14 Recognition Systems">
+  <h2>6.10 Recognition Systems</h2>
+  <table>
+    <thead><tr><th>System</th><th>How it Works</th><th>Key Uses</th><th>Adv / Dis</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="chip cg">OMR</span></td>
+        <td>Reads position of pen/pencil marks using X-Y coordinates</td>
+        <td>School registers; MCQ exam papers; surveys; QR codes</td>
+        <td>Fast &amp; accurate / Complex form design; only works with black pen/pencil</td>
+      </tr>
+      <tr>
+        <td><span class="chip cb">OCR</span></td>
+        <td>Converts printed/handwritten text to digital using scanners/cameras</td>
+        <td>Digitising documents; passports; cheques; text-to-speech for visually impaired</td>
+        <td>Fast, no manual entry / Difficulty with handwriting; not fully accurate</td>
+      </tr>
+      <tr>
+        <td><span class="chip co">ANPR</span></td>
+        <td>Camera captures plate → OCR reads characters → stored in database</td>
+        <td>Average speed monitoring; car park control; congestion charging; theft detection</td>
+        <td>Automated, no staff / Dirty plates unread; privacy concerns; cloned plates</td>
+      </tr>
+      <tr>
+        <td><span class="chip cp">RFID</span></td>
+        <td>Radio waves read tags without line-of-sight. Tags on items/passports/vehicles</td>
+        <td>Stock tracking; passports; car parks; contactless payment; livestock</td>
+        <td>No line-of-sight; bulk detection / Tag collision; easy to jam/hack; expensive</td>
+      </tr>
+      <tr>
+        <td><span class="chip cr">NFC</span></td>
+        <td>Short-range wireless communication between devices</td>
+        <td>Smartphone payments; contactless transactions</td>
+        <td>Convenient &amp; secure / Limited range; compatibility issues</td>
+      </tr>
+      <tr>
+        <td><span class="chip cg">Biometrics</span></td>
+        <td>Verifies identity via face, iris, retina, fingerprint, hand, voice</td>
+        <td>Authentication; building access; passports; phone unlock</td>
+        <td>High accuracy; fast; non-intrusive / Expensive setup; uses lots of memory; voice can be recorded/changed by illness</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ANPR Detail -->
+<section data-label="15 ANPR Process">
+  <h2>Automatic Number Plate Recognition (ANPR)</h2>
+  <p>Step-by-step process:</p>
+  <div class="row" style="margin-top:12px">
+    <div>
+      <ol style="font-size:var(--sm)">
+        <li>Sensor triggers camera to capture image of vehicle's front</li>
+        <li>Algorithm locates and isolates the number plate</li>
+        <li>Brightness and contrast of plate adjusted</li>
+        <li>Each character segmented individually</li>
+        <li>OCR software recognises each character</li>
+        <li>Characters converted to editable text string</li>
+        <li>Text string stored in database</li>
+        <li>Barrier raised; motorist issued a ticket with date/time</li>
+        <li>On return, ticket inserted → charges calculated → payment registered</li>
+      </ol>
+    </div>
+    <div>
+      <p class="adv">Advantages:</p>
+      <ul style="font-size:var(--sm)">
+        <li>Automatically monitors average speed over a stretch of road</li>
+        <li>No need for car park attendants or security guards</li>
+        <li>Faster than manual ticket checking at exit</li>
+        <li>Auto-controls entry/exit to car parks or private roads</li>
+        <li>Prevents illegal parking</li>
+        <li>Analyses driver behaviour</li>
+        <li>Inner-city congestion charging systems</li>
+      </ul>
+      <p class="dis">Disadvantages:</p>
+      <ul style="font-size:var(--sm)">
+        <li>No manned surveillance → risk of vandalism</li>
+        <li>Privacy invasion — records drivers' plates</li>
+        <li>Damaged/dirty plates not recognised</li>
+        <li>Cloned number plates can bypass security</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 6.11 Satellite Systems -->
+<section data-label="16 Satellite Systems">
+  <h2>6.11 Satellite Systems</h2>
+  <div class="row">
+    <div>
+      <h3><span class="chip cg">GPS</span> — Global Positioning System</h3>
+      <p style="font-size:var(--sm);margin:8px 0">Determines exact location of transport using satellites orbiting Earth. Uses <strong>atomic clocks</strong> (accurate to a fraction of a second/day). Requires signals from at least <strong>3 satellites</strong> to calculate position.</p>
+
+      <h3 style="margin-top:16px"><span class="chip cb">Satellite Navigation (Satnav)</span></h3>
+      <p style="font-size:var(--sm);margin:8px 0">Used to determine exact car location and give directions to a destination.</p>
+      <p class="adv" style="font-size:var(--sm)">Adv: No need for paper maps; warns of speed changes; shows ETA; programs fastest route; locates petrol stations</p>
+      <p class="dis" style="font-size:var(--sm)">Dis: Outdated maps give incorrect instructions; road closures cause problems; loss of satellite signal; incorrect input → wrong directions</p>
+    </div>
+    <div>
+      <h3><span class="chip co">GIS</span> — Geographic Information Systems</h3>
+      <p style="font-size:var(--sm);margin:8px 0">Captures, manages, analyses and displays geographically referenced information. Used to: determine distance between places; find nearest petrol station/restaurant; protect wildlife; plan infrastructure.</p>
+
+      <h3 style="margin-top:16px"><span class="chip cp">Media Communication Satellites</span></h3>
+      <p style="font-size:var(--sm);margin:8px 0"><strong>Satellite Television:</strong> signals broadcast from satellites to dishes; wide coverage; independent of ground cables</p>
+      <p style="font-size:var(--sm);"><strong>Satellite Phone:</strong> communication via satellite rather than ground towers; works in remote areas without mobile coverage</p>
+    </div>
+  </div>
+</section>
+
+<!-- Summary -->
+<section class="dark" data-label="17 Summary">
+  <h2 style="color:var(--g)">Topic 6 — Key Points</h2>
+  <div class="row" style="margin-top:14px">
+    <div>
+      <ul style="font-size:var(--sm)">
+        <li><span class="chip cg">6.1</span> Communication: newsletters, posters, websites, multimedia, streaming, ePublications, mobile (SMS/VoIP/video)</li>
+        <li><span class="chip cb">6.2</span> Modelling: finance, bridges, floods, traffic, weather — faster &amp; safer than real-world testing</li>
+        <li><span class="chip co">6.3</span> Robots: non-stop, consistent, hazardous environments — but costly &amp; causes unemployment</li>
+        <li><span class="chip cp">6.4</span> School systems: attendance (biometrics/ID cards), performance tracking, CAL</li>
+        <li><span class="chip cr">6.5</span> Booking systems: travel, concerts, cinemas, sports — convenient but security risks</li>
+      </ul>
+    </div>
+    <div>
+      <ul style="font-size:var(--sm)">
+        <li><span class="chip cg">6.6</span> Banking: ATMs, EFT, credit/debit cards, cheques, internet banking</li>
+        <li><span class="chip cb">6.7</span> Medicine: patient records, pharmacy records, 3D printing (prosthetics, tissue)</li>
+        <li><span class="chip co">6.8</span> Expert systems: user interface → inference engine → knowledge/rules base → explanation</li>
+        <li><span class="chip cp">6.9</span> Retail: POS (stock control), EFTPOS (chip/PIN/contactless/NFC), internet shopping</li>
+        <li><span class="chip cr">6.10</span> Recognition: OMR, OCR, ANPR, RFID, NFC, Biometrics</li>
+        <li><span class="chip cg">6.11</span> Satellites: GPS (3 satellites), satnav, GIS, satellite TV/phone</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+</deck-stage>
+<script src="deck-stage.js"></script>
+</body>
+</html>

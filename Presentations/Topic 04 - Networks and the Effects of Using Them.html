@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Topic 4: Networks – eSCholr ICT</title>
+<style>
+:root{--g:#1a9b8e;--b:#2563eb;--o:#f97316;--p:#8b5cf6;--r:#dc2626;--dk:#1f2937;--lt:#f9fafb;--bd:#e5e7eb;--tt:64px;--ts:44px;--tb:32px;--sm:27px;--px:100px;--pt:80px;--pb:60px;--g2:20px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',sans-serif;background:var(--lt);color:var(--dk)}
+section{color:var(--dk);display:flex;flex-direction:column;background:var(--lt);padding:var(--pt) var(--px) var(--pb);min-height:100%;gap:var(--g2)}
+section.cover{justify-content:center;align-items:center;text-align:center;background:linear-gradient(135deg,#0369a1,#075985);gap:24px}
+section.dark{background:#0f172a;color:var(--lt)}
+h1{font-size:var(--tt);font-weight:800;color:var(--lt)}
+h2{font-size:var(--tt);font-weight:700;color:var(--g);margin-bottom:4px}
+h3{font-size:var(--ts);font-weight:600;color:var(--dk);margin-bottom:4px}
+h4{font-size:var(--tb);font-weight:600;color:var(--g)}
+p,li{font-size:var(--tb);line-height:1.6;color:var(--dk)}
+ul{margin-left:32px}
+li{margin-bottom:10px}
+.sub{font-size:var(--ts);color:rgba(255,255,255,.85);font-weight:500}
+.chip{display:inline-block;padding:9px 20px;border-radius:999px;font-size:var(--sm);font-weight:700;color:#fff;margin:5px 6px 5px 0}
+.cg{background:var(--g)}.cb{background:var(--b)}.co{background:var(--o)}.cp{background:var(--p)}.cr{background:var(--r)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:48px;width:100%}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:32px;width:100%}
+.box{background:#fff;border:2.5px solid var(--g);border-radius:12px;padding:28px;font-size:var(--sm);color:var(--dk)}
+.box.b{border-color:var(--b)}.box.o{border-color:var(--o)}.box.p{border-color:var(--p)}.box.r{border-color:var(--r)}
+table{width:100%;border-collapse:collapse;font-size:var(--sm)}
+thead{background:var(--g);color:#fff}
+th,td{padding:14px 18px;border:1px solid var(--bd);text-align:left;vertical-align:top}
+tbody tr:nth-child(even){background:rgba(26,155,142,.06)}
+.note{background:#fef9c3;border-left:6px solid #eab308;padding:18px 24px;border-radius:8px;font-size:var(--sm);color:var(--dk)}
+.adv{color:#15803d;font-weight:600;margin-top:10px}.dis{color:#dc2626;font-weight:600;margin-top:8px}
+@media(max-width:1200px){:root{--tt:48px;--ts:34px;--tb:26px;--sm:22px;--px:60px}.row,.row3{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<deck-stage width="1920" height="1080">
+
+<section class="cover" data-label="01 Cover">
+  <div style="font-size:26px;color:rgba(255,255,255,.7);letter-spacing:3px;text-transform:uppercase">eSCholr · IGCSE ICT</div>
+  <h1>Networks &amp; the Effects of Using Them</h1>
+  <div class="sub">Topic 4 · Sections 4.1 – 4.2</div>
+</section>
+
+<section data-label="02 IP and MAC Addresses">
+  <h2>IP &amp; MAC Addresses</h2>
+  <div class="row">
+    <div>
+      <h3><span class="chip cg">IP Address</span> — Internet Protocol Address</h3>
+      <p style="margin:12px 0">A unique number assigned to every device on a network.</p>
+      <ul>
+        <li><strong>IPv4:</strong> 32-bit address — e.g. <code>192.168.1.1</code></li>
+        <li><strong>IPv6:</strong> 128-bit address — allows many more unique addresses — e.g. <code>2001:0db8:85a3::8a2e:0370:7334</code></li>
+        <li>IPv6 introduced because IPv4 addresses are running out</li>
+      </ul>
+    </div>
+    <div class="box b">
+      <h3 style="color:var(--b)"><span class="chip cb">MAC Address</span> — Media Access Control</h3>
+      <p style="margin:12px 0">A unique identifier assigned to a Network Interface Card (NIC).</p>
+      <ul>
+        <li>It is a <strong>hardware address</strong> — does not change (unlike IP)</li>
+        <li>First 6 hex digits = manufacturer's code</li>
+        <li>Next 6 hex digits = device serial number</li>
+        <li>Used by switches to send data to the correct device</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section data-label="03 Routers and Data Packets">
+  <h2>Routers &amp; Data Packets</h2>
+  <div class="row">
+    <div>
+      <h3><span class="chip cg">Router</span></h3>
+      <p style="margin:10px 0">A device that enables data to be sent between different types of networks. Can connect via cables or wirelessly.</p>
+      <p><strong>Functions:</strong></p>
+      <ul style="margin-top:8px">
+        <li>Connects networks and devices to the internet</li>
+        <li>Stores computer addresses in a routing table</li>
+        <li>Routes data packets to correct destination</li>
+        <li>Checks if packet is for its own network or forwards it</li>
+      </ul>
+    </div>
+    <div class="box b">
+      <h3 style="color:var(--b)"><span class="chip cb">Data Packets</span></h3>
+      <p style="margin:12px 0">A small chunk of data sent over a network. Contains:</p>
+      <ul>
+        <li><strong>Actual data</strong> — the payload</li>
+        <li><strong>Destination address</strong> — where it's going</li>
+        <li><strong>Source address</strong> — where it came from</li>
+        <li><strong>Error checking bits</strong> — to detect corruption</li>
+      </ul>
+      <p style="margin-top:16px">Large files are split into many packets and reassembled at the destination.</p>
+    </div>
+  </div>
+</section>
+
+<section data-label="04 Network Devices">
+  <h2>Common Network Devices</h2>
+  <table>
+    <thead><tr><th>Device</th><th>Function</th><th>Key Feature</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="chip cg">NIC</span><br>Network Interface Card</td>
+        <td>Allows a device to connect to a network. Converts binary data to electrical signal.</td>
+        <td>Usually integrated into motherboard. Each has a unique MAC address.</td>
+      </tr>
+      <tr>
+        <td><span class="chip cb">Hub</span></td>
+        <td>Connects devices to form a LAN. Receives a data packet and sends to <strong>all</strong> connected devices.</td>
+        <td>Not secure — broadcasts to everyone. Creates unnecessary network traffic.</td>
+      </tr>
+      <tr>
+        <td><span class="chip co">Switch</span></td>
+        <td>Intelligent hub. Connects devices in a LAN. Sends data to the <strong>relevant device only</strong> using MAC lookup table.</td>
+        <td>More secure than hubs. Uses MAC addresses to identify correct destination.</td>
+      </tr>
+      <tr>
+        <td><span class="chip cp">Bridge</span></td>
+        <td>Connects one LAN to another LAN using the <strong>same protocol</strong>. Cannot communicate with external networks like the internet.</td>
+        <td>Scans MAC addresses (unlike routers which use IP). Only 2 ports.</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="note">Hub vs Switch: Both connect LAN devices using data packets. Hubs send to ALL devices; Switches send to the RELEVANT device only. Switches are more secure and efficient.</div>
+</section>
+
+<section data-label="05 WiFi vs Bluetooth">
+  <h2>Wi-Fi &amp; Bluetooth</h2>
+  <p>Both use <span class="chip cg">wireless communication</span> — electromagnetic radiation as carrier of data transmission.</p>
+  <div class="row" style="margin-top:12px">
+    <div class="box">
+      <h3 style="color:var(--g)"><span class="chip cg">Wi-Fi</span></h3>
+      <p style="margin:10px 0"><strong>Used for:</strong> full-scale networks; when data transfer rate is crucial; higher range; better security</p>
+      <ul>
+        <li>Frequency: <strong>2.4 – 5.0 GHz</strong></li>
+        <li>Much faster data transfer rate</li>
+        <li>Higher geographical range</li>
+        <li>Encryption: <strong>WPA</strong> and <strong>WEP</strong></li>
+        <li>Number of devices depends on router</li>
+      </ul>
+    </div>
+    <div class="box b">
+      <h3 style="color:var(--b)"><span class="chip cb">Bluetooth</span></h3>
+      <p style="margin:10px 0"><strong>Used for:</strong> transferring data between devices very close together; low-bandwidth applications; when speed isn't crucial</p>
+      <ul>
+        <li>Frequency: <strong>2.4 GHz</strong></li>
+        <li>Slower data transfer rate</li>
+        <li>Shorter range</li>
+        <li>Encryption: <strong>key-matching</strong></li>
+        <li>Maximum <strong>7 devices</strong> simultaneously</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section data-label="06 Cloud Computing">
+  <h2>Cloud Computing</h2>
+  <p><span class="chip cg">Cloud Computing</span> — data stored on remote servers accessed online. Three types:</p>
+  <div class="row3" style="margin-top:12px">
+    <div class="box"><h4><span class="chip cg">Public Cloud</span></h4><p style="margin-top:10px">Customer and cloud provider are different companies. Shared infrastructure.</p></div>
+    <div class="box b"><h4><span class="chip cb">Private Cloud</span></h4><p style="margin-top:10px">Customer and provider are the same organisation. Data stays internal.</p></div>
+    <div class="box o"><h4><span class="chip co">Hybrid Cloud</span></h4><p style="margin-top:10px">Combines both. Sensitive data stays private; less sensitive uses public cloud.</p></div>
+  </div>
+  <div class="row" style="margin-top:16px">
+    <div>
+      <p class="adv">Advantages:</p>
+      <ul style="font-size:var(--sm)">
+        <li>Scalable — services scaled up/down as needed</li>
+        <li>No need to purchase expensive hardware</li>
+        <li>Globally accessible — enables remote working</li>
+        <li>Almost unlimited storage</li>
+        <li>Full data recovery from backup</li>
+        <li>Files synced across multiple devices</li>
+        <li>No need to carry storage devices</li>
+      </ul>
+    </div>
+    <div>
+      <p class="dis">Disadvantages:</p>
+      <ul style="font-size:var(--sm)">
+        <li>Requires stable internet connection always</li>
+        <li>Vulnerable to security breaches</li>
+        <li>Dependent on provider for reliability</li>
+        <li>Can become expensive as storage/bandwidth increases</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section data-label="07 Internet Intranet Extranet">
+  <h2>Internet, Intranet &amp; Extranet</h2>
+  <table>
+    <thead><tr><th>Feature</th><th>Internet</th><th>Intranet</th><th>Extranet</th></tr></thead>
+    <tbody>
+      <tr><td>Access</td><td>Open to everyone</td><td>Employees only (private)</td><td>Employees + selected external parties</td></tr>
+      <tr><td>Ownership</td><td>No single owner</td><td>Owned by organisation</td><td>Owned by organisation</td></tr>
+      <tr><td>Security</td><td>Less secure</td><td>Behind firewall; very secure</td><td>Authenticated access levels</td></tr>
+      <tr><td>Purpose</td><td>Wide range — education, shopping, social</td><td>Internal communication &amp; document sharing</td><td>Extend intranet to clients, stakeholders</td></tr>
+      <tr><td>Customisation</td><td>Not customisable</td><td>Customised to business needs</td><td>Customised with access restrictions</td></tr>
+    </tbody>
+  </table>
+  <div class="note" style="margin-top:16px"><strong>Similarities:</strong> All use web-based technologies, allow remote info access, use client-server architecture, use authentication &amp; encryption, and facilitate information sharing.</div>
+</section>
+
+<section data-label="08 LAN WAN WLAN">
+  <h2>Network Types: LAN, WLAN &amp; WAN</h2>
+  <div class="row3">
+    <div class="box">
+      <h4><span class="chip cg">LAN</span> Local Area Network</h4>
+      <p style="font-size:var(--sm);margin:10px 0">Contained within a single building or small area. Uses hubs/switches; one hub/switch connects to router.</p>
+      <p class="adv" style="font-size:var(--sm)">Adv: Centralised management of updates/backups; resource sharing (printers); firewall/antivirus security</p>
+      <p class="dis" style="font-size:var(--sm)">Dis: Hardware failure stops network; more prone to attacks; slow if traffic heavy; requires maintenance</p>
+    </div>
+    <div class="box b">
+      <h4><span class="chip cb">WLAN</span> Wireless LAN</h4>
+      <p style="font-size:var(--sm);margin:10px 0">Devices connect wirelessly via Wireless Access Points (WAPs). Popular in public areas (malls, cafes).</p>
+      <p class="adv" style="font-size:var(--sm)">Adv: Connect anywhere in WAP range; flexible (indoor/outdoor); additional WAPs added easily; wireless printing</p>
+      <p class="dis" style="font-size:var(--sm)">Dis: Walls reduce signal strength; high traffic reduces speed; interference from other devices; security threats via signal interception</p>
+    </div>
+    <div class="box o">
+      <h4><span class="chip co">WAN</span> Wide Area Network</h4>
+      <p style="font-size:var(--sm);margin:10px 0">Formed by several LANs connected via routers. Expensive but more enhanced security. Needs routers, modems, proxy servers.</p>
+      <p class="adv" style="font-size:var(--sm)">Adv: Connects geographically dispersed locations (different cities/countries); scalable; centralised monitoring</p>
+      <p class="dis" style="font-size:var(--sm)">Dis: Expensive to set up and maintain; latency over long distances; relies on external service providers</p>
+    </div>
+  </div>
+</section>
+
+<section data-label="09 Network Security Threats">
+  <h2>4.2 Network Security Threats</h2>
+  <p>Connection to a network exposes users to several threats:</p>
+  <table style="margin-top:16px">
+    <thead><tr><th>Threat</th><th>Description</th><th>Prevention</th></tr></thead>
+    <tbody>
+      <tr><td><span class="chip cr">Hacking</span></td><td>Unauthorised access to a computer system. Can lead to identity theft or misuse of personal information.</td><td>Strong passwords, firewalls, two-factor authentication</td></tr>
+      <tr><td><span class="chip cr">Phishing</span></td><td>Getting sensitive information (usernames, passwords, card details) by mimicking a trusted webpage — user must take action (click link).</td><td>Anti-phishing filters; never click suspicious links</td></tr>
+      <tr><td><span class="chip cr">Pharming</span></td><td>Malicious code installed on user's computer or web server — redirects user to fake website <strong>without any action</strong> from the user.</td><td>Keep software updated; use reputable DNS servers</td></tr>
+      <tr><td><span class="chip cr">Viruses</span></td><td>Program code that replicates itself — deletes or corrupts files and causes computer to malfunction.</td><td>Up-to-date antivirus software; avoid unknown downloads</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section data-label="10 Passwords and Authentication">
+  <h2>Passwords &amp; Authentication Methods</h2>
+  <div class="row">
+    <div>
+      <h3><span class="chip cg">Passwords</span></h3>
+      <p style="font-size:var(--sm);margin:10px 0">Common security measure — often used with username or email address.</p>
+      <p style="font-size:var(--sm)"><strong>Weak:</strong> <code>iloveict</code></p>
+      <p style="font-size:var(--sm)"><strong>Strong:</strong> <code>1lov3ICT#</code></p>
+      <p style="font-size:var(--sm);margin-top:12px"><strong>To enhance security:</strong></p>
+      <ul style="font-size:var(--sm)">
+        <li>Change regularly in case obtained illegally</li>
+        <li>Use uppercase, lowercase, numbers &amp; special characters</li>
+        <li>Run anti-spyware regularly to prevent interception</li>
+      </ul>
+    </div>
+    <div>
+      <h3><span class="chip cb">Other Authentication Methods</span></h3>
+      <ul style="font-size:var(--sm);margin-top:12px">
+        <li><span class="chip cg">Zero Login</span> — eliminates username/password; uses biometrics for seamless access</li>
+        <li><span class="chip cb">Biometric Recognition</span> — fingerprints, iris scans, voice recognition</li>
+        <li><span class="chip co">Magnetic Stripes</span> — encoded data on cards read by magnetic stripe readers</li>
+        <li><span class="chip cp">Smart Cards</span> — portable devices with integrated circuits for banking, telecoms, access control</li>
+        <li><span class="chip cr">Physical Tokens</span> — solid objects generating one-time passwords (OTPs) with embedded clocks</li>
+        <li><span class="chip cg">Electronic Tokens</span> — apps on smartphones generating time-limited OTPs</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section data-label="11 Anti-Malware Software">
+  <h2>Anti-Malware Software</h2>
+  <p>Designed to <span class="chip cg">detect</span>, <span class="chip cb">prevent</span> and <span class="chip co">remove</span> malicious software. Installed on the system and runs in the background.</p>
+  <div class="row" style="margin-top:16px">
+    <div>
+      <h3>Standard Features</h3>
+      <ul style="margin-top:12px">
+        <li>Compares scanned files against a <strong>database of known threats</strong></li>
+        <li><strong>Real-time scanning</strong> of files and downloads</li>
+        <li>Regular updates to maintain current threat database</li>
+        <li><strong>Quarantine</strong> of infected files</li>
+      </ul>
+    </div>
+    <div class="box b">
+      <h3 style="color:var(--b)">Quarantine &amp; Heuristic Checking</h3>
+      <ul style="margin-top:12px;font-size:var(--sm)">
+        <li><strong>Quarantine:</strong> isolates threats for automatic deletion or user review — avoids false positives being deleted unnecessarily</li>
+        <li><strong>Heuristic Checking:</strong> instead of using only a known virus database, looks for <em>behavioural patterns</em> in files to identify new/unknown threats</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section data-label="12 Video Conferencing">
+  <h2>Electronic Conferencing — Video Conferencing</h2>
+  <p><span class="chip cg">Video Conferencing</span> — audio and video communication in real-time as a substitute for face-to-face meetings.</p>
+  <div class="row" style="margin-top:12px">
+    <div>
+      <h3>Hardware &amp; Software Required</h3>
+      <ul style="margin-top:12px">
+        <li>Webcams, large monitors/TV screens</li>
+        <li>Microphones, speakers</li>
+        <li>Webcam &amp; microphone software drivers</li>
+        <li><span class="chip cb">CODEC</span> (coder and decoder)</li>
+        <li>Echo cancellation software</li>
+      </ul>
+    </div>
+    <div>
+      <p class="adv">Advantages:</p>
+      <ul style="font-size:var(--sm)">
+        <li>Easy to access documents or bring in 'experts'</li>
+        <li>Can be held at short notice</li>
+        <li>Reduced travelling costs</li>
+        <li>No hotel/venue costs</li>
+        <li>Safer than travelling to unsafe locations</li>
+      </ul>
+      <p class="dis">Disadvantages:</p>
+      <ul style="font-size:var(--sm)">
+        <li>Potential time lag/delays when talking</li>
+        <li>Images can jerk</li>
+        <li>Expensive initial setup</li>
+        <li>Time zone differences cause problems</li>
+        <li>Completely reliant on stable internet connection</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section data-label="13 Audio and Web Conferencing">
+  <h2>Audio &amp; Web Conferencing</h2>
+  <div class="row">
+    <div>
+      <h3><span class="chip cb">Audio Conferencing</span></h3>
+      <p style="font-size:var(--sm);margin:10px 0">Meetings using audio (sound) technology — also called phone conferencing. Uses normal telephone network.</p>
+      <p style="font-size:var(--sm)"><strong>Hardware:</strong> computer with built-in mic/speakers; external mic/speakers; internet phone; standard phone</p>
+      <p class="adv" style="font-size:var(--sm)">Adv: Join from any location; no travel expenses; saves time</p>
+      <p class="dis" style="font-size:var(--sm)">Dis: No visual — hinders communication; limits engagement; technical issues (poor audio, background noise)</p>
+    </div>
+    <div>
+      <h3><span class="chip cg">Web Conferencing</span></h3>
+      <p style="font-size:var(--sm);margin:10px 0">Uses internet for conference calls (webinars/webcasts). Multiple computers interconnected. Operates in real-time.</p>
+      <p style="font-size:var(--sm)"><strong>Meeting types:</strong> business meetings; presentations; online education/training</p>
+      <p class="adv" style="font-size:var(--sm)">Adv: Video adds immersion; screen sharing for presentations; interactive features (chat, polling, Q&amp;A)</p>
+      <p class="dis" style="font-size:var(--sm)">Dis: Relies on internet; susceptible to distractions; learning curve for new users</p>
+    </div>
+  </div>
+</section>
+
+<section class="dark" data-label="14 Summary">
+  <h2 style="color:var(--g)">Topic 4 — Key Points</h2>
+  <div class="row" style="margin-top:16px">
+    <div>
+      <h3 style="color:var(--g)">4.1 Networks</h3>
+      <ul style="font-size:var(--sm);margin-top:12px">
+        <li><span class="chip cg">IP</span> = unique logical address (changes) · <span class="chip cb">MAC</span> = unique hardware address (permanent)</li>
+        <li>Router routes packets between networks using routing tables</li>
+        <li>Hub → all devices · Switch → correct device only</li>
+        <li>Wi-Fi: faster, longer range · Bluetooth: close range, 7 devices max</li>
+        <li>Cloud: public / private / hybrid — scalable but needs internet</li>
+        <li>Internet (global open) · Intranet (private internal) · Extranet (selected external access)</li>
+        <li>LAN (building) · WLAN (wireless) · WAN (multiple LANs, long distance)</li>
+      </ul>
+    </div>
+    <div>
+      <h3 style="color:var(--b)">4.2 Security &amp; Communication</h3>
+      <ul style="font-size:var(--sm);margin-top:12px">
+        <li>Threats: Hacking · Phishing (needs action) · Pharming (no action needed) · Viruses</li>
+        <li>Passwords: use uppercase, lowercase, numbers, symbols; change regularly</li>
+        <li>Authentication: Zero login · Biometric · Smart cards · Physical/Electronic tokens</li>
+        <li>Anti-malware: detect, prevent, remove; real-time scanning; heuristic checking</li>
+        <li>Video conf: real-time audio+video; needs CODEC</li>
+        <li>Audio conf: phone-based; no visual element</li>
+        <li>Web conf: internet-based; screen sharing; interactive</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+</deck-stage>
+<script src="deck-stage.js"></script>
+</body>
+</html>

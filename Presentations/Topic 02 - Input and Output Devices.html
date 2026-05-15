@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Topic 2: Input & Output Devices – eSCholr ICT</title>
+<style>
+:root {
+  --g:#1a9b8e;--b:#2563eb;--o:#f97316;--p:#8b5cf6;--r:#dc2626;
+  --dk:#1f2937;--lt:#f9fafb;--bd:#e5e7eb;
+  --tt:64px;--ts:44px;--tb:32px;--sm:27px;
+  --px:100px;--pt:80px;--pb:60px;--g1:44px;--g2:20px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',sans-serif;background:var(--lt);color:var(--dk)}
+section{color:var(--dk);display:flex;flex-direction:column;background:var(--lt);padding:var(--pt) var(--px) var(--pb);min-height:100%;gap:var(--g2)}
+section.cover{justify-content:center;align-items:center;text-align:center;background:linear-gradient(135deg,var(--b),#1e3a8a);gap:24px}
+section.dark{background:#0f172a;color:var(--lt)}
+h1{font-size:var(--tt);font-weight:800;color:var(--lt)}
+h2{font-size:var(--tt);font-weight:700;color:var(--g);margin-bottom:4px}
+h3{font-size:var(--ts);font-weight:600;color:var(--dk);margin-bottom:4px}
+h4{font-size:var(--tb);font-weight:600;color:var(--g)}
+p,li{font-size:var(--tb);line-height:1.6;color:var(--dk)}
+ul,ol{margin-left:32px}
+li{margin-bottom:10px}
+.sub{font-size:var(--ts);color:rgba(255,255,255,.85);font-weight:500}
+.chip{display:inline-block;padding:9px 20px;border-radius:999px;font-size:var(--sm);font-weight:700;color:#fff;margin:5px 6px 5px 0}
+.cg{background:var(--g)}.cb{background:var(--b)}.co{background:var(--o)}.cp{background:var(--p)}.cr{background:var(--r)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:48px;width:100%}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:32px;width:100%}
+.box{background:#fff;border:2.5px solid var(--g);border-radius:12px;padding:30px;font-size:var(--sm);color:var(--dk)}
+.box.b{border-color:var(--b)}.box.o{border-color:var(--o)}.box.p{border-color:var(--p)}.box.r{border-color:var(--r)}
+table{width:100%;border-collapse:collapse;font-size:var(--sm)}
+thead{background:var(--g);color:#fff}
+th,td{padding:15px 18px;border:1px solid var(--bd);text-align:left;vertical-align:top}
+tbody tr:nth-child(even){background:rgba(26,155,142,.06)}
+.note{background:#fef9c3;border-left:6px solid #eab308;padding:18px 24px;border-radius:8px;font-size:var(--sm);color:var(--dk)}
+.adv{color:#15803d;font-weight:600}.dis{color:#dc2626;font-weight:600}
+@media(max-width:1200px){:root{--tt:48px;--ts:34px;--tb:26px;--sm:22px;--px:60px}.row,.row3{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<deck-stage width="1920" height="1080">
+
+<!-- 01 Cover -->
+<section class="cover" data-label="01 Cover">
+  <div style="font-size:26px;color:rgba(255,255,255,.7);letter-spacing:3px;text-transform:uppercase">eSCholr · IGCSE ICT</div>
+  <h1>Input &amp; Output Devices</h1>
+  <div class="sub">Topic 2 · Sections 2.1 – 2.3</div>
+</section>
+
+<!-- 02 Overview -->
+<section data-label="02 Overview">
+  <h2>Topic 2 Overview</h2>
+  <div class="row" style="margin-top:8px">
+    <div class="box">
+      <h3 style="color:var(--g)"><span class="chip cg">Input</span> Devices</h3>
+      <p style="margin:12px 0">Any hardware that allows a user to enter data or instructions into a computer.</p>
+      <ul>
+        <li>Can <strong>send</strong> data — cannot receive data</li>
+        <li>Necessary for receiving commands &amp; data to process</li>
+        <li>Under the user's control or direct data entry</li>
+      </ul>
+    </div>
+    <div class="box b">
+      <h3 style="color:var(--b)"><span class="chip cb">Output</span> Devices</h3>
+      <p style="margin:12px 0">Any hardware that presents processed data to the user in a human-readable format.</p>
+      <ul>
+        <li>Can <strong>receive</strong> data — cannot send data</li>
+        <li>Displays or produces the result of processing</li>
+        <li>E.g. words on a printer, graphics on a monitor</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 03 Keyboard & Numeric Keypad -->
+<section data-label="03 Keyboard and Numeric Keypad">
+  <h2>Keyboard &amp; Numeric Keypad</h2>
+  <div class="row">
+    <div>
+      <h3><span class="chip cg">Keyboard</span></h3>
+      <p style="font-size:var(--sm);margin:8px 0"><strong>Uses:</strong> data input into applications; typing commands</p>
+      <p class="adv">Advantages:</p>
+      <ul style="font-size:var(--sm)"><li>Fast text entry; well-known method</li><li>Easy verification — compare source with typed data</li></ul>
+      <p class="dis" style="margin-top:10px">Disadvantages:</p>
+      <ul style="font-size:var(--sm)"><li>Difficult if user has limited arm/wrist use</li><li>Slow compared to direct data entry</li><li>Large device — takes up desk space</li></ul>
+    </div>
+    <div>
+      <h3><span class="chip cb">Numeric Keypad</span></h3>
+      <p style="font-size:var(--sm);margin:8px 0"><strong>Uses:</strong> ATMs (PIN entry), POS terminals (manual barcode entry), chip &amp; PIN devices, numeric spreadsheet data</p>
+      <p class="adv">Advantages:</p>
+      <ul style="font-size:var(--sm)"><li>Faster than keyboards for numeric data</li><li>Small &amp; portable</li></ul>
+      <p class="dis" style="margin-top:10px">Disadvantages:</p>
+      <ul style="font-size:var(--sm)"><li>Small keys can make input difficult</li><li>Number order can be unintuitive</li></ul>
+    </div>
+  </div>
+</section>
+
+<!-- 04 Mouse, Touchpad, Tracker Ball -->
+<section data-label="04 Mouse Touchpad Trackerball">
+  <h2>Pointing Devices</h2>
+  <div class="row3">
+    <div class="box">
+      <h4><span class="chip cg">Mouse</span></h4>
+      <p style="font-size:calc(var(--sm)-2px);margin:8px 0"><strong>Uses:</strong> opening/closing software; file management; image editing; pointer control</p>
+      <p class="adv">Adv:</p><ul style="font-size:calc(var(--sm)-2px)"><li>Faster than keyboard for options</li><li>Quick navigation</li><li>Less desk area than keyboard</li></ul>
+      <p class="dis">Dis:</p><ul style="font-size:calc(var(--sm)-2px)"><li>Difficult for restricted hand movement</li><li>Clogs with dirt; needs flat surface</li></ul>
+    </div>
+    <div class="box b">
+      <h4><span class="chip cb">Touchpad</span></h4>
+      <p style="font-size:calc(var(--sm)-2px);margin:8px 0"><strong>Uses:</strong> same as mouse — integrated into laptops</p>
+      <p class="adv">Adv:</p><ul style="font-size:calc(var(--sm)-2px)"><li>No separate mouse needed — aids portability</li><li>Usable without flat surfaces</li></ul>
+      <p class="dis">Dis:</p><ul style="font-size:calc(var(--sm)-2px)"><li>Difficult with limited hand movement</li><li>Harder pointer control than mouse</li><li>Drag &amp; drop more complicated</li></ul>
+    </div>
+    <div class="box o">
+      <h4><span class="chip co">Tracker Ball</span></h4>
+      <p style="font-size:calc(var(--sm)-2px);margin:8px 0"><strong>Uses:</strong> alternative for RSI sufferers; industrial control rooms; luxury cars</p>
+      <p class="adv">Adv:</p><ul style="font-size:calc(var(--sm)-2px)"><li>Less fine control needed; easier with wrist problems</li><li>More accurate; more robust; less desk space</li></ul>
+      <p class="dis">Dis:</p><ul style="font-size:calc(var(--sm)-2px)"><li>Not supplied as standard — more costly</li><li>Users may need training</li></ul>
+    </div>
+  </div>
+</section>
+
+<!-- 05 Remote, Joystick, Driving Wheel -->
+<section data-label="05 Remote Joystick Driving Wheel">
+  <h2>Remote Control, Joystick &amp; Driving Wheel</h2>
+  <div class="row3">
+    <div class="box">
+      <h4><span class="chip cg">Remote Control</span></h4>
+      <p style="font-size:calc(var(--sm)-2px);margin:8px 0"><strong>Uses:</strong> TVs, Blu-ray players, Hi-Fi systems; industrial process control</p>
+      <p class="adv">Adv:</p><ul style="font-size:calc(var(--sm)-2px)"><li>Operable from a distance</li><li>Control from safe distance in hazardous environments</li></ul>
+      <p class="dis">Dis:</p><ul style="font-size:calc(var(--sm)-2px)"><li>Difficult with limited hand movement</li><li>Physical obstacles block signal</li></ul>
+    </div>
+    <div class="box b">
+      <h4><span class="chip cb">Joystick</span></h4>
+      <p style="font-size:calc(var(--sm)-2px);margin:8px 0"><strong>Uses:</strong> video games; simulators mimicking actual controls</p>
+      <p class="adv">Adv:</p><ul style="font-size:calc(var(--sm)-2px)"><li>Easier than keyboards for screen navigation</li><li>More realistic control in some applications</li></ul>
+      <p class="dis">Dis:</p><ul style="font-size:calc(var(--sm)-2px)"><li>On-screen pointer more difficult to control</li></ul>
+    </div>
+    <div class="box o">
+      <h4><span class="chip co">Driving Wheel</span></h4>
+      <p style="font-size:calc(var(--sm)-2px);margin:8px 0"><strong>Uses:</strong> car racing games; vehicle simulators</p>
+      <p class="adv">Adv:</p><ul style="font-size:calc(var(--sm)-2px)"><li>More realistic than mouse or joystick</li><li>Easier steering control</li></ul>
+      <p class="dis">Dis:</p><ul style="font-size:calc(var(--sm)-2px)"><li>Expensive compared to mouse/joystick</li><li>Steering over-sensitive; feedback non-existent in basic models</li></ul>
+    </div>
+  </div>
+</section>
+
+<!-- 06 Touch screen, Scanner, Camera -->
+<section data-label="06 Touchscreen Scanner Camera">
+  <h2>Touch Screen, Scanner &amp; Digital Camera</h2>
+  <div class="row3">
+    <div class="box">
+      <h4><span class="chip cg">Touch Screen</span> (Input)</h4>
+      <p style="font-size:calc(var(--sm)-2px);margin:8px 0"><strong>Uses:</strong> ATMs, POS terminals (restaurants), interactive whiteboards, CBT testing</p>
+      <p class="adv">Adv:</p><ul style="font-size:calc(var(--sm)-2px)"><li>Faster than keyboard/mouse for options</li><li>Very easy; no training needed</li><li>Can expand display size</li></ul>
+      <p class="dis">Dis:</p><ul style="font-size:calc(var(--sm)-2px)"><li>Limited input options</li><li>Frequent use → RSI, arm muscle strain</li><li>Screen gets dirty</li></ul>
+    </div>
+    <div class="box b">
+      <h4><span class="chip cb">Scanner</span></h4>
+      <p style="font-size:calc(var(--sm)-2px);margin:8px 0"><strong>Uses:</strong> converting documents/photos; recovering damaged docs; barcode scanning at POS</p>
+      <p class="adv">Adv:</p><ul style="font-size:calc(var(--sm)-2px)"><li>Images stored for editing</li><li>With OCR: faster &amp; more accurate than typing</li><li>Can recover damaged documents</li></ul>
+      <p class="dis">Dis:</p><ul style="font-size:calc(var(--sm)-2px)"><li>Quality limited by scanner resolution</li><li>Fairly slow, especially in colour mode</li></ul>
+    </div>
+    <div class="box o">
+      <h4><span class="chip co">Digital Camera</span></h4>
+      <p style="font-size:calc(var(--sm)-2px);margin:8px 0"><strong>Uses:</strong> photography; car reversing aid; dentistry; virtual reality tours</p>
+      <p class="adv">Adv:</p><ul style="font-size:calc(var(--sm)-2px)"><li>Better quality than traditional cameras</li><li>Fast upload to computer; no film needed</li><li>Memory cards store thousands of photos; delete unwanted</li></ul>
+      <p class="dis">Dis:</p><ul style="font-size:calc(var(--sm)-2px)"><li>Requires computer literacy</li><li>Images need compressing to save memory</li></ul>
+    </div>
+  </div>
+</section>
+
+<!-- 07 Microphone, Sensors, Light Pen -->
+<section data-label="07 Microphone Sensors Light Pen">
+  <h2>Microphone, Sensors &amp; Light Pen</h2>
+  <div class="row3">
+    <div class="box">
+      <h4><span class="chip cg">Microphone</span></h4>
+      <p style="font-size:calc(var(--sm)-2px);margin:8px 0"><strong>Uses:</strong> voice recognition; intruder alarm sensor; audio conferencing; VoIP</p>
+      <p class="adv">Adv:</p><ul style="font-size:calc(var(--sm)-2px)"><li>Faster to speak than type</li><li>Real-time sound manipulation</li><li>Improves security via authentication</li></ul>
+      <p class="dis">Dis:</p><ul style="font-size:calc(var(--sm)-2px)"><li>Sound files use large amounts of memory</li><li>More error-prone than typing</li></ul>
+    </div>
+    <div class="box b">
+      <h4><span class="chip cb">Sensors</span></h4>
+      <p style="font-size:calc(var(--sm)-2px);margin:8px 0"><strong>Types &amp; Uses:</strong> Temperature (washing machines, ovens) · Pressure (alarms) · Light (street lighting) · Sound/acoustic (intruder alarms) · Humidity (glasshouses) · pH (chemical processes)</p>
+      <p class="adv">Adv:</p><ul style="font-size:calc(var(--sm)-2px)"><li>More accurate than humans</li><li>Continuous monitoring; instant response</li><li>No human intervention needed</li></ul>
+      <p class="dis">Dis:</p><ul style="font-size:calc(var(--sm)-2px)"><li>Faulty sensors give spurious results</li><li>Most are analogue → require ADC</li></ul>
+    </div>
+    <div class="box o">
+      <h4><span class="chip co">Light Pen</span></h4>
+      <p style="font-size:calc(var(--sm)-2px);margin:8px 0"><strong>Uses:</strong> selecting objects on CRT screens; drawing on screens</p>
+      <p class="adv">Adv:</p><ul style="font-size:calc(var(--sm)-2px)"><li>Greater accuracy than touch screens</li><li>Small &amp; portable</li><li>Easy to use</li></ul>
+      <p class="dis">Dis:</p><ul style="font-size:calc(var(--sm)-2px)"><li>Lagging when drawing</li><li>Only works with CRT monitors</li><li>Outdated technology</li></ul>
+    </div>
+  </div>
+</section>
+
+<!-- 08 Direct Data Entry Overview -->
+<section data-label="08 Direct Data Entry">
+  <h2>2.2 Direct Data Entry Devices</h2>
+  <p>Devices that read data directly from a source without manual keyboard entry — faster and more accurate.</p>
+  <table style="margin-top:16px">
+    <thead><tr><th>Device</th><th>Key Use</th><th>Key Advantage</th><th>Key Disadvantage</th></tr></thead>
+    <tbody>
+      <tr><td><span class="chip cg">Magnetic Stripe</span></td><td>Credit/debit cards, building entry</td><td>Fast, error-free, secure (not human-readable)</td><td>Data lost if card damaged; doesn't work at distance</td></tr>
+      <tr><td><span class="chip cb">Chip &amp; PIN</span></td><td>Card payments</td><td>More secure than contactless — PIN as second layer</td><td>PIN can be shoulder-surfed</td></tr>
+      <tr><td><span class="chip co">Contactless Card</span></td><td>Quick payments without PIN</td><td>No PIN entry; faster; encrypted unique transaction code</td><td>Spending limit; thief can intercept signal</td></tr>
+      <tr><td><span class="chip cp">RFID Reader</span></td><td>Livestock, retail, library books</td><td>No line-of-sight; fast; bidirectional; bulk detection</td><td>Tag collision; easy to jam/hack; more expensive than barcode</td></tr>
+      <tr><td><span class="chip cr">OMR</span></td><td>MCQs, voting papers, surveys</td><td>Fast; accurate; no human intervention</td><td>Complex form design; problems need manual checking</td></tr>
+      <tr><td><span class="chip cg">OCR</span></td><td>Passports, ANPR, archiving</td><td>Much faster than manual typing; no human intervention</td><td>Difficulty reading handwriting; not very accurate</td></tr>
+      <tr><td><span class="chip cb">Barcode Reader</span></td><td>Supermarkets, libraries, equipment checks</td><td>Faster than manual entry; automatic stock control</td><td>Expensive; barcodes can be swapped; easily damaged</td></tr>
+      <tr><td><span class="chip co">QR Scanner</span></td><td>Advertising, Wi-Fi auth, restaurant menus</td><td>Holds more data than barcode; fewer errors; can be encrypted</td><td>Multiple QR formats; can transmit malicious data</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- 09 Magnetic Stripe & Chip PIN detail -->
+<section data-label="09 Magnetic Stripe and Chip PIN">
+  <h2>Magnetic Stripe vs Chip &amp; PIN vs Contactless</h2>
+  <div class="row3">
+    <div class="box">
+      <h4><span class="chip cg">Magnetic Stripe</span></h4>
+      <p style="font-size:var(--sm);margin:10px 0"><strong>Uses:</strong> Credit/debit cards at ATMs; security entry to buildings and hotels</p>
+      <p class="adv">Advantages:</p>
+      <ul style="font-size:var(--sm)"><li>Faster than keying data manually</li><li>Error-free — no human intervention</li><li>Secure — data not human-readable</li><li>Robust — no moving parts</li></ul>
+      <p class="dis" style="margin-top:10px">Disadvantages:</p>
+      <ul style="font-size:var(--sm)"><li>Data lost if card is damaged</li><li>Doesn't work at a distance</li></ul>
+    </div>
+    <div class="box b">
+      <h4><span class="chip cb">Chip &amp; PIN</span></h4>
+      <p style="font-size:var(--sm);margin:10px 0"><strong>Uses:</strong> Card payments at shops, restaurants, ATMs</p>
+      <p class="adv">Advantages:</p>
+      <ul style="font-size:var(--sm)"><li>More secure than contactless — PIN is second security layer</li><li>More robust than magnetic stripe</li></ul>
+      <p class="dis" style="margin-top:10px">Disadvantages:</p>
+      <ul style="font-size:var(--sm)"><li>PIN must be entered carefully — risk of <strong>shoulder surfing</strong></li></ul>
+    </div>
+    <div class="box o">
+      <h4><span class="chip co">Contactless Card</span></h4>
+      <p style="font-size:var(--sm);margin:10px 0"><strong>Uses:</strong> Quick payments without entering PIN</p>
+      <p class="adv">Advantages:</p>
+      <ul style="font-size:var(--sm)"><li>No incorrect PIN worry</li><li>Eliminates shoulder surfing</li><li>Faster transaction; encryption with unique transaction code</li></ul>
+      <p class="dis" style="margin-top:10px">Disadvantages:</p>
+      <ul style="font-size:var(--sm)"><li>Spending limit applies</li><li>More expensive to implement</li><li>Thief can intercept transaction using a suitable reader</li></ul>
+    </div>
+  </div>
+</section>
+
+<!-- 10 RFID, OMR, OCR, Barcode, QR -->
+<section data-label="10 RFID OMR OCR Barcode QR">
+  <h2>RFID, OMR, OCR, Barcode &amp; QR</h2>
+  <div class="row">
+    <div>
+      <h3><span class="chip cp">RFID Reader</span></h3>
+      <p style="font-size:var(--sm)"><strong>Uses:</strong> livestock tracking; retail (instead of barcodes); admission passes; library books</p>
+      <p class="adv" style="font-size:var(--sm)">Adv: No line-of-sight needed; very reliable; fast; bidirectional; bulk detection possible</p>
+      <p class="dis" style="font-size:var(--sm)">Dis: Tag collision; easy to jam/hack radio waves; more expensive than barcode</p>
+
+      <h3 style="margin-top:20px"><span class="chip cr">OMR</span></h3>
+      <p style="font-size:var(--sm)"><strong>Uses:</strong> MCQ papers; voting papers; survey forms</p>
+      <p class="adv" style="font-size:var(--sm)">Adv: Very fast; accurate; no human intervention; more accurate than OCR</p>
+      <p class="dis" style="font-size:var(--sm)">Dis: Complex form design; problems require manual checking</p>
+    </div>
+    <div>
+      <h3><span class="chip cg">OCR</span></h3>
+      <p style="font-size:var(--sm)"><strong>Uses:</strong> passports; identity cards; converting hard copies; ANPR; digitising archives</p>
+      <p class="adv" style="font-size:var(--sm)">Adv: Much faster than manual typing; no human intervention</p>
+      <p class="dis" style="font-size:var(--sm)">Dis: Difficulty reading different handwriting; still not very accurate</p>
+
+      <h3 style="margin-top:20px"><span class="chip cb">Barcode &amp; QR Scanners</span></h3>
+      <p style="font-size:var(--sm)"><strong>Barcode Uses:</strong> supermarket stock control; libraries; electrical equipment checks</p>
+      <p class="adv" style="font-size:var(--sm)">Barcode Adv: Faster than manual; tried and trusted; automatic stock control</p>
+      <p class="dis" style="font-size:var(--sm)">Barcode Dis: Expensive; barcodes can be swapped; easily damaged</p>
+      <p style="font-size:var(--sm);margin-top:10px"><strong>QR Uses:</strong> advertising; Wi-Fi auth; restaurant menus</p>
+      <p class="adv" style="font-size:var(--sm)">QR Adv: Holds more data; fewer errors; readable by smartphones; can be encrypted</p>
+      <p class="dis" style="font-size:var(--sm)">QR Dis: Multiple formats exist; can transmit malicious data</p>
+    </div>
+  </div>
+</section>
+
+<!-- 11 Monitors -->
+<section data-label="11 Monitors">
+  <h2>2.3 Output Devices — Monitors</h2>
+  <div class="row">
+    <div class="box">
+      <h4><span class="chip co">CRT Monitors</span> (Cathode Ray Tube)</h4>
+      <p style="font-size:var(--sm);margin:10px 0"><strong>Uses:</strong> complex diagrams in CAD; used with light pens</p>
+      <p class="adv">Advantages:</p>
+      <ul style="font-size:var(--sm)"><li>Visible at wider range of angles than LCD</li><li>Compatible with light pens</li></ul>
+      <p class="dis" style="margin-top:10px">Disadvantages:</p>
+      <ul style="font-size:var(--sm)"><li>Very heavy and bulky</li><li>Run very hot — fire risk</li><li>Use much more power than LCD</li><li>Flickering causes headaches</li><li>Image burn-in is common</li></ul>
+    </div>
+    <div class="box b">
+      <h4><span class="chip cb">LCD Screens</span> (Liquid Crystal Display)</h4>
+      <p style="font-size:var(--sm);margin:10px 0"><strong>Uses:</strong> main output device for modern computers; mobile phones; laptops; video games</p>
+      <p class="adv">Advantages:</p>
+      <ul style="font-size:var(--sm)"><li>Very efficient — low power consumption</li><li>Lightweight; available in various sizes</li><li>No flickering; very sharp resolution</li></ul>
+      <p class="dis" style="margin-top:10px">Disadvantages:</p>
+      <ul style="font-size:var(--sm)"><li>Colour and contrast inconsistent at different angles</li><li>Motion blur is common</li><li>Lower contrast than CRT</li></ul>
+    </div>
+  </div>
+</section>
+
+<!-- 12 Touch Screen Output & Projector -->
+<section data-label="12 Touchscreen Output and Projector">
+  <h2>Touch Screen (Output) &amp; Multimedia Projector</h2>
+  <div class="row">
+    <div class="box">
+      <h4><span class="chip cg">Touch Screen</span> (as Output)</h4>
+      <p style="font-size:var(--sm);margin:10px 0"><strong>Uses:</strong> ATMs; POS terminals; information kiosks</p>
+      <p class="adv">Advantages:</p>
+      <ul style="font-size:var(--sm)">
+        <li>No additional input devices needed</li>
+        <li>Very interactive — swiping and gestures</li>
+        <li>High-tech feel to devices</li>
+      </ul>
+      <p class="dis" style="margin-top:10px">Disadvantages:</p>
+      <ul style="font-size:var(--sm)">
+        <li>Gets dirty with frequent use</li>
+        <li>Frequent use → RSI and arm muscle strain</li>
+        <li>Not very accurate or fast for large data input/output</li>
+      </ul>
+    </div>
+    <div class="box b">
+      <h4><span class="chip cb">Multimedia Projector</span></h4>
+      <p style="font-size:var(--sm);margin:10px 0"><strong>Uses:</strong> training presentations; advertising; home cinema</p>
+      <p class="adv">Advantages:</p>
+      <ul style="font-size:var(--sm)">
+        <li>Many people can watch without crowding around a screen</li>
+        <li>Avoids need for several networked computers</li>
+      </ul>
+      <p class="dis" style="margin-top:10px">Disadvantages:</p>
+      <ul style="font-size:var(--sm)">
+        <li>Images can be fuzzy</li>
+        <li>Expensive to purchase</li>
+        <li>Setup can be complicated</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 13 Printers -->
+<section data-label="13 Printers">
+  <h2>Printers</h2>
+  <table>
+    <thead><tr><th>Printer Type</th><th>Uses</th><th>Advantages</th><th>Disadvantages</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="chip cg">Laser Printer</span></td>
+        <td>Low-noise environments; fast high-volume printing</td>
+        <td>Fast; handles large print jobs; consistently high quality; toner lasts long</td>
+        <td>Only fast for multiple copies; colour laser expensive; produces ozone &amp; VOCs</td>
+      </tr>
+      <tr>
+        <td><span class="chip cb">Inkjet Printer</span></td>
+        <td>Low-output volumes; high-quality single pages</td>
+        <td>High-quality output; cheaper than laser; lightweight; no ozone/VOCs</td>
+        <td>Slow for many copies; can't handle large jobs; ink can smudge; expensive in heavy use</td>
+      </tr>
+      <tr>
+        <td><span class="chip co">Dot Matrix Printer</span></td>
+        <td>Where noise isn't an issue; carbon/multi-part copies; till receipts</td>
+        <td>Works in varying environments; produces carbon copies; very cheap to run; good for continuous printing</td>
+        <td>Very noisy; more expensive initial cost than inkjet; very slow and poor-quality output</td>
+      </tr>
+      <tr>
+        <td><span class="chip cp">Plotter</span></td>
+        <td>Architectural &amp; engineering drawings; animation characters</td>
+        <td>Very high quality; accurate large colour drawings; prints on various materials</td>
+        <td>Very slow; expensive; large physical footprint</td>
+      </tr>
+      <tr>
+        <td><span class="chip cr">3D Printer</span></td>
+        <td>Prosthetic limbs; aerospace parts; vintage car spares</td>
+        <td>Manufacturing much easier; cheaper than conventional methods; can produce unavailable parts</td>
+        <td>Can produce counterfeit/dangerous items; job loss potential</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- 14 Speaker & Actuator -->
+<section data-label="14 Speaker and Actuator">
+  <h2>Speaker &amp; Actuator</h2>
+  <div class="row">
+    <div class="box">
+      <h4><span class="chip cg">Speaker</span></h4>
+      <p style="font-size:var(--sm);margin:10px 0"><strong>Uses:</strong> all phones and most computers; assisting visually impaired; playing downloaded sound files</p>
+      <p class="adv">Advantages:</p>
+      <ul style="font-size:var(--sm)">
+        <li>Amplified sounds can be very loud — heard by a large crowd</li>
+        <li>Simple technology</li>
+        <li>Especially useful for blind people — reading e-books</li>
+      </ul>
+      <p class="dis" style="margin-top:10px">Disadvantages:</p>
+      <ul style="font-size:var(--sm)">
+        <li>Output can disturb others in the same area (e.g. office)</li>
+        <li>High sound quality only from expensive speakers</li>
+        <li>Take up desk space</li>
+      </ul>
+    </div>
+    <div class="box b">
+      <h4><span class="chip cb">Actuator</span></h4>
+      <p style="font-size:var(--sm);margin:10px 0"><strong>Uses:</strong> turning on motors, buzzers and switches; allowing a computer to control physical devices</p>
+      <p class="adv">Advantages:</p>
+      <ul style="font-size:var(--sm)">
+        <li>Allows remote operation of many devices</li>
+        <li>Relatively inexpensive</li>
+      </ul>
+      <p class="dis" style="margin-top:10px">Disadvantages:</p>
+      <ul style="font-size:var(--sm)">
+        <li>Additional device in the system — another potential point of failure</li>
+        <li>Analogue devices — signals need converting using a <span class="chip co">DAC</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 15 Summary -->
+<section class="dark" data-label="15 Summary">
+  <h2 style="color:var(--g)">Topic 2 — Key Points</h2>
+  <div class="row" style="margin-top:16px">
+    <div>
+      <h3 style="color:var(--g)">Input Devices</h3>
+      <ul style="font-size:var(--sm);margin-top:12px">
+        <li><span class="chip cg">Keyboard</span> — general data/text entry</li>
+        <li><span class="chip cb">Mouse/Touchpad/Trackerball</span> — pointer control</li>
+        <li><span class="chip co">Touch Screen</span> — fast option selection</li>
+        <li><span class="chip cp">Sensors</span> — continuous automated monitoring</li>
+        <li><span class="chip cr">Microphone</span> — voice input &amp; authentication</li>
+      </ul>
+      <h3 style="color:var(--b);margin-top:24px">Direct Data Entry</h3>
+      <ul style="font-size:var(--sm);margin-top:12px">
+        <li><span class="chip cg">Magnetic Stripe / Chip &amp; PIN / Contactless</span> — card payments</li>
+        <li><span class="chip cb">RFID</span> — no line-of-sight tracking</li>
+        <li><span class="chip co">OMR / OCR / Barcode / QR</span> — automated recognition</li>
+      </ul>
+    </div>
+    <div>
+      <h3 style="color:var(--o)">Output Devices</h3>
+      <ul style="font-size:var(--sm);margin-top:12px">
+        <li><span class="chip cg">CRT</span> — older; wide viewing angle; bulky</li>
+        <li><span class="chip cb">LCD</span> — modern; energy-efficient; sharp</li>
+        <li><span class="chip co">Laser Printer</span> — fast; high-volume; quality</li>
+        <li><span class="chip cp">Inkjet</span> — quality; affordable; low volume</li>
+        <li><span class="chip cr">Dot Matrix</span> — carbon copies; noisy</li>
+        <li><span class="chip cg">3D Printer</span> — custom physical objects</li>
+        <li><span class="chip cb">Actuator</span> — computer controls physical devices</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+</deck-stage>
+<script src="deck-stage.js"></script>
+</body>
+</html>
