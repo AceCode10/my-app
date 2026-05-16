@@ -16,6 +16,7 @@ import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import { MarkdownRenderer, SplitCardRenderer } from '@/components/notes/markdown-renderer';
 import { ReactPDFViewer } from '@/components/notes/react-pdf-viewer';
+import { HtmlDeckPresenter } from '@/components/presenter/html-deck-presenter';
 
 interface Note {
   id: string;
@@ -25,6 +26,7 @@ interface Note {
   content_md: string;
   rendered_html?: string;
   pdf_url?: string;
+  presentation_url?: string;
   view_count: number;
   visibility: string;
   tags?: string[];
@@ -142,7 +144,7 @@ export default function TopicNotesPage({
       // Fetch notes for this topic
       const { data: notesData, error: notesError } = await supabase
         .from('notes')
-        .select('*')
+        .select('id,title,subtitle,slug,content_md,rendered_html,pdf_url,presentation_url,view_count,visibility,tags,is_downloadable,has_latex,created_at,updated_at')
         .eq('topic_id', topicData.id)
         .eq('visibility', 'public')
         .not('published_at', 'is', null)
@@ -565,6 +567,12 @@ export default function TopicNotesPage({
         </div>
       </div>
     );
+  }
+
+  // Presentation-only note — launch fullscreen HTML deck presenter
+  if (selectedNote?.presentation_url && (!selectedNote.content_md || selectedNote.content_md.trim().length < 200)) {
+    const backHref = `/resources/revision-notes/${subjectSlug}/${topicSlug}`;
+    return <HtmlDeckPresenter url={selectedNote.presentation_url} title={selectedNote.title} backHref={backHref} />;
   }
 
   // PDF note - render with PDF viewer
