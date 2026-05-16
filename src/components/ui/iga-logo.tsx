@@ -34,7 +34,7 @@ export function IGALogo({ size = 'md', className, showText = false }: IGALogoPro
   return (
     <div className={cn('flex items-center gap-2', className)}>
       <Image 
-        src="/iga-logo.svg" 
+        src="/iga-logo.png" 
         alt="IGA Prep Logo"
         className={cn(sizeClasses[size], 'flex-shrink-0')}
         width={widthHeightMap[size]}
@@ -58,7 +58,7 @@ export function IGALogoIcon({ className, size = 'md' }: { className?: string; si
 
   return (
     <Image 
-      src="/iga-logo.svg" 
+      src="/iga-logo.png" 
       alt="IGA Prep Logo"
       className={cn('w-full h-full', className)}
       width={widthHeightMap[size]}
