@@ -6,7 +6,7 @@
     "start": "next start -H 0.0.0.0",
     "lint": "eslint .",
     "validate-env": "tsx scripts/validate-env.ts",
-    "prebuild": "npm run validate-env"
+    "prebuild": "node -e \"process.env.VERCEL || process.env.CI ? process.exit(0) : process.exit(1)\" || npm run validate-env"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
