@@ -635,12 +635,30 @@ export default function TopicNotesPage({
 
             {/* Presentation embedded */}
             <div className="rounded-lg overflow-hidden border bg-black">
-              <div className="aspect-video">
-                <HtmlDeckPresenter 
-                  url={selectedNote.presentation_url} 
-                  title={selectedNote.title} 
-                  backHref={""} 
+              <div className="aspect-video relative">
+                <iframe
+                  src={selectedNote.presentation_url}
+                  className="w-full h-full border-0"
+                  title={selectedNote.title}
+                  allowFullScreen
                 />
+                {/* Open in fullscreen button */}
+                <div className="absolute top-4 right-4">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="bg-black/50 hover:bg-black/70 text-white border-white/20"
+                    onClick={() => {
+                      const win = window.open(selectedNote.presentation_url, '_blank');
+                      if (win) win.focus();
+                    }}
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                    </svg>
+                    Fullscreen
+                  </Button>
+                </div>
               </div>
             </div>
 
