@@ -569,10 +569,127 @@ export default function TopicNotesPage({
     );
   }
 
-  // Presentation-only note — launch fullscreen HTML deck presenter
+  // Presentation-only note — show inline with sidebar and navigation
   if (selectedNote?.presentation_url && (!selectedNote.content_md || selectedNote.content_md.trim().length < 200)) {
-    const backHref = `/resources/revision-notes/${subjectSlug}/${topicSlug}`;
-    return <HtmlDeckPresenter url={selectedNote.presentation_url} title={selectedNote.title} backHref={backHref} />;
+    return (
+      <div className="py-2">
+        {/* Breadcrumb */}
+        <div className="flex items-center text-sm text-muted-foreground mb-4">
+          <Link href="/resources/revision-notes" className="hover:text-primary transition-colors">
+            Revision Notes
+          </Link>
+          <ChevronRight className="h-4 w-4 mx-1" />
+          <Link href={`/resources/revision-notes/${subjectSlug}`} className="hover:text-primary transition-colors">
+            {subject?.name || subjectSlug}
+          </Link>
+          <ChevronRight className="h-4 w-4 mx-1" />
+          <span className="font-medium text-foreground">{topic?.name || topicSlug}</span>
+        </div>
+
+        <div className="flex gap-8">
+          {/* Desktop Sidebar - collapsible */}
+          {allTopics.length > 0 && (
+            <aside className={cn(
+              "hidden lg:block flex-shrink-0 transition-all duration-300",
+              sidebarCollapsed ? "w-0" : "w-64"
+            )}>
+              {!sidebarCollapsed && (
+                <Card className="sticky top-24 max-h-[calc(100vh-8rem)] overflow-hidden flex flex-col">
+                  <TopicSidebar showCollapseButton />
+                </Card>
+              )}
+            </aside>
+          )}
+
+          {/* Main Content */}
+          <main className="flex-1 min-w-0">
+            {/* Sidebar toggle + mobile trigger */}
+            <div className="flex items-center gap-2 mb-4">
+              {/* Desktop: show sidebar button when collapsed */}
+              {sidebarCollapsed && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSidebarCollapsed(false)}
+                  className="hidden lg:flex"
+                >
+                  <PanelLeft className="h-4 w-4 mr-2" />
+                  Show Topics
+                </Button>
+              )}
+              {/* Mobile sidebar trigger */}
+              <div className="lg:hidden">
+                <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+                  <SheetTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Menu className="h-4 w-4 mr-2" />
+                      Show Topics
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent side="left" className="w-72 p-0">
+                    <TopicSidebar onNavigate={() => setSidebarOpen(false)} />
+                  </SheetContent>
+                </Sheet>
+              </div>
+            </div>
+
+            {/* Presentation embedded */}
+            <div className="rounded-lg overflow-hidden border bg-black">
+              <div className="aspect-video">
+                <HtmlDeckPresenter 
+                  url={selectedNote.presentation_url} 
+                  title={selectedNote.title} 
+                  backHref={""} 
+                />
+              </div>
+            </div>
+
+            {/* Topic Navigation (prev/next) */}
+            <div className="flex items-center justify-between mt-8 gap-4">
+              {prevTopic ? (
+                <Button variant="outline" asChild className="flex-1 sm:flex-none">
+                  <Link href={`/resources/revision-notes/${subjectSlug}/${prevTopic.slug}`}>
+                    <ChevronLeft className="w-4 h-4 mr-2" />
+                    <div className="text-left">
+                      <div className="text-xs text-muted-foreground">Previous</div>
+                      <div className="text-sm font-medium truncate max-w-[150px]">{prevTopic.name}</div>
+                    </div>
+                  </Link>
+                </Button>
+              ) : (
+                <Button variant="outline" asChild>
+                  <Link href={`/resources/revision-notes/${subjectSlug}`}>
+                    <ChevronLeft className="w-4 h-4 mr-2" />
+                    All Topics
+                  </Link>
+                </Button>
+              )}
+
+              <Button asChild>
+                <Link href={`/resources/topical-questions/${subjectSlug}/${topicSlug}`}>
+                  Practice Questions
+                  <ChevronRight className="w-4 h-4 ml-2" />
+                </Link>
+              </Button>
+
+              {nextTopic ? (
+                <Button variant="outline" asChild className="flex-1 sm:flex-none">
+                  <Link href={`/resources/revision-notes/${subjectSlug}/${nextTopic.slug}`}>
+                    <div className="text-right">
+                      <div className="text-xs text-muted-foreground">Next</div>
+                      <div className="text-sm font-medium truncate max-w-[150px]">{nextTopic.name}</div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 ml-2" />
+                  </Link>
+                </Button>
+              ) : (
+                <div />
+              )}
+            </div>
+          </main>
+        </div>
+      </div>
+    );
   }
 
   // PDF note - render with PDF viewer
