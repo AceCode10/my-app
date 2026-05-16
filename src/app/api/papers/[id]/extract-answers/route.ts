@@ -2,15 +2,36 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
 
-// Initialize Supabase client with service role for admin operations
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+// Force this route to be evaluated at request time, not at build time
+export const dynamic = 'force-dynamic';
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+// Lazy-initialised clients so module load doesn't crash when env vars
+// are unavailable at build time (e.g. during `next build` page-data collection).
+let _supabase: any = null;
+function getSupabase(): any {
+  if (_supabase) return _supabase;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) throw new Error('Supabase env vars missing');
+  _supabase = createClient(url, key);
+  return _supabase;
+}
+const supabase: any = new Proxy({}, {
+  get(_t, prop) {
+    return getSupabase()[prop];
+  },
+});
+
+let _openai: OpenAI | null = null;
+function getOpenAI() {
+  if (_openai) return _openai;
+  _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return _openai;
+}
+const openai = new Proxy({} as OpenAI, {
+  get(_t, prop) {
+    return (getOpenAI() as any)[prop];
+  },
 });
 
 // ============================================
