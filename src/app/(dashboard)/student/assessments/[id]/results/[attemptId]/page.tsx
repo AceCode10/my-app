@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { ResultsView } from '@/components/assessment/ResultsView';
 import { createClient } from '@/lib/supabase/client';
 import { Assessment, AssessmentAttempt, Question, AssessmentAnswer } from '@/types/assessment';
+import { useActivityRewards } from '@/hooks/use-activity-rewards';
 
 export default function AssessmentResultsPage() {
   const router = useRouter();
@@ -21,12 +22,44 @@ export default function AssessmentResultsPage() {
   const [gradingDetails, setGradingDetails] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { processAssessment } = useActivityRewards();
 
   useEffect(() => {
     if (assignmentId && attemptId) {
       loadResultsData();
     }
   }, [assignmentId, attemptId]);
+
+  // Fire XP once per attempt — guard via sessionStorage so refresh doesn't double-award.
+  useEffect(() => {
+    if (!attempt || !assessment) return;
+    const key = `xp-awarded:${attempt.id}`;
+    if (typeof window === 'undefined' || sessionStorage.getItem(key)) return;
+    const maxScore = (attempt as any).max_score ?? 0;
+    const score = (attempt as any).score ?? 0;
+    if (maxScore <= 0) return;
+
+    const correctAnswers = answers.filter(a => a.is_correct === true).length;
+    const timeSpentMinutes = Math.max(
+      1,
+      Math.round(((attempt as any).time_spent_seconds ?? 0) / 60)
+    );
+
+    processAssessment({
+      assessmentId: assessment.id,
+      assessmentName: (assessment as any).title ?? (assessment as any).name,
+      score,
+      maxScore,
+      questionsAnswered: questions.length,
+      correctAnswers,
+      timeSpentMinutes,
+    })
+      .then(() => {
+        sessionStorage.setItem(key, '1');
+        window.dispatchEvent(new Event('xp_earned'));
+      })
+      .catch(err => console.error('Failed to award assessment XP:', err));
+  }, [attempt, assessment, answers, questions, processAssessment]);
 
   const loadResultsData = async () => {
     try {

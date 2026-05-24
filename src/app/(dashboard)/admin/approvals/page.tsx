@@ -41,6 +41,8 @@ import {
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import { BulkActionsBar } from '@/components/admin/bulk-actions-bar';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface Approval {
   id: string;
@@ -70,10 +72,83 @@ export default function ApprovalsPage() {
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
   const [reviewNotes, setReviewNotes] = useState('');
   const [reviewing, setReviewing] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+
+  function toggleSelect(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll(visibleIds: string[]) {
+    setSelectedIds(prev => {
+      const allSelected = visibleIds.every(id => prev.has(id));
+      const next = new Set(prev);
+      if (allSelected) visibleIds.forEach(id => next.delete(id));
+      else visibleIds.forEach(id => next.add(id));
+      return next;
+    });
+  }
+
+  async function bulkReview(action: 'approve' | 'reject') {
+    if (!user) return;
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    setBulkBusy(true);
+
+    try {
+      // Update all selected approvals in one query.
+      const newStatus = action === 'approve' ? 'approved' : 'rejected';
+      const { error: approvalError } = await supabase
+        .from('content_approvals')
+        .update({
+          status: newStatus,
+          reviewed_by: user.id,
+          reviewed_at: new Date().toISOString(),
+          review_notes: reviewNotes || null,
+        })
+        .in('id', ids);
+      if (approvalError) throw approvalError;
+
+      // If approving, mark each referenced entity 'published'. Each row can be a different table,
+      // so allSettled — one failure shouldn't roll back the rest of the batch.
+      if (action === 'approve') {
+        const targets = approvals.filter(a => selectedIds.has(a.id));
+        await Promise.allSettled(
+          targets.map(a => {
+            const table =
+              a.entity_type === 'subject' ? 'subjects'
+              : a.entity_type === 'topic' ? 'topics'
+              : a.entity_type === 'question' ? 'questions'
+              : 'past_papers';
+            return supabase.from(table).update({ status: 'published' }).eq('id', a.entity_id);
+          })
+        );
+      }
+
+      toast({
+        title: 'Done',
+        description: `${ids.length} approval${ids.length === 1 ? '' : 's'} ${newStatus}.`,
+      });
+      setSelectedIds(new Set());
+      setReviewNotes('');
+      fetchApprovals();
+    } catch (error: any) {
+      console.error('Bulk review failed:', error);
+      toast({ variant: 'destructive', title: 'Failed', description: error.message ?? 'Bulk review failed' });
+    } finally {
+      setBulkBusy(false);
+    }
+  }
 
   useEffect(() => {
     fetchApprovals();
-  }, [filterStatus]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterStatus, filterType]);
 
   async function fetchApprovals() {
     try {
@@ -87,6 +162,9 @@ export default function ApprovalsPage() {
 
       if (filterStatus !== 'all') {
         query = query.eq('status', filterStatus);
+      }
+      if (filterType !== 'all') {
+        query = query.eq('entity_type', filterType);
       }
 
       const { data, error } = await query;
@@ -255,6 +333,18 @@ export default function ApprovalsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        aria-label="Select all visible approvals"
+                        checked={
+                          filteredApprovals.length > 0 &&
+                          filteredApprovals.every(a => selectedIds.has(a.id))
+                        }
+                        onCheckedChange={() =>
+                          toggleSelectAll(filteredApprovals.map(a => a.id))
+                        }
+                      />
+                    </TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Submitted By</TableHead>
                     <TableHead>Submitted At</TableHead>
@@ -265,7 +355,14 @@ export default function ApprovalsPage() {
                 </TableHeader>
                 <TableBody>
                   {filteredApprovals.map((approval) => (
-                    <TableRow key={approval.id}>
+                    <TableRow key={approval.id} data-selected={selectedIds.has(approval.id) || undefined}>
+                      <TableCell className="w-10">
+                        <Checkbox
+                          aria-label={`Select ${approval.entity_type} approval`}
+                          checked={selectedIds.has(approval.id)}
+                          onCheckedChange={() => toggleSelect(approval.id)}
+                        />
+                      </TableCell>
                       <TableCell>
                         <Badge variant="outline" className="capitalize">
                           {approval.entity_type}
@@ -459,6 +556,27 @@ export default function ApprovalsPage() {
           </span>
         </div>
       )}
+
+      <BulkActionsBar
+        selectedCount={selectedIds.size}
+        itemNoun="approvals"
+        onClear={() => setSelectedIds(new Set())}
+        actions={[
+          {
+            id: 'approve',
+            label: 'Approve',
+            disabled: bulkBusy,
+            onClick: () => bulkReview('approve'),
+          },
+          {
+            id: 'reject',
+            label: 'Reject',
+            variant: 'destructive',
+            disabled: bulkBusy,
+            onClick: () => bulkReview('reject'),
+          },
+        ]}
+      />
     </div>
   );
 }

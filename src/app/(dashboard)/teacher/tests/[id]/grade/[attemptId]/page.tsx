@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
 import { useToast } from '@/hooks/use-toast';
 import { gradingService } from '@/lib/grading/grading-service';
+import { NotificationService } from '@/lib/notifications/notification-service';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -299,6 +300,35 @@ export default function GradeAttemptPage() {
           graded_at: new Date().toISOString()
         })
         .eq('id', attemptId);
+
+      // Re-read final totals so notification carries an accurate score.
+      const { data: finalAttempt } = await supabase
+        .from('test_attempts')
+        .select('user_id, assignment_id, total_score, max_score, percentage')
+        .eq('id', attemptId)
+        .single();
+
+      if (finalAttempt?.user_id) {
+        try {
+          const notifications = new NotificationService();
+          await notifications.createNotification({
+            userId: finalAttempt.user_id,
+            type: 'assignment_graded',
+            title: 'Your work has been graded',
+            message:
+              finalAttempt.percentage != null
+                ? `You scored ${finalAttempt.total_score}/${finalAttempt.max_score} (${finalAttempt.percentage}%).`
+                : 'Your teacher has finished grading your attempt.',
+            actionUrl: `/student/assessments/${finalAttempt.assignment_id}/results/${attemptId}`,
+            actionText: 'View results',
+            priority: 'normal',
+            data: { attemptId, assignmentId: finalAttempt.assignment_id }
+          });
+        } catch (notifyErr) {
+          // Do not block the grading flow on notification failure.
+          console.error('Failed to send grading notification:', notifyErr);
+        }
+      }
 
       toast({
         title: 'Grading Complete',

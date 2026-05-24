@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -47,7 +47,7 @@ const bottomNavItems = [
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading, refresh } = useUser();
+  const { user, loading } = useUser();
   const router = useRouter();
   const pathname = usePathname();
   const supabase = createClient();
@@ -59,7 +59,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
     return false;
   });
-  const sessionCheckDone = useRef(false);
   const [resourcesOpen, setResourcesOpen] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('student-resources-open') !== 'false';
@@ -78,19 +77,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       localStorage.setItem('student-resources-open', String(resourcesOpen));
     }
   }, [resourcesOpen]);
-
-  // Safety net: if loading finishes but user is null, do one getUser() check
-  // This handles edge cases where the auth init timed out but a session exists
-  useEffect(() => {
-    if (!loading && !user && !sessionCheckDone.current) {
-      sessionCheckDone.current = true;
-      supabase.auth.getUser().then((result: { data: { user: any }; error: { message: string } | null }) => {
-        if (result.data.user && !result.error) {
-          refresh?.(result.data.user.id);
-        }
-      }).catch(() => {});
-    }
-  }, [loading, user, supabase, refresh]);
 
   // Role guard: redirect non-students away from student dashboard
   // MUST be before any early returns to satisfy Rules of Hooks

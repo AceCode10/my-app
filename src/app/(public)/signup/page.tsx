@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { createClient } from '@/lib/supabase/client';
 import { KodiLoadingGif } from '@/components/ui/kodi-loading-gif';
+import { primeUserFromSession } from '@/hooks/use-user';
 
 function SignupContent() {
     const router = useRouter();
@@ -106,25 +107,30 @@ function SignupContent() {
 
                 // If email confirmation is required, show message and redirect to login
                 if (needsEmailConfirmation) {
-                    toast({ 
-                        title: 'Check Your Email!', 
-                        description: 'We sent you a confirmation link. Please verify your email to log in.' 
+                    toast({
+                        title: 'Check Your Email!',
+                        description: 'We sent you a confirmation link. Please verify your email to log in.'
                     });
-                    router.push('/login');
+                    router.replace('/login');
                     return;
                 }
 
                 // If no email confirmation needed, redirect to dashboard
                 toast({ title: 'Account Created!', description: 'Welcome to IGA Prep!' });
-                
-                // Optimized: Direct role-based redirect
+
+                // Prime the global store so the destination layout renders
+                // instantly without waiting for the SIGNED_IN listener.
+                // `useUser`'s create-if-missing path will insert the profile row
+                // if the DB trigger hasn't run yet.
+                primeUserFromSession(authData.session);
+
                 const redirectMap = {
                     'super_admin': '/admin',
                     'teacher': '/teacher',
                     'student': '/student'
                 };
-                
-                router.push(redirectMap[role]);
+
+                router.replace(redirectMap[role]);
             }
 
         } catch (error: any) {

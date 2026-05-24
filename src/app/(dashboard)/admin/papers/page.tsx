@@ -33,8 +33,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { useExamBoards } from '@/hooks/use-exam-boards';
+import { BulkActionsBar } from '@/components/admin/bulk-actions-bar';
+import { Checkbox } from '@/components/ui/checkbox';
+import { logUpdate, logDelete } from '@/lib/audit';
 import { useRouter } from 'next/navigation';
-import { logDelete } from '@/lib/audit';
 import { formatDuration } from '@/lib/assessment-utils';
 
 interface PastPaper {
@@ -64,7 +67,6 @@ interface Subject {
   level: string | null;
 }
 
-const EXAM_BOARDS = ['CIE', 'Edexcel', 'AQA', 'OCR', 'IB', 'AP'];
 const LEVELS = [
   { id: 'igcse', name: 'IGCSE' },
   { id: 'gcse', name: 'GCSE' },
@@ -81,6 +83,7 @@ export default function PastPapersPage() {
   const supabase = createClient();
   const { toast } = useToast();
   const router = useRouter();
+  const { data: examBoards = [] } = useExamBoards();
   
   const [papers, setPapers] = useState<PastPaper[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -91,11 +94,80 @@ export default function PastPapersPage() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterLevel, setFilterLevel] = useState('all');
   const [filterSubject, setFilterSubject] = useState('all');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   useEffect(() => {
     fetchPapers();
     fetchSubjects();
   }, []);
+
+  function toggleSelect(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll(visibleIds: string[]) {
+    setSelectedIds(prev => {
+      const allSelected = visibleIds.every(id => prev.has(id));
+      const next = new Set(prev);
+      if (allSelected) {
+        visibleIds.forEach(id => next.delete(id));
+      } else {
+        visibleIds.forEach(id => next.add(id));
+      }
+      return next;
+    });
+  }
+
+  async function bulkSetStatus(newStatus: 'published' | 'draft') {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    setBulkBusy(true);
+    try {
+      const { error } = await supabase
+        .from('past_papers')
+        .update({ status: newStatus })
+        .in('id', ids);
+      if (error) throw error;
+      await logUpdate('past_paper', ids.join(','), `${ids.length} papers`, { status: newStatus });
+      toast({ title: 'Done', description: `Set ${ids.length} paper${ids.length === 1 ? '' : 's'} to ${newStatus}.` });
+      setSelectedIds(new Set());
+      await fetchPapers();
+    } catch (error: any) {
+      console.error('Bulk status update failed:', error);
+      toast({ variant: 'destructive', title: 'Failed', description: error.message ?? 'Bulk update failed' });
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  async function bulkDelete() {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    if (!confirm(`Permanently delete ${ids.length} paper${ids.length === 1 ? '' : 's'}? This also deletes their questions, attempts, and answers.`)) return;
+    setBulkBusy(true);
+    try {
+      const { error } = await supabase
+        .from('past_papers')
+        .delete()
+        .in('id', ids);
+      if (error) throw error;
+      await logDelete('past_paper', ids.join(','), `${ids.length} papers`);
+      toast({ title: 'Deleted', description: `${ids.length} paper${ids.length === 1 ? '' : 's'} removed.` });
+      setSelectedIds(new Set());
+      await fetchPapers();
+    } catch (error: any) {
+      console.error('Bulk delete failed:', error);
+      toast({ variant: 'destructive', title: 'Failed', description: error.message ?? 'Bulk delete failed' });
+    } finally {
+      setBulkBusy(false);
+    }
+  }
 
   async function fetchSubjects() {
     try {
@@ -295,9 +367,9 @@ export default function PastPapersPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Boards</SelectItem>
-                {EXAM_BOARDS.map(board => (
-                  <SelectItem key={board} value={board}>
-                    {board}
+                {examBoards.map(board => (
+                  <SelectItem key={board.id} value={board.code}>
+                    {board.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -401,6 +473,18 @@ export default function PastPapersPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        aria-label="Select all visible papers"
+                        checked={
+                          filteredPapers.length > 0 &&
+                          filteredPapers.every(p => selectedIds.has(p.id))
+                        }
+                        onCheckedChange={() =>
+                          toggleSelectAll(filteredPapers.map(p => p.id))
+                        }
+                      />
+                    </TableHead>
                     <TableHead>Title</TableHead>
                     <TableHead>Subject</TableHead>
                     <TableHead>Board</TableHead>
@@ -415,7 +499,14 @@ export default function PastPapersPage() {
                 </TableHeader>
                 <TableBody>
                   {filteredPapers.map((paper) => (
-                    <TableRow key={paper.id}>
+                    <TableRow key={paper.id} data-selected={selectedIds.has(paper.id) || undefined}>
+                      <TableCell className="w-10">
+                        <Checkbox
+                          aria-label={`Select ${paper.title}`}
+                          checked={selectedIds.has(paper.id)}
+                          onCheckedChange={() => toggleSelect(paper.id)}
+                        />
+                      </TableCell>
                       <TableCell className="font-medium">
                         {paper.title}
                       </TableCell>
@@ -510,6 +601,34 @@ export default function PastPapersPage() {
           )}
         </div>
       )}
+
+      <BulkActionsBar
+        selectedCount={selectedIds.size}
+        itemNoun="papers"
+        onClear={() => setSelectedIds(new Set())}
+        actions={[
+          {
+            id: 'publish',
+            label: 'Publish',
+            disabled: bulkBusy,
+            onClick: () => bulkSetStatus('published'),
+          },
+          {
+            id: 'unpublish',
+            label: 'Move to draft',
+            variant: 'outline',
+            disabled: bulkBusy,
+            onClick: () => bulkSetStatus('draft'),
+          },
+          {
+            id: 'delete',
+            label: 'Delete',
+            variant: 'destructive',
+            disabled: bulkBusy,
+            onClick: bulkDelete,
+          },
+        ]}
+      />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -17,56 +17,54 @@ import {
   Save
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { useUser } from '@/hooks/use-user';
+import {
+  DEFAULT_SETTINGS,
+  loadPlatformSettings,
+  savePlatformSettings,
+  type SettingsMap,
+} from '@/lib/settings';
 
 export default function SettingsPage() {
   const { toast } = useToast();
+  const { user } = useUser();
   const [saving, setSaving] = useState(false);
+  const [loadingSettings, setLoadingSettings] = useState(true);
 
-  const [settings, setSettings] = useState({
-    // General
-    siteName: 'IGA Prep',
-    siteDescription: 'The best revision materials for IGCSE, GCSE & A-Level students',
-    supportEmail: 'support@igaprep.com',
-    
-    // Features
-    enableSignups: true,
-    enableGoogleAuth: true,
-    enableNotifications: true,
-    enableEmailDigest: false,
-    
-    // Content
-    defaultContentStatus: 'draft',
-    requireApproval: true,
-    autoPublishAfterApproval: true,
-    
-    // Limits
-    guestNoteLimit: 5,
-    basicNoteLimit: 20,
-    guestFlashcardLimit: 10,
-    basicFlashcardLimit: 50,
-    
-    // Storage
-    maxFileSize: 50,
-    allowedFileTypes: '.pdf,.jpg,.png',
-    
-    // Security
-    sessionTimeout: 24,
-    passwordMinLength: 8,
-    requireEmailVerification: true,
-    enableRateLimiting: true
-  });
+  const [settings, setSettings] = useState<SettingsMap>({ ...DEFAULT_SETTINGS });
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const loaded = await loadPlatformSettings();
+      if (!cancelled) {
+        setSettings(loaded);
+        setLoadingSettings(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function handleSave() {
     setSaving(true);
-    
-    // Simulate save
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    toast({
-      title: 'Success',
-      description: 'Settings saved successfully'
-    });
-    
+
+    const result = await savePlatformSettings(settings, user?.id);
+
+    if (result.ok) {
+      toast({
+        title: 'Success',
+        description: 'Settings saved successfully'
+      });
+    } else {
+      toast({
+        variant: 'destructive',
+        title: 'Failed to save',
+        description: result.error || 'Please try again.'
+      });
+    }
+
     setSaving(false);
   }
 

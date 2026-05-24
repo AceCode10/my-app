@@ -41,24 +41,49 @@ export async function GET(request: Request) {
     const { data: { user } } = await supabase.auth.getUser();
     
     if (user) {
-      // Handle OAuth user profile creation
+      // Handle OAuth user profile creation/sync. Don't block redirect on
+      // upsert errors — `useUser` has a create-if-missing fallback.
       await handleOAuthUser(user);
-      
-      const { data: userRecord } = await supabase
-        .from('users')
-        .select('role, onboarding_completed')
-        .eq('id', user.id)
-        .single();
-      
-      // Redirect to onboarding if not completed
-      if (userRecord && !userRecord.onboarding_completed) {
+
+      const metaRole = typeof user.user_metadata?.role === 'string'
+        ? user.user_metadata.role
+        : undefined;
+      const metaOnboarded = user.user_metadata?.onboarding_completed === true;
+
+      // If we have both role and onboarding state in metadata, skip the DB query.
+      let role: string | undefined = metaRole;
+      let onboardingCompleted: boolean | undefined = metaOnboarded ? true : undefined;
+
+      if (!role || onboardingCompleted === undefined) {
+        // Race DB lookup against a 1.5s timeout. On timeout, fall back to
+        // metadata role (or default student) and let the dashboard role guard
+        // correct routing once the real profile loads client-side.
+        const lookup = supabase
+          .from('users')
+          .select('role, onboarding_completed')
+          .eq('id', user.id)
+          .single()
+          .then((r: { data: { role?: string; onboarding_completed?: boolean } | null }) => r.data);
+        const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500));
+        const userRecord = await Promise.race([lookup, timeout]).catch(() => null);
+
+        if (userRecord) {
+          role = role || userRecord.role;
+          if (onboardingCompleted === undefined) {
+            onboardingCompleted = userRecord.onboarding_completed;
+          }
+        }
+      }
+
+      // Redirect to onboarding only if we know it's incomplete. If unknown,
+      // proceed to dashboard — server-side onboarding gate handles it.
+      if (onboardingCompleted === false) {
         return NextResponse.redirect(new URL('/onboarding', origin));
       }
-      
-      // Redirect based on role
-      if (userRecord?.role === 'super_admin' || userRecord?.role === 'content_moderator') {
+
+      if (role === 'super_admin' || role === 'content_moderator') {
         return NextResponse.redirect(new URL('/admin', origin));
-      } else if (userRecord?.role === 'teacher') {
+      } else if (role === 'teacher') {
         return NextResponse.redirect(new URL('/teacher', origin));
       } else {
         return NextResponse.redirect(new URL('/student', origin));

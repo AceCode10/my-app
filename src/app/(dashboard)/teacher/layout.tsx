@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import {
@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { NotificationBell } from '@/components/notification-bell';
 import withRole from '@/hooks/withRole';
 import { useClasses } from '@/hooks/use-classes';
+import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { KodiLoadingGif } from '@/components/ui/kodi-loading-gif';
 import { IGALogoIcon } from '@/components/ui/iga-logo';
@@ -35,7 +36,7 @@ const navItems = [
 ];
 
 function TeacherDashboardLayout({ children }: { children: React.ReactNode }) {
-    const { user, loading, refresh } = useUser();
+    const { user, loading } = useUser();
     const router = useRouter();
     const pathname = usePathname();
     const supabase = createClient();
@@ -47,25 +48,26 @@ function TeacherDashboardLayout({ children }: { children: React.ReactNode }) {
         }
         return false;
     });
-    const sessionCheckDone = useRef(false);
     const { classes } = useClasses();
-    const [pendingReviews, setPendingReviews] = useState(0);
 
     const classIds = useMemo(() => classes?.map(c => c.id) || [], [classes]);
 
-    // Fetch pending reviews count for sidebar badge
-    useEffect(() => {
-        if (!user?.id || classIds.length === 0) return;
-        supabase
-            .from('assessment_attempts')
-            .select('*', { count: 'exact', head: true })
-            .in('class_id', classIds)
-            .eq('status', 'submitted')
-            .eq('review_status', 'pending')
-            .then(({ count }: { count: number | null }) => {
-                setPendingReviews(count || 0);
-            });
-    }, [user?.id, classIds, supabase]);
+    // Pending reviews count for sidebar badge — cached so layout re-mounts don't re-hit the DB.
+    const { data: pendingReviews = 0 } = useQuery<number>({
+        queryKey: ['teacher-pending-reviews', user?.id, classIds],
+        enabled: !!user?.id && classIds.length > 0,
+        staleTime: 60_000,
+        gcTime: 5 * 60_000,
+        queryFn: async () => {
+            const { count } = await supabase
+                .from('assessment_attempts')
+                .select('*', { count: 'exact', head: true })
+                .in('class_id', classIds)
+                .eq('status', 'submitted')
+                .eq('review_status', 'pending');
+            return count || 0;
+        },
+    });
 
     const badgeCounts: Record<string, number> = { pendingReviews };
 
@@ -75,19 +77,7 @@ function TeacherDashboardLayout({ children }: { children: React.ReactNode }) {
         }
     }, [sidebarCollapsed]);
 
-    // Safety net: if loading finishes but user is null, do one getUser() check
-    useEffect(() => {
-        if (!loading && !user && !sessionCheckDone.current) {
-            sessionCheckDone.current = true;
-            supabase.auth.getUser().then((result: { data: { user: any }; error: { message: string } | null }) => {
-                if (result.data.user && !result.error) {
-                    refresh?.(result.data.user.id);
-                }
-            }).catch(() => {});
-        }
-    }, [loading, user, supabase, refresh]);
-
-    const handleLogout = async () => {
+const handleLogout = async () => {
         await supabase.auth.signOut();
         router.push('/');
     };

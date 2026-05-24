@@ -92,6 +92,23 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Server-side role gate for /admin/*. Layout has a client check too — this catches
+  // the SSR window before the client effect runs, so unauthorized users never see admin HTML.
+  if (user && pathname.startsWith('/admin')) {
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    const role = (profile as { role?: string } | null)?.role;
+    if (role !== 'super_admin' && role !== 'content_moderator') {
+      const url = request.nextUrl.clone();
+      url.pathname = '/unauthorized';
+      return NextResponse.redirect(url);
+    }
+  }
+
   // Redirect authenticated users away from auth pages
   // Note: We redirect to "/" and let client-side handle role-based routing
   // because middleware can't easily fetch user role from database

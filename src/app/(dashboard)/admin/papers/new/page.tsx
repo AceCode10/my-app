@@ -19,17 +19,18 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Upload, Save, FileText, CheckCircle } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { logCreate } from '@/lib/audit';
+import { useExamBoards } from '@/hooks/use-exam-boards';
+import { paperSchema, validateForm, mapSupabaseError } from '@/lib/admin/schemas';
+import { Breadcrumbs } from '@/components/admin/breadcrumbs';
 
-const EXAM_BOARDS = ['CIE', 'Edexcel', 'AQA', 'OCR', 'IB', 'AP'];
-
-// Exam board specific series/sessions
+// Exam board specific series/sessions — keyed by exam_boards.code (CIE, IB, EDEX, OCR, AQA, AP).
 const EXAM_BOARD_SERIES: Record<string, { code: string; name: string }[]> = {
   'CIE': [
     { code: 'fm', name: 'February/March' },
     { code: 'mj', name: 'May/June' },
     { code: 'on', name: 'October/November' },
   ],
-  'Edexcel': [
+  'EDEX': [
     { code: 'jan', name: 'January' },
     { code: 'mj', name: 'May/June' },
     { code: 'on', name: 'October/November' },
@@ -115,6 +116,7 @@ export default function NewPastPaperPage() {
   const supabase = createClient();
   const { toast } = useToast();
   const router = useRouter();
+  const { data: examBoards = [] } = useExamBoards();
 
   const [loading, setLoading] = useState(false);
   const [subjects, setSubjects] = useState<any[]>([]);
@@ -483,8 +485,31 @@ export default function NewPastPaperPage() {
     }
   }
 
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    // Schema-level validation (title is generated below — we feed a placeholder so the schema doesn't reject it).
+    const validation = validateForm(paperSchema, {
+      title: 'placeholder',
+      year: formData.year,
+      paper_number: formData.paper_number,
+      session: formData.session,
+      exam_board: formData.exam_board,
+      level: formData.level,
+      subject_id: formData.subject_id,
+      status: formData.status,
+    });
+    setFieldErrors(validation.fieldErrors);
+    if (!validation.ok) {
+      toast({
+        variant: 'destructive',
+        title: 'Please fix the errors',
+        description: Object.values(validation.fieldErrors).flat()[0] ?? 'Form has invalid fields',
+      });
+      return;
+    }
 
     if (!uploadedUrls.questionPaper) {
       toast({
@@ -580,6 +605,13 @@ export default function NewPastPaperPage() {
 
   return (
     <div className="space-y-6 max-w-4xl">
+      <Breadcrumbs
+        items={[
+          { label: 'Admin', href: '/admin' },
+          { label: 'Past Papers', href: '/admin/papers' },
+          { label: 'Upload' },
+        ]}
+      />
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button
@@ -622,9 +654,9 @@ export default function NewPastPaperPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {EXAM_BOARDS.map(board => (
-                      <SelectItem key={board} value={board}>
-                        {board}
+                    {examBoards.map(board => (
+                      <SelectItem key={board.id} value={board.code}>
+                        {board.name}
                       </SelectItem>
                     ))}
                   </SelectContent>

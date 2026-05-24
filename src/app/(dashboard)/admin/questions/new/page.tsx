@@ -19,6 +19,10 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, X, Save } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { logCreate } from '@/lib/audit';
+import { useExamBoards } from '@/hooks/use-exam-boards';
+import { questionSchema, validateForm, mapSupabaseError } from '@/lib/admin/schemas';
+import { MarkdownPreview } from '@/components/admin/markdown-preview';
+import { Breadcrumbs } from '@/components/admin/breadcrumbs';
 
 interface MCQOption {
   label: string;
@@ -37,12 +41,11 @@ const QUESTION_TYPES = [
 
 const DIFFICULTY_LEVELS = ['easy', 'medium', 'hard', 'very_hard'];
 const STATUSES = ['draft', 'pending', 'published', 'archived'];
-const EXAM_BOARDS = ['IGCSE', 'Edexcel', 'Cambridge', 'IB', 'AQA', 'OCR'];
-
 export default function NewQuestionPage() {
   const supabase = createClient();
   const { toast } = useToast();
   const router = useRouter();
+  const { data: examBoards = [] } = useExamBoards();
 
   const [loading, setLoading] = useState(false);
   const [subjects, setSubjects] = useState<any[]>([]);
@@ -58,7 +61,7 @@ export default function NewQuestionPage() {
     subject_id: '',
     topic_id: '',
     subtopic_id: '',
-    exam_board: 'IGCSE',
+    exam_board: '',
     status: 'draft',
     correct_answer: '',
     answer_tolerance: 0
@@ -119,8 +122,26 @@ export default function NewQuestionPage() {
     setSubtopics(data || []);
   }
 
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    // Validate via shared zod schema. Field errors render inline below.
+    const validation = validateForm(questionSchema, {
+      ...formData,
+      options: formData.question_type === 'multiple_choice' ? mcqOptions : undefined,
+    });
+    setFieldErrors(validation.fieldErrors);
+    if (!validation.ok) {
+      toast({
+        variant: 'destructive',
+        title: 'Please fix the errors',
+        description: Object.values(validation.fieldErrors).flat()[0] ?? 'Form has invalid fields',
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -157,7 +178,11 @@ export default function NewQuestionPage() {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        // Surface DB error against the right field where possible.
+        setFieldErrors(mapSupabaseError(error));
+        throw error;
+      }
 
       // Log the creation in audit logs
       if (newQuestion) {
@@ -219,6 +244,13 @@ export default function NewQuestionPage() {
 
   return (
     <div className="space-y-6 max-w-4xl">
+      <Breadcrumbs
+        items={[
+          { label: 'Admin', href: '/admin' },
+          { label: 'Question Bank', href: '/admin/questions' },
+          { label: 'New' },
+        ]}
+      />
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button
@@ -247,17 +279,26 @@ export default function NewQuestionPage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="stem">Question Text *</Label>
-              <Textarea
-                id="stem"
-                value={formData.stem_markdown}
-                onChange={(e) => setFormData({ ...formData, stem_markdown: e.target.value })}
-                placeholder="Enter the question text (supports Markdown)"
-                rows={6}
-                required
-              />
+              <div className="grid gap-3 md:grid-cols-2">
+                <Textarea
+                  id="stem"
+                  value={formData.stem_markdown}
+                  onChange={(e) => setFormData({ ...formData, stem_markdown: e.target.value })}
+                  placeholder="Enter the question text (supports Markdown + LaTeX, e.g. $x^2$)"
+                  rows={10}
+                  required
+                />
+                <MarkdownPreview
+                  content={formData.stem_markdown}
+                  emptyText="Live preview will render here as you type."
+                />
+              </div>
               <p className="text-xs text-muted-foreground">
-                Supports Markdown formatting. Use **bold**, *italic*, etc.
+                Supports Markdown (**bold**, *italic*, lists, tables) and LaTeX math via $...$ / $$...$$.
               </p>
+              {fieldErrors.stem_markdown && (
+                <p className="text-sm text-destructive">{fieldErrors.stem_markdown[0]}</p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -473,9 +514,9 @@ export default function NewQuestionPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {EXAM_BOARDS.map(board => (
-                    <SelectItem key={board} value={board}>
-                      {board}
+                  {examBoards.map(board => (
+                    <SelectItem key={board.id} value={board.code}>
+                      {board.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

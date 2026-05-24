@@ -33,12 +33,12 @@ export default function TopicQuizPage({
   return (
     <div>
       <div className="flex items-center text-sm text-muted-foreground mb-4">
-        <Link href={from === 'public' ? "/resources/quizzes" : "/dashboard/subjects"} className="hover:text-primary">
+        <Link href={from === 'public' ? "/resources/quizzes" : "/student/subjects"} className="hover:text-primary">
           {from === 'public' ? 'Quizzes' : 'Subjects'}
         </Link>
         <ChevronRight className="h-4 w-4 mx-1" />
         <Link
-          href={from === 'public' ? `/subjects/${subject}` : `/dashboard/subjects/${subject}`}
+          href={from === 'public' ? `/subjects/${subject}` : `/student/subjects/${subject}`}
           className="hover:text-primary"
         >
           {subjectData.name}

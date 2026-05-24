@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -58,6 +58,7 @@ export function QuizClient({ topic, classId }: QuizClientProps) {
   // AI feedback disabled - manual feedback only
   const [feedbackMessage, setFeedbackMessage] = useState<string>('');
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+  const [feedbackData, setFeedbackData] = useState<{ modelAnswer: string; feedback: string } | null>(null);
   const [totalXPEarned, setTotalXPEarned] = useState(0);
 
   const supabase = createClient();
@@ -68,7 +69,8 @@ export function QuizClient({ topic, classId }: QuizClientProps) {
   const isPublicFlow = searchParams.get('from') === 'public';
   const { processTopicalQuestion, lastBreakdown, clearLastBreakdown } = useActivityRewards();
   const [showRewardBreakdown, setShowRewardBreakdown] = useState(false);
-  const [startTime] = useState(() => Date.now());
+  // Only set once the quiz actually becomes active so idle time doesn't inflate timeSpent.
+  const startTimeRef = useRef<number | null>(null);
 
   const startQuiz = async () => {
     setQuizState('loading');
@@ -130,11 +132,13 @@ export function QuizClient({ topic, classId }: QuizClientProps) {
 
         setQuestions(aiResult.questions);
         setQuiz(aiQuiz);
+        startTimeRef.current = Date.now();
         setQuizState('active');
         setIsLoadingAi(false);
       } else {
         setQuiz(quizData);
         setQuestions(fetchedQuestions);
+        startTimeRef.current = Date.now();
         setQuizState('active');
       }
     } catch (error: any) {
@@ -165,7 +169,8 @@ export function QuizClient({ topic, classId }: QuizClientProps) {
 
     // Award XP for answering question (if logged in - regardless of public/private route)
     if (user?.id) {
-      const timeSpent = Math.round((Date.now() - startTime) / 60000); // minutes
+      const startedAt = startTimeRef.current ?? Date.now();
+      const timeSpent = Math.round((Date.now() - startedAt) / 60000); // minutes
       try {
         console.log('[QuizClient] Processing XP for question:', currentQuestion.id, 'isCorrect:', isCorrect);
         const breakdown = await processTopicalQuestion({
@@ -250,24 +255,14 @@ export function QuizClient({ topic, classId }: QuizClientProps) {
     setIsFeedbackLoading(true);
     setFeedbackData(null);
 
-    try {
-        const feedback = await generateModelAnswer({
-            topic: quiz?.topic || 'general',
-            question: record.question.stem,
-            correctAnswer: record.question.correctAnswer as string,
-            studentAnswer: record.selectedAnswer
-        });
-        setFeedbackData(feedback);
-    } catch (error) {
-        console.error("Error getting AI feedback:", error);
-        setFeedbackData({
-            modelAnswer: "Error",
-            feedback: "Sorry, I couldn't generate feedback at this moment. Please try again."
-        });
-    } finally {
-        setIsFeedbackLoading(false);
-    }
-  }
+    // AI feedback feature is currently disabled. Show correct answer + static guidance.
+    setFeedbackData({
+      modelAnswer: String(record.question.correctAnswer ?? ''),
+      feedback:
+        "Review the correct answer above and revisit the topic notes. AI-generated feedback is temporarily unavailable.",
+    });
+    setIsFeedbackLoading(false);
+  };
 
   const resetQuiz = () => {
     setQuizState('idle');
@@ -278,6 +273,7 @@ export function QuizClient({ topic, classId }: QuizClientProps) {
     setAnswerState('unanswered');
     setScore(0);
     setAnswerLog([]);
+    startTimeRef.current = null;
   }
 
   if (quizState === 'idle') {

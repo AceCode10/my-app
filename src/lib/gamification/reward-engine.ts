@@ -170,6 +170,30 @@ export class RewardEngine {
       this.calculateXP(data, breakdown);
       console.log('[RewardEngine] Calculated XP:', breakdown.totalXP, 'Base:', breakdown.baseXP, 'Bonuses:', breakdown.bonuses);
 
+      // 1b. Block repeat XP on topical questions: first successful attempt counts, subsequent attempts award 0.
+      // Reason: prevents grinding the same question for infinite XP.
+      if (
+        data.activityType === 'topical_question' &&
+        data.referenceId &&
+        this.isValidUUID(data.referenceId)
+      ) {
+        const { data: prior } = await this.supabase
+          .from('xp_transactions')
+          .select('id')
+          .eq('user_id', data.userId)
+          .eq('source', 'topical_question')
+          .eq('source_id', data.referenceId)
+          .limit(1);
+
+        if (prior && prior.length > 0) {
+          console.log('[RewardEngine] Topical question already rewarded; skipping XP.');
+          breakdown.baseXP = 0;
+          breakdown.bonuses = [];
+          breakdown.totalXP = 0;
+          return breakdown;
+        }
+      }
+
       // 2. Award XP to database
       await this.awardXP(data.userId, breakdown.totalXP, data.activityType, data.referenceId);
 

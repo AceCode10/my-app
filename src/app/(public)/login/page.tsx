@@ -3,12 +3,13 @@
 import { useState, useEffect, Suspense, useRef, useCallback } from 'react';
 import { Mail, KeyRound, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
-import { useUser, invalidateUserCache } from '@/hooks/use-user';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useUser, invalidateUserCache, primeUserFromSession } from '@/hooks/use-user';
 import { createClient } from '@/lib/supabase/client';
 import { KodiLoadingGif } from '@/components/ui/kodi-loading-gif';
 
 function LoginContent() {
+    const router = useRouter();
     const searchParams = useSearchParams();
     const { user, loading } = useUser();
     const supabase = createClient();
@@ -36,20 +37,20 @@ function LoginContent() {
         // Check for redirectTo param (set by middleware when unauthenticated user hits protected route)
         const redirectTo = searchParams.get('redirectTo');
         if (redirectTo && redirectTo.startsWith('/')) {
-            window.location.href = redirectTo;
+            router.replace(redirectTo);
             return;
         }
 
+        let target = '/student';
         if (role === 'super_admin' || role === 'content_moderator') {
-            window.location.href = '/admin';
+            target = '/admin';
         } else if (role === 'teacher') {
-            window.location.href = '/teacher';
+            target = '/teacher';
         } else if (role === 'student') {
-            window.location.href = '/student';
-        } else {
-            window.location.href = '/';
+            target = '/student';
         }
-    }, [searchParams]);
+        router.replace(target);
+    }, [router, searchParams]);
 
     useEffect(() => {
         setIsTeacher(searchParams.get('plan') === 'teacher');
@@ -61,9 +62,10 @@ function LoginContent() {
             supabase.auth.getSession().then(({ data: { session } }: { data: { session: any } }) => {
                 if (session?.user) {
                     // User IS signed in — the server callback failed because the code
-                    // was already consumed client-side. Just redirect to dashboard.
+                    // was already consumed client-side. Prime store and redirect.
                     console.log('[Login] auth_failed but session exists — redirecting');
                     setErrorMessage(null);
+                    primeUserFromSession(session);
                     redirectToRole(session.user.user_metadata?.role || 'student');
                 } else {
                     setErrorMessage('Authentication failed. Please try again.');
@@ -102,10 +104,10 @@ function LoginContent() {
         
         // Set a timeout to reset submitting state if login takes too long
         loginTimeoutRef.current = setTimeout(() => {
-            console.warn(`[Login] 15s timeout fired (${Date.now() - loginStart}ms elapsed)`);
+            console.warn(`[Login] 8s timeout fired (${Date.now() - loginStart}ms elapsed)`);
             setIsSubmitting(false);
             setErrorMessage('Login is taking longer than expected. Please wait a moment and try again.');
-        }, 15000); // 15 second timeout
+        }, 8000); // 8 second timeout
         
         try {
             // Clear any existing cache before login
@@ -141,43 +143,20 @@ function LoginContent() {
             
             if (data.user) {
                 console.log(`[Login] User authenticated: ${data.user.id.substring(0, 8)}...`);
+
+                // Prime the global auth store so the destination layout renders
+                // instantly without waiting for SIGNED_IN → fetchUserProfile.
+                primeUserFromSession(data.session);
+
                 const metadataRole = typeof data.user.user_metadata?.role === 'string'
                     ? data.user.user_metadata.role
                     : undefined;
-                console.log(`[Login] Metadata role: ${metadataRole || 'not set'}`);
+                console.log(`[Login] Metadata role: ${metadataRole || 'not set, defaulting to student'}`);
 
-                if (metadataRole) {
-                    console.log(`[Login] Redirecting via metadata role: ${metadataRole}`);
-                    redirectToRole(metadataRole);
-                    return;
-                }
-
-                // Query DB for role with a 5s fallback timeout.
-                // If the query hangs, redirect to default role instead of staying stuck.
-                console.log('[Login] Querying DB for role...');
-                const roleQueryStart = Date.now();
-                const fallbackTimeout = setTimeout(() => {
-                    console.warn(`[Login] Role query timeout after ${Date.now() - roleQueryStart}ms - redirecting with default role`);
-                    redirectToRole('student');
-                }, 5000);
-
-                try {
-                    const { data: profile } = await supabase
-                        .from('users')
-                        .select('role')
-                        .eq('id', data.user.id)
-                        .maybeSingle();
-
-                    clearTimeout(fallbackTimeout);
-                    console.log(`[Login] Role query completed in ${Date.now() - roleQueryStart}ms, role: ${profile?.role || 'none'}`);
-                    redirectToRole(profile?.role || 'student');
-                    return;
-                } catch (roleErr) {
-                    clearTimeout(fallbackTimeout);
-                    console.error(`[Login] Role query threw after ${Date.now() - roleQueryStart}ms:`, roleErr);
-                    redirectToRole('student');
-                    return;
-                }
+                // Redirect immediately. If metadata role is missing the dashboard
+                // role guard will re-route once the real profile loads.
+                redirectToRole(metadataRole || 'student');
+                return;
             }
 
             // If no auth user returned, let useUser handle state and unlock UI

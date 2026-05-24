@@ -6,12 +6,13 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useUser } from './use-user';
-import { 
-  dailyGoalsService, 
-  DailyGoal, 
-  DailyQuest, 
-  GoalPreset, 
-  UserGoalPreferences 
+import { createClient } from '@/lib/supabase/client';
+import {
+  dailyGoalsService,
+  DailyGoal,
+  DailyQuest,
+  GoalPreset,
+  UserGoalPreferences
 } from '@/lib/gamification/daily-goals-service';
 import { useGamificationStore } from '@/lib/gamification/stores/gamification-store';
 import { soundManager } from '@/lib/gamification/sound-manager';
@@ -102,6 +103,32 @@ export function useDailyGoals(): UseDailyGoalsReturn {
     };
 
     loadData();
+  }, [user?.id]);
+
+  // Realtime: re-pull goals whenever the user's daily_goals rows change so progress doesn't lag XP awards.
+  useEffect(() => {
+    if (!user?.id) return;
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`daily-goals:${user.id}`)
+      .on(
+        'postgres_changes' as any,
+        {
+          event: '*',
+          schema: 'public',
+          table: 'daily_goals',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          // Refresh from server — cheap and keeps state authoritative.
+          dailyGoalsService.getTodayGoals(user.id).then(setGoals).catch(() => {});
+          dailyGoalsService.getGoalStats(user.id).then(setStats).catch(() => {});
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user?.id]);
 
   // Get primary goal based on preferences

@@ -19,6 +19,11 @@ import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Plus, X, Save, Loader2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { logUpdate, logPublish } from '@/lib/audit';
+import { useExamBoards } from '@/hooks/use-exam-boards';
+import { questionSchema, validateForm, mapSupabaseError } from '@/lib/admin/schemas';
+import { MarkdownPreview } from '@/components/admin/markdown-preview';
+import { Breadcrumbs } from '@/components/admin/breadcrumbs';
+import { LastModifiedFooter } from '@/components/admin/last-modified-footer';
 
 interface MCQOption {
   label: string;
@@ -37,13 +42,12 @@ const QUESTION_TYPES = [
 
 const DIFFICULTY_LEVELS = ['easy', 'medium', 'hard', 'very_hard'];
 const STATUSES = ['draft', 'pending', 'published', 'archived'];
-const EXAM_BOARDS = ['IGCSE', 'Edexcel', 'Cambridge', 'IB', 'AQA', 'OCR'];
-
 export default function EditQuestionPage() {
   const supabase = createClient();
   const { toast } = useToast();
   const router = useRouter();
   const params = useParams();
+  const { data: examBoards = [] } = useExamBoards();
   const questionId = params.id as string;
 
   const [loading, setLoading] = useState(true);
@@ -171,8 +175,25 @@ export default function EditQuestionPage() {
     setSubtopics(data || []);
   }
 
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    const validation = validateForm(questionSchema, {
+      ...formData,
+      options: formData.question_type === 'multiple_choice' ? mcqOptions : undefined,
+    });
+    setFieldErrors(validation.fieldErrors);
+    if (!validation.ok) {
+      toast({
+        variant: 'destructive',
+        title: 'Please fix the errors',
+        description: Object.values(validation.fieldErrors).flat()[0] ?? 'Form has invalid fields',
+      });
+      return;
+    }
+
     setSaving(true);
 
     try {
@@ -208,7 +229,10 @@ export default function EditQuestionPage() {
         .update(questionData)
         .eq('id', questionId);
 
-      if (error) throw error;
+      if (error) {
+        setFieldErrors(mapSupabaseError(error));
+        throw error;
+      }
 
       // Log the update in audit logs
       const changes: any = {};
@@ -292,6 +316,13 @@ export default function EditQuestionPage() {
 
   return (
     <div className="space-y-6 max-w-4xl">
+      <Breadcrumbs
+        items={[
+          { label: 'Admin', href: '/admin' },
+          { label: 'Question Bank', href: '/admin/questions' },
+          { label: 'Edit' },
+        ]}
+      />
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="sm" onClick={() => router.back()}>
           <ArrowLeft className="h-4 w-4 mr-2" />
@@ -314,14 +345,23 @@ export default function EditQuestionPage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="stem">Question Text *</Label>
-              <Textarea
-                id="stem"
-                value={formData.stem_markdown}
-                onChange={(e) => setFormData({ ...formData, stem_markdown: e.target.value })}
-                placeholder="Enter the question text (supports Markdown)"
-                rows={6}
-                required
-              />
+              <div className="grid gap-3 md:grid-cols-2">
+                <Textarea
+                  id="stem"
+                  value={formData.stem_markdown}
+                  onChange={(e) => setFormData({ ...formData, stem_markdown: e.target.value })}
+                  placeholder="Enter the question text (supports Markdown + LaTeX, e.g. $x^2$)"
+                  rows={10}
+                  required
+                />
+                <MarkdownPreview
+                  content={formData.stem_markdown}
+                  emptyText="Live preview will render here as you type."
+                />
+              </div>
+              {fieldErrors.stem_markdown && (
+                <p className="text-sm text-destructive">{fieldErrors.stem_markdown[0]}</p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -501,9 +541,9 @@ export default function EditQuestionPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {EXAM_BOARDS.map(board => (
-                    <SelectItem key={board} value={board}>
-                      {board}
+                  {examBoards.map(board => (
+                    <SelectItem key={board.id} value={board.code}>
+                      {board.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -616,6 +656,8 @@ export default function EditQuestionPage() {
           </Button>
         </div>
       </form>
+
+      <LastModifiedFooter resourceType="question" resourceId={questionId} />
     </div>
   );
 }

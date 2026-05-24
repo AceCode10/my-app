@@ -138,11 +138,13 @@ export default function TeacherTestsPage() {
     
     setDeleting(true);
     try {
-      // Delete from assessments table
+      // Delete from assessments table — enforce ownership client-side as well as RLS
+      if (!user?.id) throw new Error('Not authenticated');
       const { error } = await supabase
         .from('assessments')
         .delete()
-        .eq('id', testToDelete.id);
+        .eq('id', testToDelete.id)
+        .eq('created_by', user.id);
 
       if (error) throw error;
 

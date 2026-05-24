@@ -36,12 +36,12 @@ export default function TopicQuizPage({
   return (
     <div>
       <div className="flex items-center text-sm text-muted-foreground mb-4">
-        <Link href={"/dashboard/subjects"} className="hover:text-primary">
+        <Link href={"/student/subjects"} className="hover:text-primary">
           Subjects
         </Link>
         <ChevronRight className="h-4 w-4 mx-1" />
         <Link
-          href={`/dashboard/subjects/${subjectSlug}`}
+          href={`/student/subjects/${subjectSlug}`}
           className="hover:text-primary"
         >
           {subjectData.name}
@@ -55,7 +55,7 @@ export default function TopicQuizPage({
             <nav className="flex flex-col space-y-1">
                 {subjectData.topics?.map(t => {
                     const currentTopicSlug = t.name.toLowerCase().replace(/ /g, '-');
-                    const href = `/dashboard/subjects/${subjectSlug}/${currentTopicSlug}/quiz`;
+                    const href = `/student/subjects/${subjectSlug}/${currentTopicSlug}/quiz`;
                     const isActive = pathname === href;
                     return (
                         <Link href={href} key={t.name}>

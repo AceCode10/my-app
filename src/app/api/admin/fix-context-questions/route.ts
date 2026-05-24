@@ -3,64 +3,52 @@ import { createClient } from '@/lib/supabase/server';
 
 /**
  * API endpoint to fix context-only questions in the database
- * 
+ *
  * Context-only questions are parent questions that:
  * 1. Have children (parts like a, b, c)
  * 2. Don't have their own marks (or incorrectly have marks assigned)
  * 3. Just provide context for the child questions
- * 
+ *
  * This endpoint will:
  * 1. Find all parent questions that have children
  * 2. Set their marks to 0 if they only contain context
  * 3. Set needs_answer to false for context-only questions
  */
+
+/**
+ * Standard admin auth gate — same pattern as /api/admin/delete-user.
+ * Returns the supabase server client + caller role on success, or a NextResponse to return early.
+ */
+async function requireAdmin() {
+  const supabase = await createClient();
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return { error: NextResponse.json({ error: 'Not authenticated' }, { status: 401 }) };
+  }
+
+  const { data: userData, error: roleError } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  if (roleError || !userData) {
+    return { error: NextResponse.json({ error: 'User profile not found' }, { status: 404 }) };
+  }
+
+  if (!['super_admin', 'content_moderator'].includes(userData.role)) {
+    return { error: NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 }) };
+  }
+
+  return { supabase, user, role: userData.role as 'super_admin' | 'content_moderator' };
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    
-    // Verify admin access - use the same method as GET
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      console.log('No user found in auth check');
-      return NextResponse.json({ error: 'Unauthorized - No user' }, { status: 401 });
-    }
-    
-    // Check if user is admin - check multiple possible ways
-    let isAdmin = false;
-    
-    // Check email for super admin first
-    if (user.email === 'denny@igcse.com') {
-      isAdmin = true;
-    }
-    
-    // Try profiles table if not admin by email
-    if (!isAdmin) {
-      try {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single();
-        
-        if (profile?.role === 'admin') {
-          isAdmin = true;
-        }
-      } catch (err) {
-        console.log('Profile check failed:', err);
-      }
-    }
-    
-    // Also check user metadata
-    if (!isAdmin && user.user_metadata?.role === 'admin') {
-      isAdmin = true;
-    }
-    
-    console.log('User:', user.email, 'IsAdmin:', isAdmin);
-    
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
-    }
+    const auth = await requireAdmin();
+    if ('error' in auth) return auth.error;
+    const { supabase } = auth;
 
     const results = {
       paper_questions_fixed: 0,
@@ -198,45 +186,9 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    
-    // Verify admin access - same as POST
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
-    // Check if user is admin
-    let isAdmin = false;
-    
-    if (user.email === 'denny@igcse.com') {
-      isAdmin = true;
-    }
-    
-    if (!isAdmin) {
-      try {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single();
-        
-        if (profile?.role === 'admin') {
-          isAdmin = true;
-        }
-      } catch (err) {
-        // Profile check failed
-      }
-    }
-    
-    if (!isAdmin && user.user_metadata?.role === 'admin') {
-      isAdmin = true;
-    }
-    
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
-    }
+    const auth = await requireAdmin();
+    if ('error' in auth) return auth.error;
+    const { supabase } = auth;
     
     // Get stats about potential context questions - check both tables
     const { data: paperParents } = await supabase

@@ -56,22 +56,25 @@ export function createClient() {
         fetch: async (url, options = {}) => {
           const maxRetries = 1;
           let lastError: Error | null = null;
-          // Diagnostic: extract short URL path for logging
-          const urlStr = typeof url === 'string' ? url : (url as Request).url || String(url);
-          const shortUrl = urlStr.replace(/https?:\/\/[^/]+/, '').split('?')[0];
+          const isDev = process.env.NODE_ENV !== 'production';
+          // Diagnostic: extract short URL path for logging (dev only)
+          const urlStr = isDev ? (typeof url === 'string' ? url : (url as Request).url || String(url)) : '';
+          const shortUrl = isDev ? urlStr.replace(/https?:\/\/[^/]+/, '').split('?')[0] : '';
           const method = (options as RequestInit).method || 'GET';
-          
+
           for (let attempt = 0; attempt <= maxRetries; attempt++) {
-            const start = Date.now();
+            const start = isDev ? Date.now() : 0;
             try {
-              if (attempt > 0) console.log(`[Fetch] RETRY #${attempt} ${method} ${shortUrl}`);
-              else console.log(`[Fetch] ${method} ${shortUrl}`);
+              if (isDev) {
+                if (attempt > 0) console.log(`[Fetch] RETRY #${attempt} ${method} ${shortUrl}`);
+                else console.log(`[Fetch] ${method} ${shortUrl}`);
+              }
               const response = await fetch(url, options);
-              console.log(`[Fetch] ${method} ${shortUrl} → ${response.status} (${Date.now() - start}ms)`);
+              if (isDev) console.log(`[Fetch] ${method} ${shortUrl} → ${response.status} (${Date.now() - start}ms)`);
               return response;
             } catch (err) {
               lastError = err as Error;
-              console.error(`[Fetch] ${method} ${shortUrl} FAILED (${Date.now() - start}ms): ${(err as Error).name} ${(err as Error).message}`);
+              if (isDev) console.error(`[Fetch] ${method} ${shortUrl} FAILED (${Date.now() - start}ms): ${(err as Error).name} ${(err as Error).message}`);
               // Don't retry intentional aborts
               if (err instanceof Error && err.name === 'AbortError') {
                 throw err;

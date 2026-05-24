@@ -38,22 +38,28 @@ export default function AdminDashboardPage() {
 
   async function fetchDashboardStats() {
     try {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
       const [
         subjectsResult,
         topicsResult,
         questionsResult,
         papersResult,
         usersResult,
-        approvalsResult
+        approvalsResult,
+        recentActivityResult
       ] = await Promise.all([
         supabase.from('subjects').select('id', { count: 'exact', head: true }),
         supabase.from('topics').select('id', { count: 'exact', head: true }),
         supabase.from('questions').select('id', { count: 'exact', head: true }),
         supabase.from('past_papers').select('id', { count: 'exact', head: true }),
-        user?.role === 'super_admin' 
+        user?.role === 'super_admin'
           ? supabase.from('users').select('id', { count: 'exact', head: true })
           : Promise.resolve({ count: 0 }),
-        supabase.from('content_approvals').select('id', { count: 'exact', head: true }).eq('status', 'pending')
+        supabase.from('content_approvals').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+        supabase
+          .from('audit_logs')
+          .select('id', { count: 'exact', head: true })
+          .gte('created_at', sevenDaysAgo)
       ]);
 
       setStats({
@@ -63,7 +69,7 @@ export default function AdminDashboardPage() {
         papers: papersResult.count || 0,
         users: usersResult.count || 0,
         pendingApprovals: approvalsResult.count || 0,
-        recentActivity: 0 // TODO: Implement recent activity count
+        recentActivity: recentActivityResult.count || 0
       });
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);

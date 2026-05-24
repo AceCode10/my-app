@@ -359,10 +359,10 @@ export class GradingService {
     gradedBy?: string
   ): Promise<boolean> {
     try {
-      // Fetch current grading details
+      // Fetch current grading details + test_id so we can look up the real max_marks
       const { data: attempt, error } = await this.supabase
         .from('test_attempts')
-        .select('grading_details, max_score')
+        .select('grading_details, max_score, test_id')
         .eq('id', attemptId)
         .single();
 
@@ -371,14 +371,31 @@ export class GradingService {
         return false;
       }
 
+      // Resolve the canonical max_marks for this question on this test.
+      const { data: testQuestion } = await this.supabase
+        .from('test_questions')
+        .select('custom_marks, question:questions(marks)')
+        .eq('test_id', attempt.test_id)
+        .eq('question_id', questionId)
+        .maybeSingle();
+
+      const resolvedMaxMarks: number =
+        (testQuestion as any)?.custom_marks ??
+        (testQuestion as any)?.question?.marks ??
+        1;
+
+      // Clamp to [0, max] — teacher cannot exceed the question's mark allocation.
+      const safeMarks = Math.max(0, Math.min(marksAwarded, resolvedMaxMarks));
+
       const gradingDetails: GradingDetails[] = attempt.grading_details || [];
       const detailIndex = gradingDetails.findIndex(d => d.question_id === questionId);
 
       if (detailIndex >= 0) {
         gradingDetails[detailIndex] = {
           ...gradingDetails[detailIndex],
-          marks_awarded: marksAwarded,
-          is_correct: marksAwarded > 0,
+          marks_awarded: safeMarks,
+          max_marks: resolvedMaxMarks,
+          is_correct: safeMarks >= resolvedMaxMarks,
           auto_graded: false,
           needs_manual_grading: false,
           feedback,
@@ -388,9 +405,9 @@ export class GradingService {
       } else {
         gradingDetails.push({
           question_id: questionId,
-          marks_awarded: marksAwarded,
-          max_marks: marksAwarded,
-          is_correct: marksAwarded > 0,
+          marks_awarded: safeMarks,
+          max_marks: resolvedMaxMarks,
+          is_correct: safeMarks >= resolvedMaxMarks,
           auto_graded: false,
           needs_manual_grading: false,
           confidence: 1.0,

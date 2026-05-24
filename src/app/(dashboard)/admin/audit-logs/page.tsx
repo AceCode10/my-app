@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -54,18 +55,25 @@ const TABLES = ['subjects', 'topics', 'questions', 'past_papers', 'users', 'cont
 export default function AuditLogsPage() {
   const supabase = createClient();
   const { toast } = useToast();
+  const searchParams = useSearchParams();
+
+  // Optional deep-link from detail pages: /admin/audit-logs?resource_type=X&resource_id=Y
+  const initialResourceType = searchParams.get('resource_type') ?? 'all';
+  const initialResourceId = searchParams.get('resource_id') ?? '';
 
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterAction, setFilterAction] = useState('all');
-  const [filterTable, setFilterTable] = useState('all');
+  const [filterTable, setFilterTable] = useState(initialResourceType);
+  const [filterResourceId, setFilterResourceId] = useState(initialResourceId);
   const [page, setPage] = useState(1);
   const pageSize = 50;
 
   useEffect(() => {
     fetchLogs();
-  }, [page]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, searchQuery, filterAction, filterTable, filterResourceId]);
 
   async function fetchLogs() {
     try {
@@ -80,6 +88,21 @@ export default function AuditLogsPage() {
         `)
         .order('created_at', { ascending: false })
         .range((page - 1) * pageSize, page * pageSize - 1);
+
+      // Server-side filters so search works across the whole table, not just the loaded page.
+      if (filterAction !== 'all') {
+        query = query.eq('action', filterAction);
+      }
+      if (filterTable !== 'all') {
+        query = query.eq('resource_type', filterTable);
+      }
+      if (filterResourceId.trim()) {
+        query = query.eq('resource_id', filterResourceId.trim());
+      }
+      if (searchQuery.trim()) {
+        const term = `%${searchQuery.trim().replace(/[%_]/g, '\\$&')}%`;
+        query = query.ilike('description', term);
+      }
 
       const { data, error } = await query;
 

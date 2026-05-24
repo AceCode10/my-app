@@ -60,6 +60,7 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import Link from 'next/link';
 import type { Note } from '@/types/notes';
+import type { NoteWithRelations } from '@/types/admin';
 
 interface Subject {
   id: string;
@@ -84,7 +85,7 @@ export default function AdminNotesPage() {
   const supabase = createClient();
   const { toast } = useToast();
 
-  const [notes, setNotes] = useState<Note[]>([]);
+  const [notes, setNotes] = useState<NoteWithRelations[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [examBoards, setExamBoards] = useState<ExamBoard[]>([]);
@@ -430,9 +431,9 @@ export default function AdminNotesPage() {
                     </TableCell>
                     <TableCell>
                       <div className="text-sm">
-                        <span className="font-medium">{(note.subject as any)?.name || '-'}</span>
-                        {(note.topic as any)?.name && (
-                          <span className="text-muted-foreground"> / {(note.topic as any).name}</span>
+                        <span className="font-medium">{note.subject?.name || '-'}</span>
+                        {note.topic?.name && (
+                          <span className="text-muted-foreground"> / {note.topic?.name}</span>
                         )}
                       </div>
                     </TableCell>

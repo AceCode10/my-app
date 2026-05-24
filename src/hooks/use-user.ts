@@ -54,8 +54,9 @@ function getSnapshot(): AuthStore {
   return store;
 }
 
+const SERVER_SNAPSHOT: AuthStore = { user: null, loading: true };
 function getServerSnapshot(): AuthStore {
-  return { user: null, loading: true };
+  return SERVER_SNAPSHOT;
 }
 
 function subscribe(callback: () => void): () => void {
@@ -80,8 +81,33 @@ let lastSignedInEventTime = 0; // Deduplicate rapid SIGNED_IN events
 
 const CACHE_DURATION = 2 * 60 * 1000;
 const FETCH_TIMEOUT = 10000;
-const INIT_TIMEOUT = 8000;
-const AUTH_CALL_TIMEOUT = 4000;
+const INIT_TIMEOUT = 4000;
+const AUTH_CALL_TIMEOUT = 2500;
+
+// Prime the global store from a freshly authenticated session.
+// Used by login/signup pages to render the destination layout instantly
+// while the real profile fetch runs in the background.
+export function primeUserFromSession(session: Session | null) {
+  if (!session?.user) return;
+  const meta = session.user.user_metadata || {};
+  const tempName = meta.full_name || meta.name || formatEmailAsName(session.user.email);
+  const tempUser: UserProfile = {
+    id: session.user.id,
+    email: session.user.email || '',
+    display_name: tempName || 'User',
+    avatar_url: meta.avatar_url || meta.picture,
+    role: meta.role || 'student',
+    subscription_tier: 'basic',
+    onboarding_completed: false,
+    created_at: session.user.created_at || new Date().toISOString(),
+  };
+  cachedUserId = session.user.id;
+  globalAuthInitialized = true;
+  lastSignedInEventTime = Date.now();
+  setStore({ user: tempUser, loading: false });
+  // Kick off real profile fetch in background
+  fetchUserProfile(session.user.id, true);
+}
 
 // Helper to invalidate cache (can be called from other modules)
 export function invalidateUserCache() {
@@ -281,14 +307,19 @@ export function useUser() {
           console.log('[Auth] Session found, fetching profile for', session.user.id.substring(0, 8));
           // Fire-and-forget: fetchUserProfile updates the global store
           fetchUserProfile(session.user.id);
-          
-          // Validate session in background
-          supabase.auth.getUser().then(({ error }: { error: { message: string } | null }) => {
-            if (error && isSubscribed) {
-              console.log('[Auth] Session validation failed:', error.message);
-              invalidateUserCache();
-            }
-          }).catch(() => {});
+
+          // Skip background getUser() validation if we just signed in (cookies
+          // are fresh) or if middleware just validated on this request. Only
+          // needed for cold loads where cookies may be stale.
+          const justSignedIn = Date.now() - lastSignedInEventTime < 5000;
+          if (!justSignedIn) {
+            supabase.auth.getUser().then(({ error }: { error: { message: string } | null }) => {
+              if (error && isSubscribed) {
+                console.log('[Auth] Session validation failed:', error.message);
+                invalidateUserCache();
+              }
+            }).catch(() => {});
+          }
 
           globalAuthInitialized = true;
         } else {
