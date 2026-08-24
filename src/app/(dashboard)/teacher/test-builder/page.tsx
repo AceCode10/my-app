@@ -318,7 +318,8 @@ export default function TestBuilderPage() {
   const { data: questions = [], isLoading: loadingQuestions } = useQuery({
     queryKey: ['test-builder-questions', user?.exam_boards, selectedExamBoard, selectedSubject],
     queryFn: async () => {
-      // Build optimized query with server-side filtering
+      // Built fresh per page — see the pagination loop below.
+      const buildQuestionQuery = () => {
       let query = supabase
         .from('questions')
         .select(`
@@ -345,7 +346,11 @@ export default function TestBuilderPage() {
           topic:topics(name),
           subject:subjects(name)
         `)
-        .not('topic_id', 'is', null);
+        .not('topic_id', 'is', null)
+        // Published-only is now a SERVER-side filter. It used to run in the
+        // browser after the row cap, so drafts consumed the budget and were
+        // then discarded, shrinking the usable bank for no reason.
+        .or('visibility.eq.published,status.eq.published,and(visibility.is.null,status.is.null)');
       
       // Apply server-side filters for better performance
       if (selectedSubject) {
@@ -359,19 +364,40 @@ export default function TestBuilderPage() {
           query = query.in('subject_id', subjectIds);
         }
       }
+
+        return query;
+      };
       
-      const { data: questionBankData, error: questionError } = await query
-        .order('question_number', { ascending: true })
-        .order('display_order', { ascending: true })
-        .limit(500); // Reduced limit since we're filtering server-side
-      
+      // Page through the results instead of truncating at a fixed cap. Ingesting
+      // a syllabus of past papers puts thousands of questions in the bank, and a
+      // single .limit(500) silently hid most of them.
+      const PAGE_SIZE = 1000;
+      const MAX_QUESTIONS = 5000;
+      const questionBankData: any[] = [];
+      let questionError: any = null;
+
+      for (let from = 0; from < MAX_QUESTIONS; from += PAGE_SIZE) {
+        // Rebuild the builder every iteration. Supabase query builders are
+        // mutable, so reusing one would stack a fresh .order() onto it per page
+        // and re-execute an already-awaited builder.
+        const { data: page, error } = await buildQuestionQuery()
+          .order('question_number', { ascending: true })
+          .order('display_order', { ascending: true })
+          // A deterministic tiebreaker is required, otherwise rows can repeat or
+          // go missing between pages when the sort keys tie.
+          .order('id', { ascending: true })
+          .range(from, from + PAGE_SIZE - 1);
+
+        if (error) { questionError = error; break; }
+        if (!page || page.length === 0) break;
+
+        questionBankData.push(...page);
+        if (page.length < PAGE_SIZE) break;
+      }
+
       if (questionError) console.error('Error fetching questions:', questionError);
-      
-      // Filter to only published questions
-      let filteredQuestions = (questionBankData || []).filter(q => 
-        q.visibility === 'published' || q.status === 'published' || 
-        (!q.visibility && !q.status)
-      ).map(q => ({
+
+      let filteredQuestions = questionBankData.map(q => ({
         ...q,
         source: 'topical' as const
       }));
