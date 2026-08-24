@@ -7,6 +7,9 @@ import {
   parseJsonLoose,
 } from './provider';
 
+// Sampling parameters (temperature / top_p / top_k) were REMOVED on the current
+// Claude models: Sonnet 5, Opus 5 and Fable 5 all reject them with
+// "`temperature` is deprecated for this model". This provider sends none.
 export const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-5';
 
 /**
@@ -49,7 +52,6 @@ export class AnthropicProvider implements LlmProvider {
     const response = await this.getClient().messages.create({
       model: this.model,
       max_tokens: opts.maxTokens ?? 8192,
-      temperature: opts.temperature ?? 0,
       system: this.buildSystem(opts.system, opts.jsonSchema),
       messages: [{ role: 'user', content: opts.user }],
     });
@@ -67,7 +69,6 @@ export class AnthropicProvider implements LlmProvider {
     const response = await this.getClient().messages.create({
       model: this.model,
       max_tokens: opts.maxTokens ?? 8192,
-      temperature: 0,
       system: opts.system,
       messages: [{ role: 'user', content }],
     });
