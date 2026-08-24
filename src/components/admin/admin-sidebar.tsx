@@ -20,6 +20,7 @@ import {
   Target,
   ChevronDown,
   Monitor,
+  FileStack,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -85,6 +86,7 @@ export default function AdminSidebar({ adminRole }: AdminSidebarProps) {
         { href: '/admin/content', label: 'All Content', icon: FileText },
         { href: '/admin/topical-questions', label: 'Topical Questions', icon: Target },
         { href: '/admin/papers', label: 'Past Papers', icon: ScrollText },
+        { href: '/admin/ingestion', label: 'Paper Ingestion', icon: FileStack },
         { href: '/admin/bulk-import', label: 'Bulk Import', icon: Upload },
       ],
     },
@@ -118,6 +120,7 @@ export default function AdminSidebar({ adminRole }: AdminSidebarProps) {
       items: [
         { href: '/admin/topical-questions', label: 'Topical Questions', icon: Target },
         { href: '/admin/papers', label: 'Past Papers', icon: ScrollText },
+        { href: '/admin/ingestion', label: 'Paper Ingestion', icon: FileStack },
         { href: '/admin/content/flashcards', label: 'Flashcards', icon: Layers },
         { href: '/admin/content/subjects', label: 'Subjects & Topics', icon: FolderTree },
         { href: '/admin/bulk-import', label: 'Bulk Import', icon: Upload },

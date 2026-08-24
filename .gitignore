@@ -43,3 +43,11 @@ next-env.d.ts
 
 # large files
 /*.pdf
+
+# Source exam-paper corpora (large, and board-copyrighted material)
+/Information and Communication Technology (0417)/
+*.ingest-scratch/
+
+# python
+__pycache__/
+*.pyc
