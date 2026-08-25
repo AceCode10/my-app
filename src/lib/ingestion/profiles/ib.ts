@@ -82,8 +82,8 @@ export const ibProfile: BoardProfile = {
   marks: [
     /\[(\d{1,2})\s*marks?\]/i,
     /\((\d{1,2})\s*marks?\)/i,
-    /\[(\d{1,2})\]\s*$/,
-    /\((\d{1,2})\)\s*$/,
+    /\[(\d{1,2})\]\s*$/m,
+    /\((\d{1,2})\)\s*$/m,
   ],
   maxMarksPerQuestion: 30,
 
@@ -97,8 +97,8 @@ export const ibProfile: BoardProfile = {
     /International\s+Baccalaureate\s+Organization/i,
     /©\s*International\s+Baccalaureate/i,
     /Scan here to return to the course/i,
-    /^\s*Turn over\s*$/i,
-    /^\s*BLANK PAGE\s*$/i,
+    /^\s*Turn over\s*$/mi,
+    /^\s*BLANK PAGE\s*$/mi,
   ],
 
   figureRefs: /\b(Figure|Fig|Diagram|Table|Source)\.?\s*\d+\b/i,

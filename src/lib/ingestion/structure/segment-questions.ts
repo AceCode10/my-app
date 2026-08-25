@@ -126,6 +126,9 @@ function detectAnchors(
   // Question numbers run strictly upward through a paper. Anything that repeats
   // or goes backwards is a table row, a list item or a repeated header.
   let highestQuestion = 0;
+  // The most recent part letter, used to tell an ambiguous "(c)" apart from a
+  // roman sub-part. Reset at every new question.
+  let lastPartLetter: string | null = null;
 
   // "9 (a) ..." / "9 (a) (i) ..." — number and part share one line.
   const COMBINED_RE = /^\s*(\d{1,2})\s*[.)]?\s+\(([a-z])\)(?:\s*\(([ivxlcdm]+)\))?\s+/i;
@@ -182,6 +185,7 @@ function detectAnchors(
       const combinedNumber = Number(combined[1]);
       if (combinedNumber <= highestQuestion) continue;
       highestQuestion = combinedNumber;
+      lastPartLetter = combined[3] ? lastPartLetter : combined[2].toLowerCase();
       anchors.push({
         kind: combined[3] ? 'subpart' : 'part',
         text: (combined[3] ?? combined[2]).toLowerCase(),
@@ -201,6 +205,7 @@ function detectAnchors(
       const remainder = entry.line.text.slice(token.text.length).replace(ANSWER_LINE_RE, '').trim();
       if (Number.isFinite(number) && number > highestQuestion && remainder.length > 0) {
         highestQuestion = number;
+        lastPartLetter = null;
         anchors.push({
           kind: 'question',
           text: String(number),
@@ -213,10 +218,44 @@ function detectAnchors(
     }
 
     const sMatch = token.text.match(subPartLabel);
-    if (sMatch && inBand(token.x0, indentBands.subpart)) {
+    const pMatch = token.text.match(partLabel);
+
+    const subText = sMatch ? (sMatch[1] ?? token.text).toLowerCase() : null;
+    const partText = pMatch ? (pMatch[1] ?? token.text).toLowerCase() : null;
+
+    // "(c)" and "(d)" are BOTH valid part letters and valid roman numerals, as
+    // are (i), (v), (x), (l) and (m). The indent bands overlap, so position
+    // alone cannot separate them — testing sub-part first turned every part (c)
+    // into a roman sub-part and produced refs like "17(b)(c)".
+    //
+    // Sequence resolves it: a single ambiguous letter that continues the part
+    // run is a part; anything else is a sub-part. "(b)" then "(c)" is part c,
+    // while "(c)" then "(i)" is sub-part i. Multi-character romans ("ii",
+    // "iii", "iv") are never ambiguous.
+    const decide = (): 'part' | 'subpart' | null => {
+      const multiCharRoman = subText !== null && subText.length > 1;
+      if (multiCharRoman) return inBand(token.x0, indentBands.subpart) ? 'subpart' : null;
+
+      const ambiguous = subText !== null && partText !== null;
+      if (!ambiguous) {
+        if (subText !== null) return inBand(token.x0, indentBands.subpart) ? 'subpart' : null;
+        if (partText !== null) return inBand(token.x0, indentBands.part) ? 'part' : null;
+        return null;
+      }
+
+      const expectedNextPart = lastPartLetter
+        ? String.fromCharCode(lastPartLetter.charCodeAt(0) + 1)
+        : 'a';
+      if (partText === expectedNextPart && inBand(token.x0, indentBands.part)) return 'part';
+      return inBand(token.x0, indentBands.subpart) ? 'subpart' : null;
+    };
+
+    const kind = decide();
+
+    if (kind === 'subpart') {
       anchors.push({
         kind: 'subpart',
-        text: (sMatch[1] ?? token.text).toLowerCase(),
+        text: subText!,
         page: entry.page,
         line: entry.line,
         index: entry.index,
@@ -224,11 +263,11 @@ function detectAnchors(
       continue;
     }
 
-    const pMatch = token.text.match(partLabel);
-    if (pMatch && inBand(token.x0, indentBands.part)) {
+    if (kind === 'part') {
+      lastPartLetter = partText;
       anchors.push({
         kind: 'part',
-        text: (pMatch[1] ?? token.text).toLowerCase(),
+        text: partText!,
         page: entry.page,
         line: entry.line,
         index: entry.index,

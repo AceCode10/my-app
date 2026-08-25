@@ -121,7 +121,7 @@ export const cambridgeProfile: BoardProfile = {
   },
 
   // Marks are right-aligned at the end of the answer-line block: "... [4]"
-  marks: [/\[(\d{1,2})\]\s*$/, /\[(\d{1,2})\]/],
+  marks: [/\[(\d{1,2})\]\s*$/m, /\[(\d{1,2})\]/],
 
   markScheme: {
     strategies: ['plumber_table_qam', 'llm'],
@@ -133,14 +133,14 @@ export const cambridgeProfile: BoardProfile = {
   pageFurniture: [
     /©\s*UCLES\s*\d{4}/i,
     /\[?\s*Turn\s*over\s*\]?/i,
-    /^\s*PUBLISHED\s*$/i,
+    /^\s*PUBLISHED\s*$/mi,
     /DO\s*NOT\s*WRITE\s*IN\s*THIS\s*MARGIN/i,
-    /^\s*BLANK\s*PAGE\s*$/i,
+    /^\s*BLANK\s*PAGE\s*$/mi,
     /Page\s+\d+\s+of\s+\d+/i,
-    /^\s*\*\s*[\d\s]+\*\s*$/, // barcode digits
-    /^\s*\d{2}_\d{4}_\d{2}_\d{4}_[\d.]+\s*$/, // "06_0417_12_2023_1.13"
-    /Cambridge\s+IGCSE\s*[™]?\s*$/i,
-    /^\s*(NIGRAM|SIHT|ETIRW|TON|OD|NI)\s*$/, // reversed margin text
+    /^\s*\*\s*[\d\s]+\*\s*$/m, // barcode digits
+    /^\s*\d{2}_\d{4}_\d{2}_\d{4}_[\d.]+\s*$/m, // "06_0417_12_2023_1.13"
+    /Cambridge\s+IGCSE\s*[™]?\s*$/mi,
+    /^\s*(NIGRAM|SIHT|ETIRW|TON|OD|NI)\s*$/m, // reversed margin text
   ],
 
   figureRefs: /\b(Fig|Figure|Table)\.?\s*\d+(\.\d+)?\b/i,

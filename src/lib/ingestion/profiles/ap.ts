@@ -67,7 +67,7 @@ export const apProfile: BoardProfile = {
   // live only in the separate Scoring Guidelines document. Marks therefore come
   // from the mark-scheme join, not from the question paper — these patterns are
   // here for the occasional paper that does print them.
-  marks: [/\((\d{1,2})\s*points?\)/i, /\[(\d{1,2})\s*points?\]/i, /\[(\d{1,2})\]\s*$/],
+  marks: [/\((\d{1,2})\s*points?\)/i, /\[(\d{1,2})\s*points?\]/i, /\[(\d{1,2})\]\s*$/m],
   maxMarksPerQuestion: 30,
 
   markScheme: {
@@ -80,8 +80,8 @@ export const apProfile: BoardProfile = {
     /©\s*\d{4}\s*College\s*Board/i,
     /College\s+Board.*(is\s+a\s+)?(trademark|registered)/i,
     /Begin your response to .* on this page/i,
-    /^\s*GO ON TO THE NEXT PAGE\s*$/i,
-    /^\s*-?\s*\d+\s*-?\s*$/,
+    /^\s*GO ON TO THE NEXT PAGE\s*$/mi,
+    /^\s*-?\s*\d+\s*-?\s*$/m,
   ],
 
   figureRefs: /\b(Figure|Fig|Graph|Table|Diagram)\s*\d+\b/i,

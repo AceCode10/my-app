@@ -81,11 +81,11 @@ export const genericProfile: BoardProfile = {
 
   marks: [
     /\[(\d{1,2})\s*marks?\]/i,
-    /\[(\d{1,2})\]\s*$/,
+    /\[(\d{1,2})\]\s*$/m,
     /\((\d{1,2})\s*marks?\)/i,
     /\((\d{1,2})\s*points?\)/i,
     /\(Total for Question \d+ = (\d+) marks?\)/i,
-    /\((\d{1,2})\)\s*$/,
+    /\((\d{1,2})\)\s*$/m,
   ],
   maxMarksPerQuestion: 60,
 
@@ -96,9 +96,9 @@ export const genericProfile: BoardProfile = {
   },
 
   pageFurniture: [
-    /^\s*Page\s+\d+(\s+of\s+\d+)?\s*$/i,
-    /^\s*Turn over\s*$/i,
-    /^\s*BLANK PAGE\s*$/i,
+    /^\s*Page\s+\d+(\s+of\s+\d+)?\s*$/mi,
+    /^\s*Turn over\s*$/mi,
+    /^\s*BLANK PAGE\s*$/mi,
     /^\s*©.*\d{4}.*$/,
   ],
 

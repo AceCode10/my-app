@@ -96,10 +96,10 @@ export const edexcelProfile: BoardProfile = {
   // per-question tag at all and only state "(Total for Question 5 = 44 marks)".
   // That total IS the question's mark value, so it must not be capped at 30.
   marks: [
-    /\((\d{1,2})\)\s*$/,
+    /\((\d{1,2})\)\s*$/m,
     /\(Total for Question \d+ = (\d+) marks?\)/i,
     /\[(\d{1,2})\s*marks?\]/i,
-    /\[(\d{1,2})\]\s*$/,
+    /\[(\d{1,2})\]\s*$/m,
   ],
   maxMarksPerQuestion: 60,
 
@@ -113,10 +113,10 @@ export const edexcelProfile: BoardProfile = {
   pageFurniture: [
     /©\s*\d{4}\s*Pearson\s*Education/i,
     /Pearson\s+Edexcel/i,
-    /^\s*DO NOT WRITE IN THIS AREA\s*$/i,
+    /^\s*DO NOT WRITE IN THIS AREA\s*$/mi,
     /Turn over/i,
-    /^\s*P\d{5}A\d*\s*$/, // Edexcel print codes
-    /^\s*BLANK PAGE\s*$/i,
+    /^\s*P\d{5}A\d*\s*$/m, // Edexcel print codes
+    /^\s*BLANK PAGE\s*$/mi,
   ],
 
   figureRefs: /\b(Figure|Fig|Diagram|Table|Photograph|Source)\.?\s*\d+\b/i,

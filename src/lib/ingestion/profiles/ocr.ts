@@ -87,10 +87,10 @@ export const ocrProfile: BoardProfile = {
 
   // Measured on the H420 specimen: bare "[N]" is the printed form.
   marks: [
-    /\[(\d{1,2})\]\s*$/,
+    /\[(\d{1,2})\]\s*$/m,
     /\[(\d{1,2})\s*marks?\]/i,
     /\((\d{1,2})\s*marks?\)/i,
-    /\((\d{1,2})\)\s*$/,
+    /\((\d{1,2})\)\s*$/m,
   ],
   maxMarksPerQuestion: 30,
 
@@ -105,8 +105,8 @@ export const ocrProfile: BoardProfile = {
     /Oxford\s+Cambridge\s+and\s+RSA/i,
     /OCR\s+is\s+an\s+exempt\s+Charity/i,
     /Turn over/i,
-    /^\s*BLANK PAGE\s*$/i,
-    /^\s*Annotation\s*$/i,
+    /^\s*BLANK PAGE\s*$/mi,
+    /^\s*Annotation\s*$/mi,
   ],
 
   figureRefs: /\b(Fig|Figure|Table|Diagram)\.?\s*\d+(\.\d+)?\b/i,

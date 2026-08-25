@@ -100,9 +100,9 @@ export const aqaProfile: BoardProfile = {
   // which none of the plain [N] / (N marks) patterns match.
   marks: [
     /\[(\d{1,2})\s*marks?\]/i,
-    /\[(\d{1,2})\]\s*$/,
+    /\[(\d{1,2})\]\s*$/m,
     /\((\d{1,2})\s*marks?\)/i,
-    /\((\d{1,2})\)\s*$/,
+    /\((\d{1,2})\)\s*$/m,
   ],
   maxMarksPerQuestion: 40,
 
@@ -116,9 +116,9 @@ export const aqaProfile: BoardProfile = {
     /©\s*\d{4}\s*AQA/i,
     /AQA\s+Education/i,
     /Do not write outside the box/i,
-    /^\s*IB\/M\/[A-Za-z0-9/]+\s*$/,
+    /^\s*IB\/M\/[A-Za-z0-9/]+\s*$/m,
     /Turn over/i,
-    /^\s*BLANK PAGE\s*$/i,
+    /^\s*BLANK PAGE\s*$/mi,
   ],
 
   figureRefs: /\b(Figure|Fig|Diagram|Table|Image)\.?\s*\d+\b/i,
