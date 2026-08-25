@@ -176,7 +176,14 @@ export default function SubjectPastPapersPage({
     if (paperNum.toLowerCase().startsWith('paper ')) {
       paperNum = paperNum.substring(6).trim();
     }
-    const variant = paper.variant || '1';
+    // Boards print the component code, not the bare variant: 0417/12, never
+    // 0417/2. Ingested rows keep the two apart (component_code "12", variant
+    // "2"); hand-entered rows put the component code in `variant` and a label
+    // like "Paper 1" in `component_code`, so only trust a numeric one.
+    const component = paper.component_code && /^\d+$/.test(paper.component_code)
+      ? paper.component_code
+      : null;
+    const variant = component || paper.variant || '1';
     // Format: "Paper 1 (0417/11)"
     return `Paper ${paperNum} (${subjectCode}/${variant})`;
   };
