@@ -54,7 +54,18 @@ export async function upsertPaper(
   supabase: SupabaseClient,
   meta: PaperMeta,
   options: PipelineOptions,
-  extra: { questionPaperUrl?: string; markSchemeUrl?: string; totalMarks?: number } = {},
+  extra: {
+    questionPaperUrl?: string;
+    markSchemeUrl?: string;
+    totalMarks?: number;
+    /**
+     * Files-only mode: metadata comes from the filename alone, so most fields
+     * are null. Never overwrite a populated column with one of those nulls,
+     * and never re-decide the status of a row that already exists — a paper
+     * an admin has parked as draft must stay draft.
+     */
+    nullSafe?: boolean;
+  } = {},
 ): Promise<{ paperId: string; created: boolean }> {
   const ingestionKey = buildIngestionKey(meta);
 
@@ -88,6 +99,14 @@ export async function upsertPaper(
     payload.paper_url = extra.questionPaperUrl;
   }
   if (extra.markSchemeUrl) payload.mark_scheme_url = extra.markSchemeUrl;
+
+  if (extra.nullSafe) {
+    for (const key of Object.keys(payload)) {
+      if (payload[key] === null || payload[key] === undefined) delete payload[key];
+    }
+    // The row already has a status someone may have chosen deliberately.
+    if (existing?.id) delete payload.status;
+  }
 
   // Never attempt an insert that would violate the NOT NULL constraint.
   if (!existing?.id && !payload.paper_url) {

@@ -18,8 +18,8 @@ dotenv.config({ path: '.env.local', quiet: true });
 dotenv.config({ path: '.env', quiet: true });
 
 import { getLlmProvider } from '../src/lib/llm';
-import { persistPaperResult } from '../src/lib/ingestion/persist-result';
-import { pairDocuments } from '../src/lib/ingestion/pairing';
+import { persistPaperFiles, persistPaperResult } from '../src/lib/ingestion/persist-result';
+import { pairDocuments, type PairedPaper } from '../src/lib/ingestion/pairing';
 import { runPaper, type PaperResult } from '../src/lib/ingestion/pipeline';
 import { isPdfServiceAvailable, pythonParserUrl } from '../src/lib/ingestion/pdf-client';
 import { DEFAULT_PIPELINE_OPTIONS } from '../src/lib/ingestion/types';
@@ -33,6 +33,7 @@ interface CliArgs {
   profile?: string;
   level?: string;
   dryRun: boolean;
+  filesOnly: boolean;
   mirror: boolean;
   figures: boolean;
   autoPublish: boolean;
@@ -49,6 +50,7 @@ function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = {
     files: [],
     dryRun: false,
+    filesOnly: false,
     mirror: true,
     figures: true,
     autoPublish: true,
@@ -70,6 +72,7 @@ function parseArgs(argv: string[]): CliArgs {
       case '--profile': args.profile = next(); break;
       case '--level': args.level = next(); break;
       case '--dry-run': args.dryRun = true; break;
+      case '--files-only': args.filesOnly = true; break;
       case '--no-mirror': args.mirror = false; break;
       case '--no-figures': args.figures = false; break;
       case '--no-auto-publish': args.autoPublish = false; break;
@@ -112,6 +115,8 @@ Options:
   --profile <id>          Force the parser profile, skipping detection
   --level <id>            Qualification level (igcse, as, a2, ...)
   --dry-run               Parse and validate only; no database or storage writes
+  --files-only            Upload the PDFs and list the papers; no extraction at
+                          all (no PDF service, no language model, no cost)
   --no-mirror             Populate paper_questions but not the question bank
   --no-figures            Skip figure detection and cropping
   --no-auto-publish       Ingest everything as draft
@@ -158,6 +163,79 @@ async function mapWithConcurrency<T, R>(
   return results;
 }
 
+/**
+ * `--files-only`: put the PDFs in storage and list the sittings, nothing more.
+ *
+ * Metadata is whatever the filename gives up, and writes are null-safe, so
+ * running the full pipeline over the same folder later lands on the same rows
+ * and enriches them rather than fighting them.
+ */
+async function runFilesOnly(
+  pairs: PairedPaper[],
+  supabase: SupabaseClient | null,
+  options: PipelineOptions,
+  args: CliArgs,
+): Promise<void> {
+  console.log(`\nFiles-only: uploading ${pairs.length} sittings (concurrency ${args.concurrency})…`);
+  console.log('No PDF service, no language model, no question extraction.\n');
+
+  const started = Date.now();
+  let created = 0;
+  let updated = 0;
+  let uploaded = 0;
+  let failed = 0;
+  const warnings: string[] = [];
+
+  await mapWithConcurrency(pairs, args.concurrency, async (pair) => {
+    const has = [pair.questionPaper ? 'qp' : null, pair.markScheme ? 'ms' : null]
+      .filter(Boolean)
+      .join('+');
+
+    if (!supabase) {
+      console.log(`plan  ${pair.pairKey.padEnd(34).slice(0, 34)}  ${has}`);
+      return;
+    }
+
+    try {
+      const outcome = await persistPaperFiles(supabase, pair, options, {
+        readFile: async (ref: FileRef) => new Uint8Array(fs.readFileSync(ref.path)),
+      });
+      if (outcome.paperCreated) created += 1;
+      else updated += 1;
+      uploaded += [outcome.questionPaperUrl, outcome.markSchemeUrl].filter(Boolean).length;
+      for (const warning of outcome.warnings) warnings.push(`${pair.pairKey}: ${warning}`);
+
+      console.log(
+        `${outcome.paperCreated ? 'new ' : 'upd '} ${pair.pairKey.padEnd(34).slice(0, 34)}  ${has}` +
+          (outcome.warnings.length ? `  (${outcome.warnings.length} warning)` : ''),
+      );
+    } catch (error) {
+      failed += 1;
+      console.log(`FAIL  ${pair.pairKey.padEnd(34).slice(0, 34)}  ${(error as Error).message}`);
+    }
+  });
+
+  const elapsed = ((Date.now() - started) / 1000).toFixed(1);
+  console.log(`\n${'-'.repeat(78)}`);
+
+  if (!supabase) {
+    console.log(`Dry run: ${pairs.length} sittings would be listed. Nothing was written.`);
+    process.exit(0);
+  }
+
+  console.log(`Sittings: ${created} created, ${updated} updated, ${failed} failed in ${elapsed}s`);
+  console.log(`PDFs uploaded: ${uploaded}`);
+  if (warnings.length > 0) {
+    console.log(`\nWarnings (${warnings.length}):`);
+    for (const warning of warnings) console.log(`  ${warning}`);
+  }
+  console.log(
+    '\nQuestions were NOT extracted. Re-run without --files-only to populate ' +
+      'the question bank; it will reuse these same rows.',
+  );
+  process.exit(failed > 0 ? 1 : 0);
+}
+
 function formatRow(result: PaperResult): string {
   const marks = result.questions.reduce((s, q) => s + q.marks, 0);
   const stated = result.meta.statedTotalMarks ?? '-';
@@ -192,7 +270,8 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const available = await isPdfServiceAvailable();
+  // Files-only never opens a PDF; it only moves bytes into storage.
+  const available = args.filesOnly ? true : await isPdfServiceAvailable();
   if (!available) {
     console.error(
       `The PDF service is not answering at ${pythonParserUrl()}.\n` +
@@ -229,7 +308,11 @@ async function main(): Promise<void> {
     console.log(`  unresolved: ${item.file.name} — ${item.reason}`);
   }
 
-  let runnable = pairing.pairs.filter((p) => p.questionPaper);
+  // Extraction needs a question paper. A download library does not: a sitting
+  // whose mark scheme is all we have is still worth listing.
+  let runnable = pairing.pairs.filter((p) =>
+    args.filesOnly ? p.questionPaper || p.markScheme : p.questionPaper,
+  );
   if (args.limit) runnable = runnable.slice(0, args.limit);
 
   const fullOptions: PipelineOptions = {
@@ -258,6 +341,11 @@ async function main(): Promise<void> {
       process.exit(1);
     }
     supabase = createClient(url, key, { auth: { persistSession: false } });
+  }
+
+  if (args.filesOnly) {
+    await runFilesOnly(runnable, supabase, fullOptions, args);
+    return;
   }
 
   const hasLlmKey = Boolean(process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY);

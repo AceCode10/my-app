@@ -7,7 +7,8 @@
     "lint": "eslint .",
     "validate-env": "tsx scripts/validate-env.ts",
     "prebuild": "node -e \"process.env.VERCEL || process.env.CI ? process.exit(0) : process.exit(1)\" || npm run validate-env",
-    "ingest": "tsx scripts/ingest-papers.ts"
+    "ingest": "tsx scripts/ingest-papers.ts",
+    "dedupe-papers": "tsx scripts/dedupe-papers.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",

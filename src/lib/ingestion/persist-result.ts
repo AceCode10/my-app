@@ -131,3 +131,47 @@ export async function persistPaperResult(
 
   return { paperId, paperCreated: created, questions, mirror, warnings };
 }
+
+export interface FilesOnlyOutcome {
+  paperId: string;
+  paperCreated: boolean;
+  questionPaperUrl: string | null;
+  markSchemeUrl: string | null;
+  warnings: string[];
+}
+
+/**
+ * Upload a pair's PDFs and create or refresh its `past_papers` row — nothing else.
+ *
+ * This is the download-library path: no PDF service, no language model, no
+ * question extraction. Metadata comes from the filename, which is also where
+ * `ingestion_key` comes from, so a later full ingest lands on exactly the same
+ * row and fills in everything this step could not know.
+ *
+ * Writes are null-safe for that reason: a row that a full ingest already
+ * enriched must not lose its marks, duration or status to a filename-only pass.
+ */
+export async function persistPaperFiles(
+  supabase: SupabaseClient,
+  pair: PairedPaper,
+  options: PipelineOptions,
+  deps: { readFile: (ref: FileRef) => Promise<Uint8Array> },
+): Promise<FilesOnlyOutcome> {
+  const warnings: string[] = [];
+  const ingestionKey = buildIngestionKey(pair.meta);
+
+  const questionPaperUrl = pair.questionPaper
+    ? await uploadSource(supabase, pair.questionPaper, ingestionKey, 'qp', deps.readFile, warnings)
+    : null;
+  const markSchemeUrl = pair.markScheme
+    ? await uploadSource(supabase, pair.markScheme, ingestionKey, 'ms', deps.readFile, warnings)
+    : null;
+
+  const { paperId, created } = await upsertPaper(supabase, pair.meta, options, {
+    questionPaperUrl: questionPaperUrl ?? undefined,
+    markSchemeUrl: markSchemeUrl ?? undefined,
+    nullSafe: true,
+  });
+
+  return { paperId, paperCreated: created, questionPaperUrl, markSchemeUrl, warnings };
+}
