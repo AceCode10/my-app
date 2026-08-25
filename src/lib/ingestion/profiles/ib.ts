@@ -77,7 +77,15 @@ export const ibProfile: BoardProfile = {
     partHierarchy: ['question', 'part', 'subpart'],
   },
 
-  marks: [/\[(\d{1,2})\]\s*$/, /\((\d{1,2})\)\s*$/],
+  // Measured on the in-repo IB practice papers: "(3 marks)" dominates, with a
+  // few bare "[N]" tags.
+  marks: [
+    /\[(\d{1,2})\s*marks?\]/i,
+    /\((\d{1,2})\s*marks?\)/i,
+    /\[(\d{1,2})\]\s*$/,
+    /\((\d{1,2})\)\s*$/,
+  ],
+  maxMarksPerQuestion: 30,
 
   markScheme: {
     strategies: ['plumber_table_generic', 'llm'],

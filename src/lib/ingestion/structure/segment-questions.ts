@@ -144,14 +144,31 @@ function detectAnchors(
       const lineMatch = entry.line.text.match(profile.structure.questionStartLine);
       if (lineMatch && inBand(token.x0, indentBands.question)) {
         const number = Number(lineMatch[1]);
-        if (Number.isFinite(number) && number > highestQuestion) {
-          highestQuestion = number;
+        // Capture group 2, when present, is a numeric sub-part: AQA writes
+        // question 2 part 3 as "0 2 . 3". Map 1->a, 2->b, ... so it lands in
+        // the same id space as every other board and joins to the mark scheme.
+        const subIndex = lineMatch[2] ? Number(lineMatch[2]) : null;
+        const partLetter =
+          subIndex && subIndex >= 1 && subIndex <= 26
+            ? String.fromCharCode(96 + subIndex)
+            : null;
+
+        if (Number.isFinite(number)) {
+          // Only the top-level number must advance; sub-parts of the question
+          // already seen legitimately repeat it.
+          if (number > highestQuestion) {
+            highestQuestion = number;
+          } else if (!partLetter) {
+            continue;
+          }
+
           anchors.push({
-            kind: 'question',
-            text: String(number),
+            kind: partLetter ? 'part' : 'question',
+            text: partLetter ?? String(number),
             page: entry.page,
             line: entry.line,
             index: entry.index,
+            ...(partLetter ? { explicitQuestionNumber: number } : {}),
           });
         }
         continue;
@@ -223,11 +240,14 @@ function detectAnchors(
 }
 
 function extractMarks(text: string, profile: BoardProfile): number | null {
+  // Default ceiling is generous: a single question can legitimately be worth
+  // 44 marks on an Edexcel literature paper. Boards may narrow it.
+  const ceiling = profile.maxMarksPerQuestion ?? 60;
   for (const re of profile.marks) {
     const match = text.match(re);
     if (match) {
       const value = Number(match[1]);
-      if (Number.isFinite(value) && value > 0 && value <= 30) return value;
+      if (Number.isFinite(value) && value > 0 && value <= ceiling) return value;
     }
   }
   return null;

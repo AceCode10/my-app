@@ -85,7 +85,14 @@ export const ocrProfile: BoardProfile = {
     partHierarchy: ['question', 'part', 'subpart'],
   },
 
-  marks: [/\[(\d{1,2})\]\s*$/, /\((\d{1,2})\)\s*$/, /\((\d{1,2})\s*marks?\)\s*$/i],
+  // Measured on the H420 specimen: bare "[N]" is the printed form.
+  marks: [
+    /\[(\d{1,2})\]\s*$/,
+    /\[(\d{1,2})\s*marks?\]/i,
+    /\((\d{1,2})\s*marks?\)/i,
+    /\((\d{1,2})\)\s*$/,
+  ],
+  maxMarksPerQuestion: 30,
 
   markScheme: {
     strategies: ['plumber_table_generic', 'llm'],

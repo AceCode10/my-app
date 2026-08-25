@@ -81,7 +81,10 @@ export const aqaProfile: BoardProfile = {
   structure: {
     // AQA uses spaced digits for question numbers in some series: "0 1"
     questionStart: /^(\d{1,2})$/,
-    questionStartLine: /^0\s+(\d{1,2})(?:\s*\.\s*\d+)?\s+\S/,
+    // "0 2 . 3 The number of deaths ..." -> question 2, sub-part 3.
+    // Capturing the sub-part matters: without it every part of question 2
+    // collapses onto the same id and all but the first are dropped.
+    questionStartLine: /^0\s*(\d{1,2})(?:\s*\.\s*(\d{1,2}))?\s+\S/,
     partLabel: /^\(?([a-z])\)?$/,
     subPartLabel: /^\(?([ivxlcdm]+)\)?$/,
     indentBands: {
@@ -92,7 +95,16 @@ export const aqaProfile: BoardProfile = {
     partHierarchy: ['question', 'part', 'subpart'],
   },
 
-  marks: [/\[(\d{1,2})\]\s*$/, /\((\d{1,2})\s*marks?\)\s*$/i, /\((\d{1,2})\)\s*$/],
+  // Measured on AQA-71323-QP-JUN24 and Oxford AQA 9610: marks are printed as
+  // "[12 marks]" right-aligned at x~480-555 — square brackets WITH the word,
+  // which none of the plain [N] / (N marks) patterns match.
+  marks: [
+    /\[(\d{1,2})\s*marks?\]/i,
+    /\[(\d{1,2})\]\s*$/,
+    /\((\d{1,2})\s*marks?\)/i,
+    /\((\d{1,2})\)\s*$/,
+  ],
+  maxMarksPerQuestion: 40,
 
   markScheme: {
     strategies: ['plumber_table_generic', 'llm'],

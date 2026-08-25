@@ -80,11 +80,14 @@ export const genericProfile: BoardProfile = {
   },
 
   marks: [
+    /\[(\d{1,2})\s*marks?\]/i,
     /\[(\d{1,2})\]\s*$/,
-    /\((\d{1,2})\s*marks?\)\s*$/i,
-    /\((\d{1,2})\s*points?\)\s*$/i,
+    /\((\d{1,2})\s*marks?\)/i,
+    /\((\d{1,2})\s*points?\)/i,
+    /\(Total for Question \d+ = (\d+) marks?\)/i,
     /\((\d{1,2})\)\s*$/,
   ],
+  maxMarksPerQuestion: 60,
 
   markScheme: {
     strategies: ['plumber_table_generic', 'llm'],

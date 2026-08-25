@@ -92,8 +92,16 @@ export const edexcelProfile: BoardProfile = {
     partHierarchy: ['question', 'part', 'subpart'],
   },
 
-  // Edexcel puts marks in the right margin as "(3)" and totals per question.
-  marks: [/\((\d{1,2})\)\s*$/, /\(Total for Question \d+ = (\d+) marks?\)/i, /\[(\d{1,2})\]\s*$/],
+  // Structured papers put "(3)" in the right margin; literature papers carry no
+  // per-question tag at all and only state "(Total for Question 5 = 44 marks)".
+  // That total IS the question's mark value, so it must not be capped at 30.
+  marks: [
+    /\((\d{1,2})\)\s*$/,
+    /\(Total for Question \d+ = (\d+) marks?\)/i,
+    /\[(\d{1,2})\s*marks?\]/i,
+    /\[(\d{1,2})\]\s*$/,
+  ],
+  maxMarksPerQuestion: 60,
 
   markScheme: {
     strategies: ['plumber_table_qam', 'plumber_table_generic', 'llm'],

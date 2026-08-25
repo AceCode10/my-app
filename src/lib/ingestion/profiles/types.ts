@@ -34,7 +34,10 @@ export interface QuestionStructureRules {
   /**
    * Optional whole-line pattern for boards that split the number across
    * tokens. AQA prints question 1 as "0 1", so the first token is "0" and
-   * token matching cannot work. Capture group 1 is the question number.
+   * token matching cannot work. Capture group 1 is the question number;
+   * an optional capture group 2 is a NUMERIC sub-part index ("0 2 . 3" -> 2,
+   * sub-part 3), which is mapped onto the usual letter parts so it joins to
+   * the mark scheme the same way.
    */
   questionStartLine?: RegExp;
   partLabel: RegExp;
@@ -82,6 +85,13 @@ export interface BoardProfile {
   structure: QuestionStructureRules;
   /** Mark-tag patterns, tried in order. First capture group is the mark count. */
   marks: RegExp[];
+  /**
+   * Largest believable mark value for a single question on this board. Guards
+   * against picking up a stray number, but must not be set below the board's
+   * real maximum: an Edexcel literature essay is a single 44-mark question, so
+   * a blanket cap of 30 silently discarded it and left the question at 0.
+   */
+  maxMarksPerQuestion?: number;
   markScheme: MarkSchemeRules;
   /** Lines matching any of these are page furniture, not question content. */
   pageFurniture: RegExp[];

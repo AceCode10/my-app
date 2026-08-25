@@ -63,7 +63,12 @@ export const apProfile: BoardProfile = {
     partHierarchy: ['question', 'part', 'subpart'],
   },
 
-  marks: [/\((\d{1,2})\s*points?\)/i, /\[(\d{1,2})\]\s*$/],
+  // AP free-response papers carry NO per-question point allocation: the points
+  // live only in the separate Scoring Guidelines document. Marks therefore come
+  // from the mark-scheme join, not from the question paper — these patterns are
+  // here for the occasional paper that does print them.
+  marks: [/\((\d{1,2})\s*points?\)/i, /\[(\d{1,2})\s*points?\]/i, /\[(\d{1,2})\]\s*$/],
+  maxMarksPerQuestion: 30,
 
   markScheme: {
     strategies: ['llm'],
