@@ -97,12 +97,25 @@ RULES
 3. If no supplied topic fits the question, omit that question entirely.
 4. Judge by the subject matter the question tests, not by its wording or format.`;
 
+export interface TopicAssignmentResult {
+  assignments: Map<string, TopicAssignment>;
+  /**
+   * True when classification could not run at all — no model, no topic tree, or
+   * the call failed (an expired key, an exhausted credit balance, a timeout).
+   * Callers MUST NOT treat the resulting fallbacks as a decision: overwriting a
+   * previously good topic with "Unclassified" because billing lapsed is data
+   * loss, not a downgrade.
+   */
+  llmUnavailable: boolean;
+  error?: string;
+}
+
 export async function assignTopics(
   questions: ExtractedQuestion[],
   topics: TopicRow[],
   llm: LlmProvider | undefined,
   fallbackTopicId: string | null,
-): Promise<Map<string, TopicAssignment>> {
+): Promise<TopicAssignmentResult> {
   const result = new Map<string, TopicAssignment>();
 
   const fallback = (ref: string): TopicAssignment => ({
@@ -115,16 +128,21 @@ export async function assignTopics(
   // No topic tree, or no model: everything is parked, honestly labelled.
   if (topics.length === 0 || !llm) {
     for (const question of questions) result.set(question.ref, fallback(question.ref));
-    return result;
+    return {
+      assignments: result,
+      llmUnavailable: true,
+      error: topics.length === 0 ? 'the subject has no topics' : 'no language model configured',
+    };
   }
 
   const answerable = questions.filter((q) => !q.isContextOnly);
   if (answerable.length === 0) {
     for (const question of questions) result.set(question.ref, fallback(question.ref));
-    return result;
+    return { assignments: result, llmUnavailable: false };
   }
 
   const validIds = new Set(topics.map((t) => t.id));
+  let llmError: string | undefined;
 
   try {
     const payload = {
@@ -160,7 +178,8 @@ export async function assignTopics(
       result.set(ref, { ref, topicId, confidence, assignedBy: 'llm' });
     }
   } catch (error) {
-    console.warn(`Topic assignment failed, parking everything: ${(error as Error).message}`);
+    llmError = (error as Error).message;
+    console.warn(`Topic assignment failed: ${llmError}`);
   }
 
   // Children inherit their parent's topic unless the model was more confident.
@@ -197,5 +216,5 @@ export async function assignTopics(
     if (!result.has(question.ref)) result.set(question.ref, fallback(question.ref));
   }
 
-  return result;
+  return { assignments: result, llmUnavailable: Boolean(llmError), error: llmError };
 }

@@ -75,12 +75,15 @@ export async function mirrorToQuestionBank(
     );
   }
 
-  const assignments: Map<string, TopicAssignment> = await assignTopics(
-    questions,
-    topics,
-    options.llm,
-    fallbackTopicId,
-  );
+  const topicResult = await assignTopics(questions, topics, options.llm, fallbackTopicId);
+  const assignments: Map<string, TopicAssignment> = topicResult.assignments;
+
+  if (topicResult.llmUnavailable) {
+    warnings.push(
+      `Topic classification could not run (${topicResult.error ?? 'unknown reason'}). ` +
+        'Existing topic assignments are preserved; new questions are parked as Unclassified.',
+    );
+  }
 
   // --- rows -----------------------------------------------------------------
   // A stub created for an unmatched mark-scheme id has no real question text,
@@ -89,16 +92,79 @@ export async function mirrorToQuestionBank(
     (q) => idByRef.has(q.ref) && !q.errorCodes.includes('E012_MS_ID_UNMATCHED'),
   );
 
+  // Read what the bank already holds BEFORE building rows, so an assignment
+  // that could not be made does not clobber one that was made earlier.
+  const sourceIdsForLookup = mirrorable.map((q) => idByRef.get(q.ref)!);
+  const { data: existingBank, error: existingBankError } = await supabase
+    .from('questions')
+    .select('id, source_paper_question_id, topic_id, topic_assigned_by, topic_confidence')
+    .in('source_paper_question_id', sourceIdsForLookup);
+  if (existingBankError) {
+    throw new Error(`Reading existing bank questions failed: ${existingBankError.message}`);
+  }
+
+  interface ExistingBankRow {
+    id: string;
+    source_paper_question_id: string;
+    topic_id: string | null;
+    topic_assigned_by: string | null;
+    topic_confidence: number | null;
+  }
+
+  const existingBySource = new Map<string, ExistingBankRow>(
+    ((existingBank ?? []) as ExistingBankRow[]).map((r) => [r.source_paper_question_id, r]),
+  );
+
+  /**
+   * Decide the topic for one question.
+   *
+   * A "fallback" assignment means classification did not happen — the model was
+   * absent, out of credit, or timed out. It is NOT a judgement that the question
+   * belongs in Unclassified, so it must never replace a real assignment that a
+   * previous run (or an admin) already made. Getting this wrong is silent data
+   * loss: an expired API key would quietly re-file an entire syllabus as
+   * Unclassified.
+   */
+  const resolveTopic = (ref: string, sourceId: string) => {
+    const fresh = assignments.get(ref);
+    const existing = existingBySource.get(sourceId);
+    const existingIsReal =
+      existing?.topic_id && ['llm', 'rule', 'admin'].includes(existing.topic_assigned_by ?? '');
+
+    if (fresh && fresh.assignedBy !== 'fallback' && fresh.topicId) {
+      return {
+        topic_id: fresh.topicId,
+        topic_confidence: fresh.confidence,
+        topic_assigned_by: fresh.assignedBy,
+      };
+    }
+
+    if (existingIsReal) {
+      return {
+        topic_id: existing!.topic_id,
+        topic_confidence: existing!.topic_confidence ?? 0,
+        topic_assigned_by: existing!.topic_assigned_by ?? 'llm',
+      };
+    }
+
+    return {
+      topic_id: fresh?.topicId ?? fallbackTopicId,
+      topic_confidence: fresh?.confidence ?? 0,
+      topic_assigned_by: fresh?.assignedBy ?? 'fallback',
+    };
+  };
+
   const rows = mirrorable.map((q) => {
-    const assignment = assignments.get(q.ref);
+    const sourceId = idByRef.get(q.ref)!;
+    const topic = resolveTopic(q.ref, sourceId);
     const text = q.questionText || (q.figures.length > 0 ? '[See figure]' : '');
     const perQuestionOk = q.confidence >= 0.8 && q.errorCodes.length === 0;
 
     return {
-      source_paper_question_id: idByRef.get(q.ref)!,
+      source_paper_question_id: sourceId,
       subject_id: subjectId,
       exam_board_id: paper.exam_board_id ?? options.examBoardId ?? null,
-      topic_id: assignment?.topicId ?? fallbackTopicId,
+      topic_id: topic.topic_id,
       paper_id: paperId,
       question_number: q.ref,
       part_label: q.partLabel,
@@ -125,8 +191,8 @@ export async function mirrorToQuestionBank(
       status: options.publish && perQuestionOk ? 'published' : 'draft',
       visibility: options.publish && perQuestionOk ? 'published' : 'draft',
       review_status: perQuestionOk ? 'approved' : 'needs_review',
-      topic_confidence: assignment?.confidence ?? 0,
-      topic_assigned_by: assignment?.assignedBy ?? 'fallback',
+      topic_confidence: topic.topic_confidence,
+      topic_assigned_by: topic.topic_assigned_by,
       ingestion_job_id: options.jobId ?? null,
       ingested_at: new Date().toISOString(),
     };
@@ -144,23 +210,11 @@ export async function mirrorToQuestionBank(
   }
 
   // As with paper_questions, the unique index on source_paper_question_id is
-  // partial, so onConflict cannot target it. Look up what already exists and
-  // split the write instead — this is what keeps question ids stable across
-  // re-runs, and therefore keeps live teacher tests intact.
-  const sourceIds = rows.map((r) => r.source_paper_question_id);
-  const { data: existingBank, error: existingBankError } = await supabase
-    .from('questions')
-    .select('id, source_paper_question_id')
-    .in('source_paper_question_id', sourceIds);
-  if (existingBankError) {
-    throw new Error(`Reading existing bank questions failed: ${existingBankError.message}`);
-  }
-
+  // partial, so onConflict cannot target it. Split the write instead — this is
+  // what keeps question ids stable across re-runs, and therefore keeps live
+  // teacher tests intact.
   const bankIdBySource = new Map<string, string>(
-    (existingBank ?? []).map((r: { id: string; source_paper_question_id: string }) => [
-      r.source_paper_question_id,
-      r.id,
-    ]),
+    [...existingBySource.entries()].map(([sourceId, row]) => [sourceId, row.id]),
   );
 
   const upserted: { id: string; source_paper_question_id: string }[] = [];
