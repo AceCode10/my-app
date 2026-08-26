@@ -44,6 +44,7 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { TestPDFExport } from '@/components/teacher/test-pdf-export';
+import { AITestPrompt } from '@/components/test-builder/AITestPrompt';
 
 // Create supabase client outside component to prevent re-creation on every render
 const supabase = createClient();
@@ -264,6 +265,9 @@ export default function TeacherTestsPage() {
           </Link>
         </Button>
       </div>
+
+      {/* AI generation */}
+      <AITestPrompt />
 
       {/* Search & Stats Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">

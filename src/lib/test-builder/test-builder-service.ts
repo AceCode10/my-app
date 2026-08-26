@@ -161,6 +161,49 @@ export class TestBuilderService {
   }
 
   /**
+   * Add many questions in one insert.
+   *
+   * addQuestionToTest recalculates the mark total on every call, so attaching a
+   * 30-question paper one row at a time costs 30 round trips and 30 redundant
+   * recalculations. Used by AI generation and by any bulk edit.
+   */
+  async addQuestionsToTestBulk(
+    rows: AddQuestionToAssessmentRequest[]
+  ): Promise<{ success: boolean; error: Error | null }> {
+    try {
+      if (rows.length === 0) return { success: true, error: null };
+
+      const assessmentIds = new Set(rows.map(r => r.assessment_id));
+      if (assessmentIds.size !== 1) {
+        throw new Error('All rows must belong to the same assessment');
+      }
+
+      const insertData = rows.map(data => ({
+        assessment_id: data.assessment_id,
+        question_id: data.question_id,
+        question_order: data.question_order || 1,
+        section_name: data.section_name || null,
+        section_instructions: data.section_instructions || null,
+        custom_question_text: data.custom_question_text || null,
+        custom_marks: data.custom_marks || null
+      }));
+
+      const { error } = await this.supabase
+        .from('assessment_questions')
+        .insert(insertData);
+
+      if (error) throw error;
+
+      await this.recalculateTotalMarks(rows[0].assessment_id);
+
+      return { success: true, error: null };
+    } catch (error) {
+      console.error('Error bulk-adding questions to test:', error);
+      return { success: false, error: error as Error };
+    }
+  }
+
+  /**
    * Remove question from test
    */
   async removeQuestionFromTest(assessmentQuestionId: string, assessmentId: string): Promise<{ success: boolean; error: Error | null }> {
