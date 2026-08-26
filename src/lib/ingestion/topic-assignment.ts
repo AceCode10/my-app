@@ -108,6 +108,13 @@ export interface TopicAssignmentResult {
    */
   llmUnavailable: boolean;
   error?: string;
+  /** Present whenever a model call was actually made, successful or not. */
+  usage?: {
+    inputTokens: number;
+    outputTokens: number;
+    model: string;
+    provider: string;
+  };
 }
 
 export async function assignTopics(
@@ -143,6 +150,7 @@ export async function assignTopics(
 
   const validIds = new Set(topics.map((t) => t.id));
   let llmError: string | undefined;
+  let usage: TopicAssignmentResult['usage'];
 
   try {
     const payload = {
@@ -166,6 +174,15 @@ export async function assignTopics(
       jsonSchema: { assignments: [{ question: '1(a)', topic_id: 'uuid', confidence: 0.9 }] },
       maxTokens: 8192,
     });
+
+    // Recorded before the response is interpreted: the call is billed whether
+    // or not its assignments turn out to be usable.
+    usage = {
+      inputTokens: response.usage.inputTokens,
+      outputTokens: response.usage.outputTokens,
+      model: response.model,
+      provider: response.provider,
+    };
 
     for (const assignment of response.json?.assignments ?? []) {
       const ref = String(assignment.question ?? '').trim();
@@ -216,5 +233,10 @@ export async function assignTopics(
     if (!result.has(question.ref)) result.set(question.ref, fallback(question.ref));
   }
 
-  return { assignments: result, llmUnavailable: Boolean(llmError), error: llmError };
+  return {
+    assignments: result,
+    llmUnavailable: Boolean(llmError),
+    error: llmError,
+    usage,
+  };
 }

@@ -5,6 +5,8 @@
     "build": "next build",
     "start": "next start -H 0.0.0.0",
     "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "validate-env": "tsx scripts/validate-env.ts",
     "prebuild": "node -e \"process.env.VERCEL || process.env.CI ? process.exit(0) : process.exit(1)\" || npm run validate-env",
     "ingest": "tsx scripts/ingest-papers.ts",
@@ -91,6 +93,7 @@
     "tailwindcss": "^3.4.1",
     "tailwindcss-animate": "^1.0.7",
     "tsx": "^4.21.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.7"
   }
 }

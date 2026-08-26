@@ -8,6 +8,8 @@
  */
 
 import OpenAI from 'openai';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { recordLlmUsage } from './llm/usage';
 
 export interface QuestionImage {
   page_number: number;
@@ -147,11 +149,44 @@ Return ONLY valid JSON with the "questions" array.`;
  */
 export async function extractQuestionsFromImages(
   images: QuestionImage[],
-  openaiApiKey: string
+  openaiApiKey: string,
+  /**
+   * Optional spend accounting. This is the most expensive path in the app —
+   * one high-detail vision call per page — and it recorded nothing before.
+   */
+  usageContext?: { supabase: SupabaseClient; paperId?: string | null }
 ): Promise<ExtractedVisualQuestion[]> {
   const openai = new OpenAI({ apiKey: openaiApiKey });
   const allQuestions: ExtractedVisualQuestion[] = [];
+  const VISION_MODEL = 'gpt-4o';
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let pagesBilled = 0;
   
+  /**
+   * Write the accumulated spend exactly once.
+   *
+   * Called on the failure path too: a run that dies on page 12 of 16 still
+   * spent the money for the first 11, and dropping that would understate cost
+   * precisely when something is going wrong.
+   */
+  let usageFlushed = false;
+  const flushUsage = async (error?: string) => {
+    if (!usageContext || usageFlushed || pagesBilled === 0) return;
+    usageFlushed = true;
+    await recordLlmUsage(usageContext.supabase, {
+      feature: 'paper_vision_extraction',
+      provider: 'openai',
+      model: VISION_MODEL,
+      inputTokens,
+      outputTokens,
+      paperId: usageContext.paperId ?? null,
+      succeeded: !error,
+      error: error ?? null,
+      metadata: { pagesBilled, pagesRequested: images.length, detail: 'high' },
+    });
+  };
+
   console.log(`Processing ${images.length} page images with GPT-4 Vision...`);
   
   for (const image of images) {
@@ -159,7 +194,7 @@ export async function extractQuestionsFromImages(
       console.log(`Processing page ${image.page_number}...`);
       
       const response = await openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: VISION_MODEL,
         messages: [
           {
             role: 'system',
@@ -196,6 +231,10 @@ Extract structured data for clean HTML rendering.`
         response_format: { type: 'json_object' }
       });
       
+      inputTokens += response.usage?.prompt_tokens ?? 0;
+      outputTokens += response.usage?.completion_tokens ?? 0;
+      pagesBilled += 1;
+
       const responseText = response.choices[0].message.content?.trim() || '{}';
       console.log(`GPT-4 Vision response for page ${image.page_number}:`, responseText.slice(0, 800));
       
@@ -230,10 +269,12 @@ Extract structured data for clean HTML rendering.`
       
     } catch (error: any) {
       console.error(`Error processing page ${image.page_number}:`, error);
+      await flushUsage(`page ${image.page_number}: ${error.message}`);
       throw new Error(`Failed to process page ${image.page_number}: ${error.message}`);
     }
   }
-  
+
+  await flushUsage();
   console.log(`Total questions extracted: ${allQuestions.length}`);
   return allQuestions;
 }

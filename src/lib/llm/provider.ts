@@ -83,6 +83,42 @@ export function parseJsonLoose<T = unknown>(raw: string): T {
   throw new Error(`LLM did not return parseable JSON. First 300 chars: ${text.slice(0, 300)}`);
 }
 
+/**
+ * Errors where the provider itself is unusable — not the request.
+ *
+ * Retrying these on the same provider is pointless: a revoked key, an empty
+ * credit balance or an exhausted quota fails identically a second later. But
+ * they are exactly the cases where the secondary provider would have worked,
+ * so they must fail over rather than throw.
+ *
+ * Both providers report billing and quota problems with a status that is
+ * otherwise ambiguous (400 for Anthropic credit, 429 for OpenAI quota), so the
+ * message body is the only reliable signal.
+ */
+export function isProviderUnavailableError(err: unknown): boolean {
+  const status = (err as { status?: number })?.status;
+  const message = String((err as Error)?.message ?? '').toLowerCase();
+
+  // Never reached the wire — the key was absent at construction.
+  if (message.includes('is not set')) return true;
+
+  // Key is wrong, revoked, or lacks access to the model.
+  if (status === 401 || status === 403 || status === 402) return true;
+
+  return (
+    message.includes('credit balance') ||
+    message.includes('insufficient_quota') ||
+    message.includes('insufficient quota') ||
+    message.includes('exceeded your current quota') ||
+    message.includes('billing') ||
+    message.includes('payment required') ||
+    message.includes('account is not active') ||
+    message.includes('invalid api key') ||
+    message.includes('invalid x-api-key') ||
+    message.includes('authentication')
+  );
+}
+
 /** Errors worth retrying on the same provider, or failing over on. */
 export function isTransientLlmError(err: unknown): boolean {
   const status = (err as { status?: number })?.status;

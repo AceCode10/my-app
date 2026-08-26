@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { recordLlmUsage } from '@/lib/llm/usage';
 import OpenAI from 'openai';
 
 // Force this route to be evaluated at request time, not at build time
@@ -221,7 +222,7 @@ Return ONLY valid JSON with "answers" array. Include ALL answers found.`;
 // ANSWER EXTRACTION WITH AI
 // ============================================
 
-async function extractAnswersWithAI(text: string, existingQuestions?: any[]): Promise<any[]> {
+async function extractAnswersWithAI(text: string, existingQuestions?: any[], paperId?: string): Promise<any[]> {
   const processedText = preprocessMarkScheme(sanitizeInputText(text));
   let systemPrompt = buildMarkSchemePrompt();
 
@@ -271,6 +272,16 @@ async function extractAnswersWithAI(text: string, existingQuestions?: any[]): Pr
     temperature: 0.05,
     max_tokens: model.includes('gpt-4') ? 8192 : 4096,
     response_format: { type: 'json_object' }
+  });
+
+  await recordLlmUsage(supabase, {
+    feature: 'paper_extract_answers',
+    provider: 'openai',
+    model,
+    inputTokens: response.usage?.prompt_tokens ?? 0,
+    outputTokens: response.usage?.completion_tokens ?? 0,
+    paperId: paperId ?? null,
+    metadata: { inputChars: textToProcess.length },
   });
 
   const responseText = response.choices[0].message.content?.trim() || '{}';
@@ -533,7 +544,7 @@ export async function POST(
     console.log(`Found ${existingQuestions.length} existing questions for paper ${paperId}`);
     
     // Extract answers from mark scheme
-    const extractedAnswers = await extractAnswersWithAI(extractedText, existingQuestions);
+    const extractedAnswers = await extractAnswersWithAI(extractedText, existingQuestions, paperId);
     console.log(`Extracted ${extractedAnswers.length} answers from mark scheme`);
     
     // Match answers to questions

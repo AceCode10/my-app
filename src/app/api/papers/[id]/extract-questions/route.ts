@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { recordLlmUsage } from '@/lib/llm/usage';
 import OpenAI from 'openai';
 import { 
   extractQuestionsFromImages, 
@@ -397,7 +398,7 @@ function validateQuestions(questions: any[]): { valid: boolean; warnings: string
 /**
  * Extract questions using OpenAI GPT-3.5 Turbo
  */
-async function extractQuestionsWithAI(text: string): Promise<any[]> {
+async function extractQuestionsWithAI(text: string, paperId?: string): Promise<any[]> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error('OPENAI_API_KEY environment variable not set. Please add it to your .env file.');
@@ -443,6 +444,18 @@ async function extractQuestionsWithAI(text: string): Promise<any[]> {
     temperature: 0.05, // Lower temperature for more consistent output
     max_tokens: 4096,
     response_format: { type: 'json_object' }
+  });
+
+  // Recorded before parsing: a response that turns out to be unusable was
+  // still billed, and used to leave no trace at all.
+  await recordLlmUsage(supabase, {
+    feature: 'paper_extract_questions',
+    provider: 'openai',
+    model,
+    inputTokens: response.usage?.prompt_tokens ?? 0,
+    outputTokens: response.usage?.completion_tokens ?? 0,
+    paperId: paperId ?? null,
+    metadata: { inputChars: textToProcess.length },
   });
 
   const responseText = response.choices[0].message.content?.trim() || '{}';
@@ -603,7 +616,10 @@ export async function POST(
           throw new Error('OPENAI_API_KEY not configured');
         }
         
-        const visionQuestions = await extractQuestionsFromImages(pageImages, apiKey);
+        const visionQuestions = await extractQuestionsFromImages(pageImages, apiKey, {
+          supabase,
+          paperId,
+        });
         rawQuestions = visionQuestions;
         extractionMetadata.method = 'gpt4-vision';
         extractionMetadata.pageCount = pageImages.length;
@@ -712,7 +728,7 @@ export async function POST(
         // Fallback to AI extraction
         console.log('[StepByStep] Step-by-step confidence too low, falling back to AI...');
         console.log('[AI] Using AI-based extraction...');
-        rawQuestions = await extractQuestionsWithAI(extractedText);
+        rawQuestions = await extractQuestionsWithAI(extractedText, paperId);
         extractionMetadata.extractionMethod = 'ai-gpt';
       }
     }

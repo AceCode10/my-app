@@ -5,6 +5,7 @@ import {
   type LlmProvider,
   type LlmResult,
   type VisionOptions,
+  isProviderUnavailableError,
   isTransientLlmError,
 } from './provider';
 
@@ -55,10 +56,13 @@ export class FailoverLlmProvider implements LlmProvider {
     try {
       return this.record(await run(this.primary));
     } catch (primaryError) {
+      const unavailable = isProviderUnavailableError(primaryError);
       const retryable = isTransientLlmError(primaryError);
-      const missingKey = String((primaryError as Error)?.message ?? '').includes('is not set');
 
-      if (retryable && !missingKey) {
+      // A revoked key, an empty credit balance or an exhausted quota fails the
+      // same way a second later. Skip the retry and go straight to the
+      // secondary — this is the case failover exists for.
+      if (retryable && !unavailable) {
         try {
           await new Promise((resolve) => setTimeout(resolve, 1500));
           return this.record(await run(this.primary));
@@ -67,7 +71,9 @@ export class FailoverLlmProvider implements LlmProvider {
         }
       }
 
-      if (!this.secondary || (!retryable && !missingKey)) {
+      // A malformed request is the caller's bug: the secondary would reject it
+      // identically, so surface it rather than doubling the cost of a failure.
+      if (!this.secondary || (!retryable && !unavailable)) {
         throw primaryError;
       }
 

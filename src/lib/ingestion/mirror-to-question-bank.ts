@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { LlmProvider } from '../llm';
+import { recordLlmUsage } from '../llm/usage';
 import { toQuestionsEnum } from './structure/classify';
 import {
   assignTopics,
@@ -77,6 +78,23 @@ export async function mirrorToQuestionBank(
 
   const topicResult = await assignTopics(questions, topics, options.llm, fallbackTopicId);
   const assignments: Map<string, TopicAssignment> = topicResult.assignments;
+
+  // One model call per paper, and until now the only unmetered recurring spend
+  // in the pipeline.
+  if (topicResult.usage) {
+    await recordLlmUsage(supabase, {
+      feature: 'ingestion_topic_assignment',
+      provider: topicResult.usage.provider,
+      model: topicResult.usage.model,
+      inputTokens: topicResult.usage.inputTokens,
+      outputTokens: topicResult.usage.outputTokens,
+      paperId,
+      jobId: options.jobId ?? null,
+      succeeded: !topicResult.llmUnavailable,
+      error: topicResult.error ?? null,
+      metadata: { questions: questions.length, topics: topics.length },
+    });
+  }
 
   if (topicResult.llmUnavailable) {
     warnings.push(
