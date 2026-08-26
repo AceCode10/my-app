@@ -3,6 +3,10 @@
     {
       "path": "/api/v1/attempts/auto-submit-expired",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/v1/leaderboard/refresh",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Trophy, Medal, Award, Crown, TrendingUp, Zap } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -23,80 +23,100 @@ interface LeaderboardEntry {
   updated_at: string;
 }
 
+/** A row of `leaderboard_cache`, as written by `update_leaderboard_cache()`. */
+interface LeaderboardCacheRow {
+  user_id: string;
+  rank: number;
+  total_xp: number | null;
+  level: number | null;
+  display_name: string | null;
+  avatar_url: string | null;
+  updated_at: string;
+}
+
 interface LeaderboardProps {
   limit?: number;
   showUserRank?: boolean;
 }
 
+/**
+ * Matched to the refresh cron in vercel.json, which rebuilds leaderboard_cache
+ * every 15 minutes — polling faster than the data can change just re-fetches an
+ * identical board. Five minutes keeps the board responsive shortly after a
+ * rebuild without paying for the other fourteen.
+ *
+ * The old value was 10 seconds, which cost ~7.5 requests/second across a
+ * 300-student cohort. That was survivable only because RLS was silently
+ * truncating each response to a single row; now that the board actually returns
+ * ~100 rows, a 10s poll would move roughly 200 GB/month per school against a
+ * 250 GB included allowance. Polling is gated on tab visibility on top of this,
+ * and an immediate refresh fires on focus and on the local `xp_earned` event.
+ */
+const POLL_INTERVAL_MS = 5 * 60_000;
+
 export function Leaderboard({ limit = 100, showUserRank = true }: LeaderboardProps) {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [userRank, setUserRank] = useState<number | null>(null);
+  const [rankedTotal, setRankedTotal] = useState(0);
   const { user } = useUser();
 
   const loadLeaderboard = useCallback(async () => {
     try {
-      // Query user_gamification directly joined with users table
-      const { data, error } = await supabase
-        .from('user_gamification')
-        .select(`
-          user_id,
-          total_xp,
-          xp_level,
-          updated_at,
-          users!inner(display_name, avatar_url)
-        `)
-        .order('total_xp', { ascending: false })
+      // Read the cache, never user_gamification: RLS on that table is
+      // `user_id = auth.uid()`, so ordering it by total_xp returns exactly one
+      // row — your own — and the board silently shows you alone in first place.
+      // leaderboard_cache is `USING (true)`, pre-ranked, and already excludes
+      // anyone with leaderboard_opt_out set (see update_leaderboard_cache()).
+      // `count: 'exact'` rides along in the same request — it gives the size of
+      // the whole ranked field, so the "#N out of M" line can quote the field
+      // rather than the page, without a second round trip.
+      const { data, error, count } = await supabase
+        .from('leaderboard_cache')
+        .select('user_id, rank, total_xp, level, display_name, avatar_url, updated_at', {
+          count: 'exact',
+        })
+        .order('rank', { ascending: true })
         .limit(limit);
 
-      if (error) {
-        console.error('Error loading leaderboard:', error);
-        // Try fallback to leaderboard_cache if it exists
-        const { data: cacheData, error: cacheError } = await supabase
-          .from('leaderboard_cache')
-          .select('*')
-          .order('rank', { ascending: true })
-          .limit(limit);
-        
-        if (!cacheError && cacheData) {
-          setEntries(cacheData);
-          if (user) {
-            const userEntry = cacheData.find(entry => entry.user_id === user.id);
-            setUserRank(userEntry?.rank || null);
-          }
-        }
-        return;
-      }
+      if (error) throw error;
 
-      // Transform data to leaderboard format
-      const leaderboardData: LeaderboardEntry[] = (data || []).map((entry: any, index: number) => ({
-        rank: index + 1,
+      setRankedTotal(count ?? 0);
+
+      const rows = (data ?? []) as LeaderboardCacheRow[];
+
+      const leaderboardData: LeaderboardEntry[] = rows.map((entry) => ({
+        rank: entry.rank,
         user_id: entry.user_id,
-        display_name: entry.users?.display_name || 'Anonymous',
-        avatar_url: entry.users?.avatar_url,
-        total_xp: entry.total_xp || 0,
-        level: entry.xp_level || 1,
+        display_name: entry.display_name || 'Anonymous',
+        avatar_url: entry.avatar_url ?? undefined,
+        total_xp: entry.total_xp ?? 0,
+        level: entry.level ?? 1,
         updated_at: entry.updated_at,
       }));
 
       setEntries(leaderboardData);
 
-      // Find current user's rank
-      if (user) {
-        const userEntry = leaderboardData.find(entry => entry.user_id === user.id);
-        if (userEntry) {
-          setUserRank(userEntry.rank);
-        } else {
-          // User not in top N, find their actual rank
-          const { count } = await supabase
-            .from('user_gamification')
-            .select('*', { count: 'exact', head: true })
-            .gt('total_xp', leaderboardData[leaderboardData.length - 1]?.total_xp || 0);
-          
-          // For now, just show null if not in top N
-          setUserRank(null);
-        }
+      if (!user) {
+        setUserRank(null);
+        return;
       }
+
+      const userEntry = leaderboardData.find((entry) => entry.user_id === user.id);
+      if (userEntry) {
+        setUserRank(userEntry.rank);
+        return;
+      }
+
+      // Outside the top N — the cache still holds the real rank (up to 1000).
+      // Absent means opted out, or ranked below the cache cutoff.
+      const { data: ownRank } = await supabase
+        .from('leaderboard_cache')
+        .select('rank')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      setUserRank(ownRank?.rank ?? null);
     } catch (error) {
       console.error('Error loading leaderboard:', error);
     } finally {
@@ -104,46 +124,58 @@ export function Leaderboard({ limit = 100, showUserRank = true }: LeaderboardPro
     }
   }, [limit, user]);
 
+  // Keeps the visibility handler from closing over a stale callback.
+  const loadRef = useRef(loadLeaderboard);
+  loadRef.current = loadLeaderboard;
+
   useEffect(() => {
     loadLeaderboard();
-    
-    // Subscribe to real-time updates on user_gamification
-    const channel = supabase
-      .channel('leaderboard_xp_updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'user_gamification'
-        },
-        () => {
-          // Reload leaderboard when any XP changes
-          loadLeaderboard();
-        }
-      )
-      .subscribe();
 
-    // Also listen for xp_earned events
-    const handleXPEarned = () => {
-      loadLeaderboard();
+    // There is deliberately no postgres_changes subscription here. RLS confines
+    // user_gamification to your own row, so the old channel could only ever fire
+    // for your own XP — it could not tell you someone had overtaken you, while
+    // still holding one of the 500 included Realtime connections. Subscribing to
+    // leaderboard_cache instead would be worse: update_leaderboard_cache()
+    // rebuilds it with DELETE + INSERT, so every refresh would fan ~2000 change
+    // events out to every connected client.
+
+    // Your own XP landing is worth an immediate refresh — this is local and free.
+    const handleXPEarned = () => loadRef.current();
+    window.addEventListener('xp_earned', handleXPEarned);
+
+    let pollInterval: ReturnType<typeof setInterval> | null = null;
+
+    const stopPolling = () => {
+      if (pollInterval !== null) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
     };
-    
-    if (typeof window !== 'undefined') {
-      window.addEventListener('xp_earned', handleXPEarned);
-    }
 
-    // Set up polling interval for real-time feel (every 10 seconds)
-    const pollInterval = setInterval(() => {
-      loadLeaderboard();
-    }, 10000);
+    const startPolling = () => {
+      if (pollInterval === null) {
+        pollInterval = setInterval(() => loadRef.current(), POLL_INTERVAL_MS);
+      }
+    };
+
+    // A backgrounded tab polls nothing; returning to it refreshes at once so the
+    // board is never visibly stale, however long the student was away.
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        loadRef.current();
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    if (document.visibilityState === 'visible') startPolling();
 
     return () => {
-      supabase.removeChannel(channel);
-      clearInterval(pollInterval);
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('xp_earned', handleXPEarned);
-      }
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('xp_earned', handleXPEarned);
     };
   }, [loadLeaderboard]);
 
@@ -227,7 +259,7 @@ export function Leaderboard({ limit = 100, showUserRank = true }: LeaderboardPro
       </CardHeader>
       <CardContent>
         {/* User's Position Banner */}
-        {userRank && (
+        {showUserRank && userRank && (
           <div className="mb-4 p-4 bg-primary/10 border border-primary/20 rounded-lg">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -237,7 +269,7 @@ export function Leaderboard({ limit = 100, showUserRank = true }: LeaderboardPro
                 <div>
                   <p className="font-semibold">Your Rank</p>
                   <p className="text-sm text-muted-foreground">
-                    #{userRank} out of {entries.length}
+                    #{userRank} out of {rankedTotal || entries.length}
                   </p>
                 </div>
               </div>
@@ -247,6 +279,16 @@ export function Leaderboard({ limit = 100, showUserRank = true }: LeaderboardPro
         )}
 
         {/* Leaderboard List */}
+        {entries.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
+            <Trophy className="h-8 w-8 text-muted-foreground/40" />
+            <p className="font-medium">No rankings yet</p>
+            <p className="text-sm text-muted-foreground max-w-xs">
+              The board fills up once students start earning XP. Finish a quiz to
+              claim the first place.
+            </p>
+          </div>
+        ) : (
         <ScrollArea className="h-[500px] pr-4">
           <div className="space-y-2">
             {entries.map((entry, index) => (
@@ -304,6 +346,7 @@ export function Leaderboard({ limit = 100, showUserRank = true }: LeaderboardPro
             ))}
           </div>
         </ScrollArea>
+        )}
 
         {/* Footer Stats */}
         <div className="mt-4 pt-4 border-t grid grid-cols-3 gap-4 text-center">
