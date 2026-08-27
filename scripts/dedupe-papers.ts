@@ -101,12 +101,17 @@ function paperDigit(row: PaperRow): string | null {
  * Hand-entered rows put the component code in `variant` ("12" for paper 1
  * variant 2, "02" where the leading zero is padding). Ingested rows already
  * hold the digit alone. Both must reduce to the same thing.
+ *
+ * A leading zero is padding on a paper that has no variants at all — 0417/02 is
+ * paper 2, not paper 0 variant 2 — so it reduces to nothing, matching what the
+ * ingested row stores.
  */
 function variantDigit(raw: string | null, paper: string | null): string | null {
   const value = String(raw ?? '').trim();
   if (!value) return null;
   if (value.length === 1) return value;
-  if (value.length === 2 && (value[0] === paper || value[0] === '0')) return value[1];
+  if (value.length === 2 && value[0] === '0') return null;
+  if (value.length === 2 && value[0] === paper) return value[1];
   return value;
 }
 

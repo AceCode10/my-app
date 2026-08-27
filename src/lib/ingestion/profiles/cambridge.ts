@@ -76,6 +76,29 @@ export const cambridgeProfile: BoardProfile = {
       },
     },
     {
+      // Specimen papers carry a year but no month: "0417 ... 2023 Specimen
+      // Question Paper 2". Without this the name falls through to the generic
+      // sniffer, which cannot see the component number in a mark scheme and
+      // collapses every specimen mark scheme onto one key.
+      id: 'cie_specimen',
+      re: /^(?<code>\d{4})\s+(?<name>.+?)\s+(?<year>\d{4})\s+Specimen\s+(?<doc>Question\s*Paper|Mark\s*Scheme|Insert|Paper)\s+(?<pv>\d{1,2})$/i,
+      parse: (m): Partial<PaperMeta> => {
+        const g = m.groups!;
+        const { paperNumber, variant } = splitComponent(g.pv);
+        return {
+          subjectCode: g.code,
+          subjectName: g.name.trim(),
+          year: Number(g.year),
+          session: 'unknown',
+          paperNumber,
+          variant,
+          componentCode: g.pv,
+          docType: docTypeFromToken(g.doc.replace(/\s+/g, '')),
+          confidence: 0.9,
+        };
+      },
+    },
+    {
       // Long-form specimen/mark-scheme naming: 9610-BL02-...-mark-scheme-2016-v1
       id: 'cie_longform',
       re: /^(?<code>\d{4})-(?<comp>[A-Z]{2}\d{2})-(?<desc>.+?)-(?<doc>mark-scheme|specimen-paper|question-paper)-(?<year>\d{4})/i,

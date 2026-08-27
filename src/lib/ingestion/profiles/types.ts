@@ -141,9 +141,16 @@ export function expandYear(yy: string): number {
 /**
  * Cambridge component codes encode paper and variant: "12" -> paper 1 variant 2,
  * "2" -> paper 2 with no variant.
+ *
+ * A leading zero means "no variant", not "paper 0": the November 0417 practicals
+ * are printed as 0417/02 and 0417/03, and their mark schemes are named with the
+ * bare "2" and "3". Both must land on the same paper number or the pair splits.
  */
 export function splitComponent(code: string): { paperNumber: string; variant: string | null } {
   const digits = code.replace(/\D/g, '');
+  if (digits.length >= 2 && digits.startsWith('0')) {
+    return { paperNumber: digits.replace(/^0+/, '') || '0', variant: null };
+  }
   if (digits.length >= 2) {
     return { paperNumber: digits[0], variant: digits.slice(1) };
   }
