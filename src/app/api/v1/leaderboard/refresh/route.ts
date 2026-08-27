@@ -10,6 +10,13 @@
  * thousands of rows for every quiz a student finishes. On a schedule the cost
  * is one rebuild per interval no matter how many students are playing.
  *
+ * The schedule is DAILY, not every 15 minutes. Vercel's Hobby plan rejects any
+ * cron that runs more than once per day, and the whole deployment fails
+ * validation with it — a 15-minute schedule here blocked every deploy for two
+ * days. Do not shorten it without moving the project to Pro first; if the board
+ * needs to be fresher than daily on Hobby, refresh it on demand from the
+ * leaderboard page with a throttle instead of adding a second cron.
+ *
  * The client reads only this cache — never `user_gamification`, whose RLS
  * (`user_id = auth.uid()`) confines a SELECT to the caller's own row.
  *
