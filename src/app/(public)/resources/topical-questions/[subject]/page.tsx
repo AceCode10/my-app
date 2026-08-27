@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { createClient } from '@/lib/supabase/client';
+import { withoutUnclassified } from '@/lib/topic-utils';
 import { ProgressRing } from '@/components/ui/modern-list';
 import { useUser } from '@/hooks/use-user';
 
@@ -105,7 +106,7 @@ export default function SubjectTopicalQuestionsPage({
       const progressRes = results[2];
 
       if (topicsRes.error) throw topicsRes.error;
-      setTopics(topicsRes.data || []);
+      setTopics(withoutUnclassified(topicsRes.data));
 
       if (questionsRes.data) {
         const counts: Record<string, number> = {};

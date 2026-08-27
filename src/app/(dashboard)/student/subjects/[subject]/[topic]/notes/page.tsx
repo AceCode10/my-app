@@ -16,6 +16,7 @@ import { allSubjects } from '@/lib/subjects';
 import { format } from 'date-fns';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { FullscreenNotesViewer } from '@/components/notes/fullscreen-notes-viewer';
+import { HtmlNoteRenderer } from '@/components/notes/html-note-renderer';
 import { SplitCardRenderer } from '@/components/notes/markdown-renderer';
 
 export default function NotesPage({
@@ -266,18 +267,15 @@ export default function NotesPage({
 
     return (
       <div ref={noteContentRef}>
-        {noteData?.content_md ? (
+        {noteData?.rendered_html ? (
+          <div className="bg-card rounded-2xl border shadow-sm p-6 sm:p-8">
+            <HtmlNoteRenderer html={noteData.rendered_html} />
+          </div>
+        ) : noteData?.content_md ? (
           <SplitCardRenderer
             content={noteData.content_md}
             hasLatex={noteData.has_latex || false}
           />
-        ) : noteData?.rendered_html ? (
-          <div className="bg-card rounded-2xl border shadow-sm p-6 sm:p-8">
-            <div 
-              className="prose dark:prose-invert max-w-none prose-headings:font-bold prose-headings:text-foreground prose-h2:text-2xl prose-h3:text-xl"
-              dangerouslySetInnerHTML={{ __html: noteData.rendered_html }}
-            />
-          </div>
         ) : null}
       </div>
     );

@@ -6,6 +6,7 @@ import { ChevronRight, ChevronDown, BookOpen, FileText, Clock } from 'lucide-rea
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { createClient } from '@/lib/supabase/client';
+import { withoutUnclassified } from '@/lib/topic-utils';
 
 interface Topic {
   id: string;
@@ -82,7 +83,7 @@ export default function SubjectRevisionNotesPage({
       ]);
 
       if (topicsRes.error) throw topicsRes.error;
-      setTopics(topicsRes.data || []);
+      setTopics(withoutUnclassified(topicsRes.data));
 
       if (notesRes.data) {
         const counts: Record<string, number> = {};

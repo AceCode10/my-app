@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { withoutUnclassified } from '@/lib/topic-utils';
 
 const supabase = createClient();
 
@@ -65,7 +66,7 @@ export default function SubjectPage({ params }: SubjectPageProps) {
         .order('display_order', { ascending: true });
       
       if (error) throw error;
-      return data || [];
+      return withoutUnclassified(data);
     },
     enabled: !!subjectData?.id,
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes

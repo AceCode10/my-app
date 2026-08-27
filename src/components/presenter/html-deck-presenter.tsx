@@ -18,6 +18,10 @@ interface HtmlDeckPresenterProps {
   url: string;
   title?: string;
   backHref?: string;
+  /** Height utility for the presenter box. Use `h-full` when embedding in a page. */
+  heightClass?: string;
+  /** Hide the Exit button when the deck is embedded rather than shown standalone. */
+  showExit?: boolean;
 }
 
 interface Slide {
@@ -74,7 +78,13 @@ ${slideHtml}
 </html>`;
 }
 
-export function HtmlDeckPresenter({ url, title = 'Presentation', backHref }: HtmlDeckPresenterProps) {
+export function HtmlDeckPresenter({
+  url,
+  title = 'Presentation',
+  backHref,
+  heightClass = 'h-screen',
+  showExit = true,
+}: HtmlDeckPresenterProps) {
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const controlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -86,15 +96,27 @@ export function HtmlDeckPresenter({ url, title = 'Presentation', backHref }: Htm
   const [error, setError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showControls, setShowControls] = useState(true);
-  const [viewport, setViewport] = useState({ w: 1920, h: 1080 });
+  const [stage, setStage] = useState({ w: 1920, h: 1080 });
 
-  // Reactive viewport size for scale calculation
+  // Scale against the presenter's own box, not the window: when the deck is
+  // embedded (sidebar, page padding) the container is narrower than the window
+  // and window-based scaling clips the slide horizontally.
   useEffect(() => {
-    const update = () => setViewport({ w: window.innerWidth, h: window.innerHeight });
+    const el = containerRef.current;
+    if (!el) return;
+    const update = () => {
+      const rect = el.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) setStage({ w: rect.width, h: rect.height });
+    };
     update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
     window.addEventListener('resize', update);
-    return () => window.removeEventListener('resize', update);
-  }, []);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', update);
+    };
+  }, [loading, error]);
 
   // Fetch + parse the HTML deck
   useEffect(() => {
@@ -202,7 +224,7 @@ export function HtmlDeckPresenter({ url, title = 'Presentation', backHref }: Htm
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center w-full h-full min-h-screen bg-black">
+      <div className={cn('flex items-center justify-center w-full bg-black', heightClass)}>
         <Loader2 className="h-10 w-10 animate-spin text-white" />
         <span className="ml-3 text-white text-lg">Loading presentation…</span>
       </div>
@@ -211,7 +233,7 @@ export function HtmlDeckPresenter({ url, title = 'Presentation', backHref }: Htm
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center w-full h-full min-h-screen bg-gray-950 text-white gap-4">
+      <div className={cn('flex flex-col items-center justify-center w-full bg-gray-950 text-white gap-4', heightClass)}>
         <AlertCircle className="h-12 w-12 text-red-400" />
         <p className="text-xl font-semibold">Could not load presentation</p>
         <p className="text-sm text-gray-400">{error}</p>
@@ -227,12 +249,12 @@ export function HtmlDeckPresenter({ url, title = 'Presentation', backHref }: Htm
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-screen bg-black overflow-hidden select-none"
+      className={cn('relative w-full bg-black overflow-hidden select-none', heightClass)}
       onMouseMove={resetControlsTimer}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
-      {/* Slide stage — scaled to fit viewport */}
+      {/* Slide stage - scaled to fit the presenter box */}
       <div
         className="absolute inset-0 flex items-center justify-center"
         style={{ background: '#111' }}
@@ -241,7 +263,7 @@ export function HtmlDeckPresenter({ url, title = 'Presentation', backHref }: Htm
           style={{
             width: 1920,
             height: 1080,
-            transform: `scale(${Math.min(viewport.w / 1920, viewport.h / 1080)})`,
+            transform: `scale(${Math.min(stage.w / 1920, stage.h / 1080)})`,
             transformOrigin: 'center center',
             position: 'relative',
           }}
@@ -272,15 +294,19 @@ export function HtmlDeckPresenter({ url, title = 'Presentation', backHref }: Htm
       >
         {/* Top bar */}
         <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-6 py-4 bg-gradient-to-b from-black/70 to-transparent pointer-events-auto">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-white hover:bg-white/20"
-            onClick={handleExit}
-          >
-            <X className="h-4 w-4 mr-2" />
-            Exit
-          </Button>
+          {showExit ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-white hover:bg-white/20"
+              onClick={handleExit}
+            >
+              <X className="h-4 w-4 mr-2" />
+              Exit
+            </Button>
+          ) : (
+            <span />
+          )}
           <span className="text-white font-medium text-sm truncate max-w-md">{title}</span>
           <div className="flex items-center gap-2">
             <span className="text-white/70 text-sm">

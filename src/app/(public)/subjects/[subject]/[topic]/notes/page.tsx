@@ -15,6 +15,7 @@ import { allSubjects } from '@/lib/subjects';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { MarkdownRenderer } from '@/components/notes/markdown-renderer';
+import { HtmlNoteRenderer } from '@/components/notes/html-note-renderer';
 import { SectionNavigation, MobileSectionSelector } from '@/components/notes/section-navigation';
 import { NotesPDFExport } from '@/components/notes/notes-pdf-export';
 import type { Note, NoteSection } from '@/types/notes';
@@ -314,10 +315,14 @@ export default function NotesPage({
             
             {/* Content */}
             <div className="mt-6">
-              <MarkdownRenderer 
-                content={currentContent} 
-                hasLatex={hasLatex}
-              />
+              {!currentSection && noteData.rendered_html ? (
+                <HtmlNoteRenderer html={noteData.rendered_html} />
+              ) : (
+                <MarkdownRenderer 
+                  content={currentContent} 
+                  hasLatex={hasLatex}
+                />
+              )}
             </div>
 
             {/* Link to quiz at bottom */}

@@ -9,12 +9,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useToast } from '@/hooks/use-toast';
 import { createClient } from '@/lib/supabase/client';
+import { withoutUnclassified } from '@/lib/topic-utils';
 import { cn } from '@/lib/utils';
 import { MarkdownRenderer, SplitCardRenderer } from '@/components/notes/markdown-renderer';
+import { HtmlNoteRenderer } from '@/components/notes/html-note-renderer';
 import { ReactPDFViewer } from '@/components/notes/react-pdf-viewer';
 import { HtmlDeckPresenter } from '@/components/presenter/html-deck-presenter';
 
@@ -131,7 +132,7 @@ export default function TopicNotesPage({
         .eq('subject_id', subjectData.id)
         .order('display_order', { ascending: true });
 
-      setAllTopics(allTopicsData || []);
+      setAllTopics(withoutUnclassified(allTopicsData));
 
       // Auto-expand the parent topic that contains the current topic
       if (allTopicsData && topicData) {
@@ -383,9 +384,9 @@ export default function TopicNotesPage({
   };
 
   const TopicSidebar = ({ onNavigate, showCollapseButton = false }: { onNavigate?: () => void; showCollapseButton?: boolean }) => (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 h-full min-h-0">
       {/* ZNotes-style header: icon + short name + syllabus code */}
-      <div className="p-4 border-b">
+      <div className="p-4 border-b flex-shrink-0">
         <div className="flex items-center justify-between mb-3">
           <Link 
             href={`/resources/revision-notes/${subjectSlug}`}
@@ -420,11 +421,12 @@ export default function TopicNotesPage({
       </div>
 
       {/* Topics heading */}
-      <div className="px-4 pt-3 pb-1">
+      <div className="px-4 pt-3 pb-1 flex-shrink-0">
         <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Topics</h4>
       </div>
 
-      <ScrollArea className="flex-1">
+      {/* The list caps its own height: a max-height on the card cannot size a flex child */}
+      <div className="flex-1 min-h-0 overflow-y-auto max-h-[calc(100vh-16rem)]">
         <nav className="p-2 space-y-0.5">
           {parentTopics.map((t) => {
             const children = getChildren(t.id);
@@ -498,7 +500,7 @@ export default function TopicNotesPage({
             );
           })}
         </nav>
-      </ScrollArea>
+      </div>
     </div>
   );
 
@@ -541,7 +543,7 @@ export default function TopicNotesPage({
         <div className="flex gap-6">
           {allTopics.length > 0 && (
             <div className="hidden lg:block w-64 flex-shrink-0">
-              <Card className="sticky top-24 max-h-[calc(100vh-8rem)] overflow-hidden">
+              <Card className="sticky top-24 overflow-hidden flex flex-col">
                 <TopicSidebar />
               </Card>
             </div>
@@ -570,7 +572,7 @@ export default function TopicNotesPage({
   }
 
   // Presentation-only note — show inline with sidebar and navigation
-  if (selectedNote?.presentation_url && (!selectedNote.content_md || selectedNote.content_md.trim().length < 200)) {
+  if (selectedNote?.presentation_url && !selectedNote.rendered_html && (!selectedNote.content_md || selectedNote.content_md.trim().length < 200)) {
     return (
       <div className="py-2">
         {/* Breadcrumb */}
@@ -594,7 +596,7 @@ export default function TopicNotesPage({
               sidebarCollapsed ? "w-0" : "w-64"
             )}>
               {!sidebarCollapsed && (
-                <Card className="sticky top-24 max-h-[calc(100vh-8rem)] overflow-hidden flex flex-col">
+                <Card className="sticky top-24 overflow-hidden flex flex-col">
                   <TopicSidebar showCollapseButton />
                 </Card>
               )}
@@ -633,37 +635,18 @@ export default function TopicNotesPage({
               </div>
             </div>
 
-            {/* Presentation embedded */}
-            <div className="rounded-lg overflow-hidden border bg-black">
-              <div className="aspect-video relative">
-                <iframe
-                  src={selectedNote.presentation_url}
-                  className="w-full h-full border-0"
-                  title={selectedNote.title}
-                  allowFullScreen
-                />
-                {/* Open in fullscreen button */}
-                <div className="absolute top-4 right-4">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="bg-black/50 hover:bg-black/70 text-white border-white/20"
-                    onClick={() => {
-                      const win = window.open(selectedNote.presentation_url, '_blank');
-                      if (win) win.focus();
-                    }}
-                  >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                    </svg>
-                    Fullscreen
-                  </Button>
-                </div>
-              </div>
+            {/* Presentation embedded - the presenter scales each 1920x1080 slide to fit */}
+            <div className="rounded-lg overflow-hidden border bg-black aspect-video">
+              <HtmlDeckPresenter
+                url={selectedNote.presentation_url}
+                title={selectedNote.title}
+                heightClass="h-full"
+                showExit={false}
+              />
             </div>
 
             {/* Topic Navigation (prev/next) */}
-            <div className="flex items-center justify-between mt-8 gap-4">
+            <div className="flex flex-wrap items-center justify-between mt-8 gap-3">
               {prevTopic ? (
                 <Button variant="outline" asChild className="flex-1 sm:flex-none">
                   <Link href={`/resources/revision-notes/${subjectSlug}/${prevTopic.slug}`}>
@@ -711,7 +694,7 @@ export default function TopicNotesPage({
   }
 
   // PDF note - render with PDF viewer
-  if (selectedNote?.pdf_url) {
+  if (selectedNote?.pdf_url && !selectedNote.rendered_html) {
     return (
       <div className="py-4">
         <div className="flex justify-end gap-2 mb-2">
@@ -763,7 +746,7 @@ export default function TopicNotesPage({
             sidebarCollapsed ? "w-0" : "w-64"
           )}>
             {!sidebarCollapsed && (
-              <Card className="sticky top-24 max-h-[calc(100vh-8rem)] overflow-hidden flex flex-col">
+              <Card className="sticky top-24 overflow-hidden flex flex-col">
                 <TopicSidebar showCollapseButton />
               </Card>
             )}
@@ -834,7 +817,9 @@ export default function TopicNotesPage({
 
               {/* Note content - split into cards at ## headings */}
               <div ref={contentRef}>
-                {selectedNote.content_md ? (
+                {selectedNote.rendered_html ? (
+                  <HtmlNoteRenderer html={selectedNote.rendered_html} />
+                ) : selectedNote.content_md ? (
                   <SplitCardRenderer 
                     content={selectedNote.content_md} 
                     hasLatex={selectedNote.has_latex || false}
@@ -851,7 +836,7 @@ export default function TopicNotesPage({
               </div>
 
               {/* Topic Navigation (prev/next) */}
-              <div className="flex items-center justify-between mt-8 gap-4">
+              <div className="flex flex-wrap items-center justify-between mt-8 gap-3">
                 {prevTopic ? (
                   <Button variant="outline" asChild className="flex-1 sm:flex-none">
                     <Link href={`/resources/revision-notes/${subjectSlug}/${prevTopic.slug}`}>

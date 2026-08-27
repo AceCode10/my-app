@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { createClient } from '@/lib/supabase/client';
+import { withoutUnclassified } from '@/lib/topic-utils';
 import { getSubjectBySlug } from '@/lib/subjects';
 
 interface Topic {
@@ -75,7 +76,7 @@ export default function SubjectPage({
         .order('display_order', { ascending: true });
 
       if (topicsError) throw topicsError;
-      setTopics(topicsData || []);
+      setTopics(withoutUnclassified(topicsData));
 
       // Fetch resource counts
       const topicIds = (topicsData || []).map((t: Topic) => t.id);

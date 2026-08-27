@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { LlmProvider } from '../llm';
 import type { ExtractedQuestion } from './types';
+import { UNCLASSIFIED_TOPIC_NAME, UNCLASSIFIED_TOPIC_SLUG } from '../topic-utils';
 
 /**
  * Assign a syllabus topic to each ingested question.
@@ -29,7 +30,6 @@ export interface TopicAssignment {
 
 const MIN_CONFIDENCE = 0.6;
 const INHERIT_OVERRIDE_CONFIDENCE = 0.8;
-const UNCLASSIFIED_NAME = 'Unclassified';
 
 export async function loadTopics(
   supabase: SupabaseClient,
@@ -57,7 +57,7 @@ export async function ensureUnclassifiedTopic(
     .from('topics')
     .select('id')
     .eq('subject_id', subjectId)
-    .ilike('name', UNCLASSIFIED_NAME)
+    .ilike('name', UNCLASSIFIED_TOPIC_NAME)
     .maybeSingle();
 
   if (existing?.id) return existing.id;
@@ -66,8 +66,8 @@ export async function ensureUnclassifiedTopic(
     .from('topics')
     .insert({
       subject_id: subjectId,
-      name: UNCLASSIFIED_NAME,
-      slug: 'unclassified',
+      name: UNCLASSIFIED_TOPIC_NAME,
+      slug: UNCLASSIFIED_TOPIC_SLUG,
       description: 'Ingested questions awaiting a syllabus topic.',
       display_order: 9999,
       status: 'published',
