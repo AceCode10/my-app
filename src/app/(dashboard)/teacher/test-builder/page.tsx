@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
@@ -245,6 +245,11 @@ export default function TestBuilderPage() {
     randomizeQuestions: false,
     randomizeChoices: false,
   });
+
+  // Shown under the title field in the settings dialog rather than as a toast:
+  // a validation message belongs next to the input it is about.
+  const [titleError, setTitleError] = useState<string | null>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
 
   // UI state
   const [saving, setSaving] = useState(false);
@@ -1069,7 +1074,7 @@ export default function TestBuilderPage() {
     }
 
     if (!settings.title.trim()) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Please enter a test title' });
+      setTitleError('Give your test a title before saving.');
       setShowSettingsDialog(true);
       return;
     }
@@ -1260,11 +1265,8 @@ export default function TestBuilderPage() {
       toast({ variant: 'destructive', title: 'Error', description: 'Please add questions first' });
       return;
     }
-    if (!settings.title.trim()) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Please set a test title first' });
-      setShowSettingsDialog(true);
-      return;
-    }
+    // No title required: the PDF export and the on-page preview both fall back
+    // to 'Untitled Test', so there is nothing here worth blocking on.
     setShowPDFExport(true);
   }
 
@@ -1944,7 +1946,16 @@ export default function TestBuilderPage() {
 
       {/* Settings Dialog */}
       <Dialog open={showSettingsDialog} onOpenChange={setShowSettingsDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent
+          className="max-w-md"
+          // Radix focuses the first element itself; when we opened the dialog
+          // because the title was missing, send focus to that field instead.
+          onOpenAutoFocus={(event) => {
+            if (!titleError) return;
+            event.preventDefault();
+            titleInputRef.current?.focus();
+          }}
+        >
           <DialogHeader>
             <DialogTitle>Test Settings</DialogTitle>
             <DialogDescription>Configure your test settings</DialogDescription>
@@ -1952,13 +1963,29 @@ export default function TestBuilderPage() {
           
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="title">Test Title *</Label>
+              <Label htmlFor="title">Test Title</Label>
               <Input
                 id="title"
+                ref={titleInputRef}
                 value={settings.title}
-                onChange={(e) => setSettings({ ...settings, title: e.target.value })}
+                onChange={(e) => {
+                  setSettings({ ...settings, title: e.target.value });
+                  if (titleError) setTitleError(null);
+                }}
                 placeholder="e.g., Chapter 5 Quiz"
+                aria-invalid={titleError ? true : undefined}
+                aria-describedby={titleError ? 'title-error' : 'title-hint'}
+                className={titleError ? 'border-destructive focus-visible:ring-destructive' : undefined}
               />
+              {titleError ? (
+                <p id="title-error" className="text-sm text-destructive">
+                  {titleError}
+                </p>
+              ) : (
+                <p id="title-hint" className="text-sm text-muted-foreground">
+                  Needed to save. Previewing and exporting a PDF work without one.
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -2028,7 +2055,12 @@ export default function TestBuilderPage() {
             <Button variant="outline" onClick={() => setShowSettingsDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={() => setShowSettingsDialog(false)}>
+            <Button
+              onClick={() => {
+                if (settings.title.trim()) setTitleError(null);
+                setShowSettingsDialog(false);
+              }}
+            >
               Save Settings
             </Button>
           </DialogFooter>

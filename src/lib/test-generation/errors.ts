@@ -55,3 +55,30 @@ export class UnresolvedFieldError extends Error {
     this.value = value;
   }
 }
+
+/**
+ * Stages a generation run can fail in. The route returns the code to the client
+ * so a bug report names the failing stage without the server having to leak a
+ * provider or Postgres message into the browser.
+ */
+export type GenerationFailureCode =
+  | 'llm_unavailable'
+  | 'llm_unparseable'
+  | 'pool_query_failed'
+  | 'persist_failed'
+  | 'unknown';
+
+/**
+ * An internal failure, tagged with the stage it happened in.
+ *
+ * The `message` is for the server log only — the route never forwards it.
+ */
+export class GenerationError extends Error {
+  readonly code: GenerationFailureCode;
+
+  constructor(code: GenerationFailureCode, message: string, options?: { cause?: unknown }) {
+    super(message, options as ErrorOptions);
+    this.name = 'GenerationError';
+    this.code = code;
+  }
+}

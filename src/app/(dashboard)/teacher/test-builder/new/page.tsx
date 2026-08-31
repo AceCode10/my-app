@@ -39,6 +39,7 @@ export default function NewTestBuilderPage() {
 
   const [selectedQuestions, setSelectedQuestions] = useState<(AssessmentQuestion & { question: Question })[]>([]);
   const [assessmentId, setAssessmentId] = useState<string | null>(null);
+  const [titleError, setTitleError] = useState<string | null>(null);
 
   const handleAddQuestion = (question: Question) => {
     // Check if already added
@@ -92,15 +93,13 @@ export default function NewTestBuilderPage() {
 
   const handleConfigChange = (updates: Partial<Assessment>) => {
     setTestConfig(prev => ({ ...prev, ...updates }));
+    if (updates.title?.trim()) setTitleError(null);
   };
 
   const handleSaveDraft = async () => {
     if (!testConfig.title) {
-      toast({
-        title: 'Title required',
-        description: 'Please enter a test title',
-        variant: 'destructive'
-      });
+      setTitleError('Give your test a title before saving.');
+      setActiveTab('configure');
       return;
     }
 
@@ -303,6 +302,7 @@ export default function NewTestBuilderPage() {
           <TestConfiguration
             config={testConfig}
             onChange={handleConfigChange}
+            titleError={titleError}
           />
         </TabsContent>
 

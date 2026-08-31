@@ -12,9 +12,11 @@ import type { Assessment } from '@/types/assessment';
 interface TestConfigurationProps {
   config: Partial<Assessment>;
   onChange: (updates: Partial<Assessment>) => void;
+  /** Validation message rendered under the title field, next to what it is about. */
+  titleError?: string | null;
 }
 
-export function TestConfiguration({ config, onChange }: TestConfigurationProps) {
+export function TestConfiguration({ config, onChange, titleError }: TestConfigurationProps) {
   const handleChange = (field: keyof Assessment, value: any) => {
     onChange({ [field]: value });
   };
@@ -36,7 +38,15 @@ export function TestConfiguration({ config, onChange }: TestConfigurationProps) 
               onChange={(e) => handleChange('title', e.target.value)}
               placeholder="e.g., Chapter 5 Quiz"
               required
+              aria-invalid={titleError ? true : undefined}
+              aria-describedby={titleError ? 'title-error' : undefined}
+              className={titleError ? 'border-destructive focus-visible:ring-destructive' : undefined}
             />
+            {titleError && (
+              <p id="title-error" className="text-sm text-destructive">
+                {titleError}
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">

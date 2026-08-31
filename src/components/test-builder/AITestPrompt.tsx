@@ -10,7 +10,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Sparkles, Loader2, AlertTriangle } from 'lucide-react';
+import { Sparkles, Loader2, AlertTriangle, AlertCircle } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -37,6 +37,15 @@ interface GenerateResponse {
   field?: string;
   candidates?: Candidate[];
   diagnostics?: { achievedMarks: number; targetMarks: number };
+  /** Which stage failed, for a 5xx. */
+  code?: string;
+  /** Short reference a teacher can quote in a bug report. */
+  requestId?: string;
+}
+
+interface Failure {
+  message: string;
+  requestId?: string;
 }
 
 export function AITestPrompt({ classId }: { classId?: string }) {
@@ -47,6 +56,9 @@ export function AITestPrompt({ classId }: { classId?: string }) {
   const [generating, setGenerating] = useState(false);
   const [candidates, setCandidates] = useState<Candidate[] | null>(null);
   const [shortfall, setShortfall] = useState<string | null>(null);
+  // A failed generation is answered in place, under the box that caused it,
+  // rather than by a toast that slides away before it has been read.
+  const [failure, setFailure] = useState<Failure | null>(null);
 
   async function generate(text: string) {
     if (!text.trim() || generating) return;
@@ -54,6 +66,7 @@ export function AITestPrompt({ classId }: { classId?: string }) {
     setGenerating(true);
     setCandidates(null);
     setShortfall(null);
+    setFailure(null);
 
     try {
       const response = await fetch('/api/v1/tests/generate', {
@@ -71,12 +84,16 @@ export function AITestPrompt({ classId }: { classId?: string }) {
       }
 
       if (!response.ok) {
-        if (response.status === 422) setShortfall(data.message ?? null);
-        toast({
-          variant: 'destructive',
-          title: data.error ?? 'Could not generate',
-          description: data.message ?? 'Try rephrasing the request.',
-        });
+        // A 422 is a conversation about content, not a fault: it gets the amber
+        // shortfall panel. Everything else is a failure.
+        if (response.status === 422) {
+          setShortfall(data.message ?? 'The bank could not fill that request.');
+        } else {
+          setFailure({
+            message: data.message ?? 'Try rephrasing the request.',
+            requestId: data.requestId,
+          });
+        }
         return;
       }
 
@@ -92,11 +109,7 @@ export function AITestPrompt({ classId }: { classId?: string }) {
 
       if (data.editUrl) router.push(data.editUrl);
     } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Network error',
-        description: 'Could not reach the generator.',
-      });
+      setFailure({ message: 'Could not reach the generator. Check your connection and try again.' });
     } finally {
       setGenerating(false);
     }
@@ -172,6 +185,20 @@ export function AITestPrompt({ classId }: { classId?: string }) {
                   {candidate.label}
                 </Button>
               ))}
+            </div>
+          </div>
+        )}
+
+        {failure && (
+          <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
+            <AlertCircle className="h-4 w-4 mt-0.5 text-destructive shrink-0" />
+            <div className="space-y-1">
+              <p>{failure.message}</p>
+              {failure.requestId && (
+                <p className="text-xs text-muted-foreground">
+                  Reference: {failure.requestId}
+                </p>
+              )}
             </div>
           </div>
         )}

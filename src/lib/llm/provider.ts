@@ -105,6 +105,18 @@ export function isProviderUnavailableError(err: unknown): boolean {
   // Key is wrong, revoked, or lacks access to the model.
   if (status === 401 || status === 403 || status === 402) return true;
 
+  // The model id is not one this key can reach — a deprecated id, or an org
+  // without access to it. The secondary provider runs a different model, so
+  // this must fail over rather than surface as a request error.
+  if (status === 404) return true;
+  if (
+    message.includes('not_found_error') ||
+    (message.includes('model') &&
+      (message.includes('not found') || message.includes('does not exist')))
+  ) {
+    return true;
+  }
+
   return (
     message.includes('credit balance') ||
     message.includes('insufficient_quota') ||

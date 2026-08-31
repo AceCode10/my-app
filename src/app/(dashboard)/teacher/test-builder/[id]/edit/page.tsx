@@ -28,6 +28,7 @@ export default function EditTestBuilderPage() {
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [titleError, setTitleError] = useState<string | null>(null);
   
   const [testConfig, setTestConfig] = useState<Partial<Assessment>>({
     title: '',
@@ -170,15 +171,13 @@ export default function EditTestBuilderPage() {
 
   const handleConfigChange = (updates: Partial<Assessment>) => {
     setTestConfig(prev => ({ ...prev, ...updates }));
+    if (updates.title?.trim()) setTitleError(null);
   };
 
   const handleSave = async () => {
     if (!testConfig.title) {
-      toast({
-        title: 'Title required',
-        description: 'Please enter a test title',
-        variant: 'destructive'
-      });
+      setTitleError('Give your test a title before saving.');
+      setActiveTab('configure');
       return;
     }
 
@@ -338,6 +337,7 @@ export default function EditTestBuilderPage() {
           <TestConfiguration
             config={testConfig}
             onChange={handleConfigChange}
+            titleError={titleError}
           />
         </TabsContent>
 

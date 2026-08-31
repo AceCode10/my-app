@@ -77,6 +77,19 @@ describe('isProviderUnavailableError', () => {
     );
   });
 
+  it('catches a model this key cannot reach', () => {
+    // The shape Anthropic returns for an unknown or unentitled model id. It is
+    // not transient and not a caller bug, so without this it used to throw
+    // instead of trying the other provider.
+    const err = apiError(404, 'not_found_error: model: claude-sonnet-5');
+    expect(isProviderUnavailableError(err)).toBe(true);
+    expect(isTransientLlmError(err)).toBe(false);
+
+    expect(
+      isProviderUnavailableError(new Error('The model `gpt-4o` does not exist')),
+    ).toBe(true);
+  });
+
   it('does not claim a plain rate limit', () => {
     const err = apiError(429, 'Number of requests has exceeded your rate limit');
     expect(isProviderUnavailableError(err)).toBe(false);
@@ -138,6 +151,20 @@ describe('FailoverLlmProvider', () => {
       'at least one message',
     );
     expect(secondary.calls).toBe(0);
+  });
+
+  it('fails over when the primary cannot serve the model', async () => {
+    const primary = stubProvider('anthropic', {
+      fail: apiError(404, 'not_found_error: model: claude-sonnet-5'),
+    });
+    const secondary = stubProvider('openai');
+
+    const result = await new FailoverLlmProvider(primary, secondary).complete(OPTS);
+
+    expect(result.provider).toBe('openai');
+    expect(secondary.calls).toBe(1);
+    // Not retried on the primary: the model will not appear a second later.
+    expect(primary.calls).toBe(1);
   });
 
   it('throws when there is no secondary to fall back to', async () => {

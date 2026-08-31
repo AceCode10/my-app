@@ -9,6 +9,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { GenerationError } from './errors';
 import type { SolverResult, TestSpec } from './types';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -49,7 +50,10 @@ export async function persistGeneratedTest(
     .single();
 
   if (!assessmentType) {
-    throw new Error('Assessment type "custom_test" is missing');
+    throw new GenerationError(
+      'persist_failed',
+      'Assessment type "custom_test" is missing',
+    );
   }
 
   const { data: assessment, error: insertError } = await supabase
@@ -86,7 +90,11 @@ export async function persistGeneratedTest(
     .single();
 
   if (insertError || !assessment) {
-    throw new Error(`Failed to create assessment: ${insertError?.message ?? 'unknown error'}`);
+    throw new GenerationError(
+      'persist_failed',
+      `Failed to create assessment: ${insertError?.message ?? 'unknown error'}`,
+      { cause: insertError },
+    );
   }
 
   await insertQuestions(supabase, assessment.id, result);
@@ -132,6 +140,10 @@ async function insertQuestions(
   if (error) {
     // Leaving a titled assessment with no questions is worse than no assessment.
     await supabase.from('assessments').delete().eq('id', assessmentId);
-    throw new Error(`Failed to attach questions: ${error.message}`);
+    throw new GenerationError(
+      'persist_failed',
+      `Failed to attach questions: ${error.message}`,
+      { cause: error },
+    );
   }
 }

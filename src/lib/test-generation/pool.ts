@@ -7,6 +7,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { GenerationError } from './errors';
 import { fetchTopicRoots } from './resolve-spec';
 import { buildTrees } from './trees';
 import { POOL_LIMIT, type QuestionRow, type QuestionTree, type TestSpec } from './types';
@@ -37,7 +38,13 @@ export async function fetchCandidatePool(
   if (spec.level) query = query.eq('level', spec.level);
 
   const { data: roots, error } = await query;
-  if (error) throw new Error(`Failed to fetch question pool: ${error.message}`);
+  if (error) {
+    throw new GenerationError(
+      'pool_query_failed',
+      `Failed to fetch question pool: ${error.message}`,
+      { cause: error },
+    );
+  }
 
   const rootRows = (roots ?? []) as QuestionRow[];
   if (rootRows.length === 0) return [];
@@ -92,7 +99,13 @@ async function fetchChildren(supabase: Db, parentIds: string[]): Promise<Questio
         .in('parent_question_id', chunk)
         .order('id', { ascending: true });
 
-      if (error) throw new Error(`Failed to fetch question parts: ${error.message}`);
+      if (error) {
+        throw new GenerationError(
+          'pool_query_failed',
+          `Failed to fetch question parts: ${error.message}`,
+          { cause: error },
+        );
+      }
       return (data ?? []) as QuestionRow[];
     }),
   );

@@ -8,8 +8,12 @@ import type {
   ToastProps,
 } from "@/components/ui/toast"
 
-const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
+// Radix closes a toast on its own timer; these govern what happens to the
+// record afterwards. The stock shadcn values (1 toast, a ~16 minute removal
+// delay) meant a dismissed toast sat in state long after it left the screen and
+// a second notification silently replaced the first.
+const TOAST_LIMIT = 3
+const TOAST_REMOVE_DELAY = 400
 
 type ToasterToast = ToastProps & {
   id: string

@@ -11,7 +11,14 @@ import { z } from 'zod';
 
 import { createClient } from '@/lib/supabase/server';
 import { recordLlmUsage } from '@/lib/llm/usage';
-import { AmbiguousResolutionError, IntentParseError, UnresolvedFieldError } from '@/lib/test-generation/errors';
+import {
+  AmbiguousResolutionError,
+  GenerationError,
+  IntentParseError,
+  UnresolvedFieldError,
+  type GenerationFailureCode,
+} from '@/lib/test-generation/errors';
+import { isProviderUnavailableError } from '@/lib/llm';
 import { parseIntent } from '@/lib/test-generation/parse-intent';
 import { persistGeneratedTest } from '@/lib/test-generation/persist';
 import { fetchCandidatePool } from '@/lib/test-generation/pool';
@@ -34,6 +41,23 @@ const GenerateRequestSchema = z.object({
   dryRun: z.boolean().default(false),
 });
 
+/**
+ * What the teacher reads. Each one says which part gave way and whether trying
+ * again is worth their time — "Failed to generate the test" said neither.
+ */
+const FAILURE_MESSAGES: Record<GenerationFailureCode, string> = {
+  llm_unavailable:
+    'The test writer is unavailable right now. This is on our side, not your prompt — please try again shortly.',
+  llm_unparseable:
+    'The request came back garbled. Try rewording your prompt, or generate again.',
+  pool_query_failed:
+    'Could not read the question bank. Please try again — if it keeps happening, report the reference below.',
+  persist_failed:
+    'The test was built but could not be saved. Please try again and report the reference below if it repeats.',
+  unknown:
+    'Something went wrong generating the test. Please try again, and report the reference below if it repeats.',
+};
+
 const DAILY_GENERATION_LIMITS: Record<string, number> = {
   guest: 0,
   basic: 5,
@@ -41,7 +65,23 @@ const DAILY_GENERATION_LIMITS: Record<string, number> = {
   pro: 200,
 };
 
+/**
+ * Which stage an untyped failure came from.
+ *
+ * The client gets this code and nothing else — enough for a teacher to quote in
+ * a bug report, with no provider or Postgres text crossing the wire.
+ */
+function classifyFailure(err: unknown): GenerationFailureCode {
+  if (err instanceof GenerationError) return err.code;
+  if (isProviderUnavailableError(err)) return 'llm_unavailable';
+  if (String((err as Error)?.message ?? '').includes('did not return parseable JSON')) {
+    return 'llm_unparseable';
+  }
+  return 'unknown';
+}
+
 export async function POST(request: NextRequest) {
+  const requestId = crypto.randomUUID().slice(0, 8);
   const supabase = await createClient();
 
   const {
@@ -210,9 +250,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.error('[tests/generate]', err);
+    const code = classifyFailure(err);
+    console.error(`[tests/generate] ${requestId} ${code}`, err);
+
     return NextResponse.json(
-      { error: 'Server Error', message: 'Failed to generate the test' },
+      {
+        error: 'Server Error',
+        message: FAILURE_MESSAGES[code],
+        code,
+        requestId,
+      },
       { status: 500 },
     );
   }
