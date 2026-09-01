@@ -244,7 +244,8 @@ export async function POST(request: NextRequest) {
         {
           error: 'Unresolved',
           field: err.field,
-          message: `I could not work out which ${err.field} you meant. Try naming it directly, or generate from inside a class.`,
+          value: err.value,
+          message: unresolvedMessage(err),
         },
         { status: 422 },
       );
@@ -263,6 +264,27 @@ export async function POST(request: NextRequest) {
       { status: 500 },
     );
   }
+}
+
+/**
+ * The teacher can only fix this by naming the field, so the message has to say
+ * which case they are in: they named nothing (tell them what to add), or they
+ * named something that matched no row (echo it, so they can see the typo).
+ */
+function unresolvedMessage(err: UnresolvedFieldError): string {
+  const named = err.value?.trim();
+
+  if (err.field === 'subject') {
+    if (!named) {
+      return 'Add a subject to your request — its name or Cambridge code, e.g. "IGCSE Biology" or "0417". Or generate from inside a class, which fills the subject in for you.';
+    }
+    return `I could not find a subject matching "${named}". Try its Cambridge code (e.g. "0417") or full name, or generate from inside a class.`;
+  }
+
+  if (!named) {
+    return `Name a ${err.field} in your request, or generate from inside a class.`;
+  }
+  return `I could not match the ${err.field} "${named}". Try naming it differently, or generate from inside a class.`;
 }
 
 /**
