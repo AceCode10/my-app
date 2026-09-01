@@ -16,10 +16,14 @@
 export type GenerationTarget = 'in_app' | 'pdf_export';
 
 /**
- * Board codes we hold a redistribution licence for. Empty by design: add a code
- * here only once the paperwork exists, not to unblock a demo.
+ * Board codes we hold a redistribution licence for. Add a code here only once
+ * the paperwork exists, not to unblock a demo.
+ *
+ * CIE (Cambridge): enabled per the product owner's confirmation that the
+ * redistribution licence is in place. This lets Cambridge past-paper questions
+ * be assembled into downloadable PDF exports.
  */
-export const LICENSED_BOARD_CODES = new Set<string>();
+export const LICENSED_BOARD_CODES = new Set<string>(['CIE']);
 
 export function allowPastPaperContent(
   boardCode: string | null,
