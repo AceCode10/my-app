@@ -190,7 +190,7 @@ export async function resolveSpec(
   const { data: subjectRows } = await supabase
     .from('subjects')
     .select('id, name, display_name, code, slug, level, exam_board_id')
-    .eq('status', 'active');
+    .eq('status', 'published');
 
   const subjects = (subjectRows ?? []) as SubjectRow[];
   const subjectTargets: MatchTarget[] = subjects.map((s) => ({

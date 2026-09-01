@@ -32,10 +32,16 @@ export async function fetchCandidatePool(
     .order('id', { ascending: true })
     .limit(POOL_LIMIT);
 
-  // Only narrow on fields we actually resolved — a null board means
-  // "board-agnostic", not "rows whose board is null".
-  if (spec.examBoardId) query = query.eq('exam_board_id', spec.examBoardId);
-  if (spec.level) query = query.eq('level', spec.level);
+  // Only narrow on fields we actually resolved, and treat a question's own null
+  // as board-/level-agnostic: it matches any request rather than being excluded.
+  // Much of the bank is ingested without a board tag, so an equality filter here
+  // silently empties the pool.
+  if (spec.examBoardId) {
+    query = query.or(`exam_board_id.eq.${spec.examBoardId},exam_board_id.is.null`);
+  }
+  if (spec.level) {
+    query = query.or(`level.eq.${spec.level},level.is.null`);
+  }
 
   const { data: roots, error } = await query;
   if (error) {
