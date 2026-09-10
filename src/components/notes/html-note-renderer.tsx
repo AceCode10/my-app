@@ -269,6 +269,12 @@ const NOTE_STYLES = `
   margin-bottom: 0.4rem;
 }
 .ict-note svg { max-width: 100%; height: auto; }
+/* A note's own <style> block beats its presentation attributes, so a class like
+   .mem-text { text-anchor: middle } silently re-centres text the markup asked to
+   left-align. Give the attribute back the last word. */
+.ict-note svg [text-anchor="start"] { text-anchor: start; }
+.ict-note svg [text-anchor="middle"] { text-anchor: middle; }
+.ict-note svg [text-anchor="end"] { text-anchor: end; }
 
 @media (max-width: 900px) {
   .ict-note .grid-3 { grid-template-columns: 1fr 1fr; }
