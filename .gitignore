@@ -51,3 +51,6 @@ next-env.d.ts
 # python
 __pycache__/
 *.pyc
+
+# note HTML pulled out of the database before it is cleared
+/ict-notes-backup/

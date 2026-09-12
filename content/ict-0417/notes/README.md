@@ -23,10 +23,32 @@ version showing.
 
 ## Networks and the Effects of Using Them is deliberately not here
 
-Topic 4's note is the reference version the other topics were written to match,
-and it is the note currently in production. There is no file for it, and the
-script also refuses to write to that topic (`PRESERVED_SLUG_PREFIXES`), so it
-cannot be overwritten by accident.
+Topic 4's note is the reference version the other topics were written to match.
+There is no file for it, and the publish loop refuses to write to that topic
+(`PRESERVED_SLUG_PREFIXES`), so it cannot be overwritten by accident.
+
+Its text lives in the note's **`content_md`**, not in `rendered_html`. The
+revision-notes page drew `content_md` until commit `3196d9e` gave `rendered_html`
+priority, so the version that shows depends on which field is populated:
+
+| `rendered_html` | What the page draws |
+| --- | --- |
+| empty | `content_md` via `SplitCardRenderer` - the original topic 4 note |
+| set | that HTML via `HtmlNoteRenderer` - the bulk-imported replacement |
+
+An earlier bulk import wrote a different version of topic 4 into
+`rendered_html`, which now shadows the original. To get the original back:
+
+```bash
+node scripts/import-ict-notes.js --restore-preserved --dry-run
+node scripts/import-ict-notes.js --restore-preserved
+```
+
+That publishes nothing. It clears the shadowing `rendered_html` (after copying it
+to `ict-notes-backup/`, which is gitignored) so the page falls back to
+`content_md`. It refuses to clear a note whose `content_md` is empty, which would
+otherwise leave the topic blank. A normal publish run warns when a preserved
+topic is being shadowed.
 
 ## Writing a note
 

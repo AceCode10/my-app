@@ -9,6 +9,11 @@
  *
  * Usage:
  *   node scripts/import-ict-notes.js [--dry-run] [--only=slug-prefix]
+ *   node scripts/import-ict-notes.js --restore-preserved [--dry-run]
+ *
+ * --restore-preserved does not publish anything. It clears the rendered_html on
+ * the preserved topics so the revision-notes page falls back to their original
+ * content_md again - see PRESERVED_SLUG_PREFIXES below.
  *
  * Requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.local
  */
@@ -22,17 +27,24 @@ const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes('--dry-run');
+const RESTORE_PRESERVED = args.includes('--restore-preserved');
 const ONLY = (args.find((a) => a.startsWith('--only=')) || '').slice('--only='.length) || null;
 
 const CONTENT_DIR = path.join(__dirname, '..', 'content', 'ict-0417', 'notes');
+const BACKUP_DIR = path.join(__dirname, '..', 'ict-notes-backup');
 
 /**
- * Topics whose notes must never be touched by this script.
+ * Topics whose notes must never be overwritten by this script.
  *
- * The "Networks and the Effects of Using Them" note is the reference version the
- * other topics were written to match, and it is the one currently in production.
- * It is deliberately not in SECTIONS and is refused here as well, so that a
- * mistyped --only or a stray file cannot overwrite it.
+ * "Networks and the Effects of Using Them" is the reference version the other
+ * topics were written to match. Its text lives in the note's `content_md`, which
+ * is what the revision-notes page drew until rendered_html was given priority;
+ * an earlier bulk import then wrote a *different* version of the topic into
+ * `rendered_html`, which now shadows it. Restoring the topic therefore means
+ * clearing that rendered_html, not writing anything new - see --restore-preserved.
+ *
+ * The topic is deliberately not in SECTIONS and is refused in the publish loop
+ * as well, so a mistyped --only or a stray file cannot overwrite it.
  */
 const PRESERVED_SLUG_PREFIXES = ['networks-and-the-effects'];
 
@@ -164,17 +176,97 @@ function selectedSections() {
   return SECTIONS.filter((section) => section.slugPrefixes.some((p) => p.startsWith(ONLY)));
 }
 
+/** Note rows on the preserved topics, with the fields that decide what is drawn. */
+async function preservedNotes(topics) {
+  const rows = [];
+  for (const topic of topics.filter((t) => isPreserved(t.slug))) {
+    const notes = await restGet(
+      `notes?select=id,title,rendered_html,content_md&topic_id=eq.${topic.id}&order=display_order`
+    );
+    rows.push(...notes.map((note) => ({ topic, note })));
+  }
+  return rows;
+}
+
+/**
+ * Put a preserved topic back to the version the revision-notes page drew before
+ * rendered_html took priority, by clearing the rendered_html that shadows its
+ * markdown. The cleared HTML is written to ict-notes-backup/ first, so nothing
+ * is lost if it turns out to be wanted after all.
+ */
+async function restorePreserved(topics) {
+  const rows = await preservedNotes(topics);
+  if (rows.length === 0) {
+    console.log('No notes found on the preserved topics - nothing to restore.');
+    return;
+  }
+
+  let restored = 0;
+  for (const { topic, note } of rows) {
+    const shadowed = Boolean(note.rendered_html && note.rendered_html.trim());
+    const markdown = (note.content_md || '').trim();
+
+    if (!shadowed) {
+      console.log(`= ${topic.name}: already drawn from content_md - nothing to do`);
+      continue;
+    }
+    if (!markdown) {
+      // Clearing here would leave the topic with no content at all.
+      console.log(
+        `! ${topic.name}: rendered_html is set but content_md is empty - refusing to clear it.\n` +
+          '  Nothing was changed. This topic has no earlier version to fall back to.'
+      );
+      continue;
+    }
+
+    console.log(
+      `${topic.name}\n  clearing rendered_html (${(note.rendered_html.length / 1024).toFixed(1)} KB)` +
+        ` so content_md (${(markdown.length / 1024).toFixed(1)} KB) is drawn again`
+    );
+    if (DRY_RUN) continue;
+
+    fs.mkdirSync(BACKUP_DIR, { recursive: true });
+    const backup = path.join(BACKUP_DIR, `${topic.slug}-${note.id}.html`);
+    fs.writeFileSync(backup, note.rendered_html, 'utf8');
+    console.log(`  backed up to ${path.relative(process.cwd(), backup)}`);
+
+    await restWrite('PATCH', `notes?id=eq.${note.id}`, {
+      rendered_html: null,
+      updated_at: new Date().toISOString(),
+    });
+    restored += 1;
+  }
+
+  console.log(`\n=== Done: ${restored} note(s) restored ===`);
+}
+
+/** Warn when a preserved topic is showing something other than its own markdown. */
+async function warnIfShadowed(topics) {
+  const shadowed = (await preservedNotes(topics)).filter(
+    ({ note }) => note.rendered_html && note.rendered_html.trim() && (note.content_md || '').trim()
+  );
+  for (const { topic } of shadowed) {
+    console.log(
+      `! ${topic.name} is preserved, but an imported rendered_html is shadowing its markdown.\n` +
+        '  Run with --restore-preserved to draw the original version again.'
+    );
+  }
+}
+
 // ------------------------------------------------------------------------ main
 
 let BASE_URL;
 
 async function main() {
-  console.log('=== IGA Prep: ICT 0417 notes publish ===');
+  const mode = RESTORE_PRESERVED ? 'restore preserved topics' : 'publish';
+  console.log(`=== IGA Prep: ICT 0417 notes - ${mode} ===`);
   console.log(`Source: ${CONTENT_DIR}${DRY_RUN ? '  (dry run)' : ''}`);
-  console.log(`Preserved, never written: ${PRESERVED_SLUG_PREFIXES.join(', ')}\n`);
+  console.log(`Preserved, never overwritten: ${PRESERVED_SLUG_PREFIXES.join(', ')}\n`);
 
-  const sections = selectedSections();
-  if (sections.length === 0) throw new Error(`No note matches --only=${ONLY}`);
+  const sections = RESTORE_PRESERVED ? [] : selectedSections();
+  if (!RESTORE_PRESERVED && sections.length === 0) {
+    throw new Error(`No note matches --only=${ONLY}`);
+  }
 
   const subjects = await restGet('subjects?select=id,name,slug,code');
   const subject =
@@ -186,6 +278,11 @@ async function main() {
   const topics = await restGet(
     `topics?select=id,name,slug,display_order&subject_id=eq.${subject.id}&order=display_order`
   );
+
+  if (RESTORE_PRESERVED) {
+    await restorePreserved(topics);
+    return;
+  }
 
   let written = 0;
   let skipped = 0;
@@ -250,6 +347,7 @@ async function main() {
   }
 
   console.log(`\n=== Done: ${written} published, ${skipped} skipped ===`);
+  await warnIfShadowed(topics);
 }
 
 if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
