@@ -1,0 +1,529 @@
+<div class="page-header">
+  <div class="section-label">Cambridge IGCSE ICT 0417 &middot; Topic 7</div>
+  <h1>The Systems Life Cycle</h1>
+  <p>The systems life cycle is the ordered set of stages an organisation follows when it replaces an existing system with a new computer system: <strong>analysis &rarr; design &rarr; development and testing &rarr; implementation &rarr; documentation &rarr; evaluation</strong>. Learn the stages in order, and learn what is produced at each one.</p>
+  <div class="note"><strong>Syllabus coverage:</strong> 7.1 Analysis &middot; 7.2 Design &middot; 7.3 Development and testing &middot; 7.4 Implementation &middot; 7.5 Documentation &middot; 7.6 Evaluation</div>
+</div>
+
+<div class="section" id="s7-1">
+  <div class="section-header">
+    <span class="snum">7.1</span>
+    <h2>Analysis</h2>
+  </div>
+  <div class="section-body">
+    <div class="sub" id="s7-1-research">
+      <h3>Research methods for analysing the current system</h3>
+      <div class="device-card">
+        <div class="device-card-header">Observation</div>
+        <div class="device-card-body">
+          <ul><li><strong>Characteristics:</strong> the analyst watches the existing system in operation, following the flow of data from start to finish</li></ul>
+          <div class="uses-box"><div class="label">Uses</div><ul><li>Seeing what really happens rather than what people say happens</li><li>Timing how long each task takes and spotting bottlenecks</li></ul></div>
+          <div class="adv-dis">
+            <div class="adv-box"><div class="label">Advantages</div><ul><li>Gives <strong>reliable, first-hand</strong> data about the whole system</li><li>Relatively cheap - only the analyst's time is needed</li><li>Shows problems staff may not mention or may not notice</li></ul></div>
+            <div class="dis-box"><div class="label">Disadvantages</div><ul><li>Staff may work differently because they are being watched (the <strong>Hawthorne effect</strong>)</li><li>Time-consuming, and a busy or quiet day may not be typical</li><li>Staff may object to being observed</li></ul></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="device-card">
+        <div class="device-card-header">Interviews</div>
+        <div class="device-card-body">
+          <ul><li><strong>Characteristics:</strong> the analyst questions individuals face to face, usually one at a time, and can follow up interesting answers</li></ul>
+          <div class="uses-box"><div class="label">Uses</div><ul><li>Finding out in depth what managers and staff need from the new system</li><li>Exploring complex problems that a questionnaire could not capture</li></ul></div>
+          <div class="adv-dis">
+            <div class="adv-box"><div class="label">Advantages</div><ul><li>Questions can be <strong>adapted and followed up</strong> as the interview goes on</li><li>The interviewee can explain their answers fully, giving detailed information</li><li>Body language and tone add extra information, and misunderstandings can be cleared up at once</li></ul></div>
+            <div class="dis-box"><div class="label">Disadvantages</div><ul><li>Very <strong>time-consuming and expensive</strong> - only a few people can be interviewed</li><li>Answers cannot be given anonymously, so staff may not be honest</li><li>Both people must be free at the same time, and answers are harder to analyse statistically</li></ul></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="device-card">
+        <div class="device-card-header">Questionnaires</div>
+        <div class="device-card-body">
+          <ul><li><strong>Characteristics:</strong> a set of written questions, often with tick boxes, given to many people at once and returned for analysis</li></ul>
+          <div class="uses-box"><div class="label">Uses</div><ul><li>Collecting opinions from a large number of staff or customers</li><li>Gathering data that can be counted and compared</li></ul></div>
+          <div class="adv-dis">
+            <div class="adv-box"><div class="label">Advantages</div><ul><li><strong>Many people</strong> can be asked quickly and cheaply</li><li>Answers can be <strong>anonymous</strong>, so people are more honest</li><li>People answer in their own time, and tick-box answers are quick to analyse, often automatically by OMR</li></ul></div>
+            <div class="dis-box"><div class="label">Disadvantages</div><ul><li>Often a <strong>low response rate</strong>, and those who reply may not be typical</li><li>Questions cannot be followed up, and answers cannot be expanded</li><li>Questions may be misunderstood, and people may not answer truthfully</li></ul></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="device-card">
+        <div class="device-card-header">Examination of existing documents</div>
+        <div class="device-card-body">
+          <ul><li><strong>Characteristics:</strong> the analyst studies the paperwork the current system uses and produces - forms, invoices, reports, files and manuals</li></ul>
+          <div class="uses-box"><div class="label">Uses</div><ul><li>Finding the exact data items, field sizes and formats the system handles</li><li>Seeing the volume of data processed and the layout of existing reports</li></ul></div>
+          <div class="adv-dis">
+            <div class="adv-box"><div class="label">Advantages</div><ul><li>Shows exactly what data is used, in what format and in what quantity</li><li>Can be done without disturbing staff, and gives an accurate picture of the volume of work</li></ul></div>
+            <div class="dis-box"><div class="label">Disadvantages</div><ul><li><strong>Time-consuming</strong> and can be expensive if there are many documents</li><li>Documents may be out of date or incomplete</li><li>Does not show how people actually work around the paperwork</li></ul></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sub" id="s7-1-record">
+      <h3>Recording and analysing information about the current system</h3>
+      <p>Whatever methods are used, the analyst must identify:</p>
+      <ul>
+        <li>The <strong>inputs</strong> of the current system - what data goes in, where it comes from and in what format</li>
+        <li>The <strong>outputs</strong> - the reports, screens and documents the system produces, and who uses them</li>
+        <li>The <strong>processing</strong> - the calculations, searches, sorting and decisions carried out on the data</li>
+        <li>The <strong>problems</strong> with the current system - what is slow, inaccurate, expensive or unreliable</li>
+        <li>The <strong>user requirements</strong> - what the people using the system need to be able to do</li>
+        <li>The <strong>information requirements</strong> - what information the new system must produce</li>
+      </ul>
+    </div>
+
+    <div class="sub" id="s7-1-spec">
+      <h3>System specification</h3>
+      <p>The analyst must <strong>identify and justify</strong> suitable hardware and software for the new system - it is never enough to list items, you must say why each is needed.</p>
+      <div class="grid-2">
+        <div class="mini-card">
+          <h5>Hardware, with justification</h5>
+          <ul>
+            <li>Input devices chosen for the data - for example a bar code reader <em>because</em> stock must be entered quickly and accurately</li>
+            <li>Output devices chosen for the output - for example a laser printer <em>because</em> hundreds of invoices are printed daily</li>
+            <li>Storage of a stated capacity <em>because</em> of the volume of records and backups</li>
+            <li>Processor and memory sufficient <em>because</em> of the number of users and the size of the data</li>
+            <li>Network hardware <em>because</em> several branches must share the data</li>
+          </ul>
+        </div>
+        <div class="mini-card">
+          <h5>Software, with justification</h5>
+          <ul>
+            <li>Operating system suited to the hardware and the number of users</li>
+            <li>Database software <em>because</em> large volumes of related records must be searched and sorted</li>
+            <li>Spreadsheet software <em>because</em> calculations and 'what if' modelling are needed</li>
+            <li>Word processing or desktop publishing <em>because</em> letters and reports must be produced</li>
+            <li>Security and utility software - anti-malware, backup, compression</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="check">
+      <div class="label">Check your understanding</div>
+      <details class="q">
+        <summary>An analyst needs the honest opinions of 400 employees. Which research method should be used and why?</summary>
+        <div class="answer">A <strong>questionnaire</strong>. It can reach all 400 people quickly and cheaply, the answers can be given <strong>anonymously</strong> so people are more honest, and tick-box responses are fast to analyse. Interviews would take far too long and would not be anonymous.</div>
+      </details>
+      <details class="q">
+        <summary>Give one disadvantage of observation that interviews do not have.</summary>
+        <div class="answer">Staff may change the way they work because they know they are being watched, so what the analyst sees is not typical. In an interview the analyst can also <strong>ask follow-up questions</strong>, which observation cannot do.</div>
+      </details>
+    </div>
+  </div>
+</div>
+
+<div class="section" id="s7-2">
+  <div class="section-header">
+    <span class="snum">7.2</span>
+    <h2>Design</h2>
+  </div>
+  <div class="section-body">
+    <div class="sub" id="s7-2-structures">
+      <h3>File and data structures</h3>
+      <p>The designer decides, for every item of data to be stored:</p>
+      <ul>
+        <li><strong>Field name</strong> - a short, meaningful name for each item, for example <em>DateOfBirth</em></li>
+        <li><strong>Data type</strong> - text, numeric (integer, decimal, currency), date/time or Boolean/logical</li>
+        <li><strong>Field length</strong> - how many characters are allowed, chosen so that no data is cut off but no space is wasted</li>
+        <li><strong>Coding of data</strong> - shortening data to a code, for example <strong>M for male and F for female</strong>, or S, M, L for sizes</li>
+        <li>Which field is the <strong>primary key</strong>, and which fields link tables together</li>
+      </ul>
+      <div class="grid-2">
+        <div class="mini-card">
+          <h5>Why code data?</h5>
+          <ul><li>Less storage space is used</li><li>Faster to type in and faster to search and sort</li><li>Fewer typing errors, and easier to validate</li></ul>
+        </div>
+        <div class="mini-card">
+          <h5>Drawbacks of coding</h5>
+          <ul><li>The user must learn what the codes mean</li><li>Coarse codes can lose detail</li><li>A mistyped code may still be a valid code, so the error is not detected</li></ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="sub" id="s7-2-validation">
+      <h3>Validation routines</h3>
+      <div class="def-box"><strong>Validation</strong> is an automatic check, carried out by the computer, that data entered is <strong>reasonable and of the right type</strong>. It cannot check that the data is correct - only that it is sensible.</div>
+      <div class="table-wrap">
+        <table class="comp-table">
+          <thead><tr><th>Check</th><th>What it does</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr><td>Range check</td><td>Data must lie between an upper and a lower limit</td><td>A month must be between 1 and 12</td></tr>
+            <tr><td>Character check</td><td>Data must contain only permitted characters</td><td>A name must not contain digits</td></tr>
+            <tr><td>Length check</td><td>Data must have an exact or a maximum number of characters</td><td>A password must be at least 8 characters</td></tr>
+            <tr><td>Type check</td><td>Data must be of the correct data type</td><td>Age must be numeric</td></tr>
+            <tr><td>Format check</td><td>Data must follow a stated pattern of characters</td><td>A date entered as dd/mm/yyyy</td></tr>
+            <tr><td>Presence check</td><td>The field must not be left empty</td><td>An email address must be entered on a form</td></tr>
+            <tr><td>Check digit</td><td>An extra digit calculated from the other digits and added to the end; recalculated on entry to detect errors</td><td>The last digit of a bar code or ISBN</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note"><strong>Exam tip:</strong> a check digit catches <strong>transposed digits</strong> - for example 1243 typed instead of 1234 - which a range or type check would happily accept.</div>
+    </div>
+
+    <div class="sub" id="s7-2-formats">
+      <h3>Input and output formats</h3>
+      <div class="grid-2">
+        <div class="mini-card">
+          <h5>Input formats - data capture forms</h5>
+          <ul>
+            <li>Clear title and simple instructions at the top</li>
+            <li>Enough <strong>space</strong> for each item, with boxes for individual characters where needed</li>
+            <li>Fields in the same order as the source document, so entry is fast</li>
+            <li>Tick boxes, radio buttons and drop-down lists to limit choices and reduce errors</li>
+            <li>Sensible use of white space, consistent fonts, and no unnecessary questions</li>
+          </ul>
+        </div>
+        <div class="mini-card">
+          <h5>Output formats - screen and report layouts</h5>
+          <ul>
+            <li>Clear report title, headers and footers, and page numbering</li>
+            <li>All required data and labels displayed <strong>in full</strong>, with nothing truncated</li>
+            <li>Numeric data right-aligned or decimal-aligned, with the correct decimal places and currency symbols</li>
+            <li>Tabular or columnar layout chosen to suit the data</li>
+            <li>Only the information the user actually needs, in a logical order</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="check">
+      <div class="label">Check your understanding</div>
+      <details class="q">
+        <summary>A field stores a percentage mark. State two validation checks and why each is needed.</summary>
+        <div class="answer">A <strong>type check</strong> makes sure the entry is numeric, so letters cannot be entered. A <strong>range check</strong> makes sure it is between 0 and 100, so an impossible mark such as 150 is rejected. A <strong>presence check</strong> would also stop the field being left blank.</div>
+      </details>
+      <details class="q">
+        <summary>Why can a validation check not guarantee that data is correct?</summary>
+        <div class="answer">Validation only tests that data is <strong>reasonable</strong>. A pupil aged 14 entered as 15 passes every check, because 15 is a valid, sensible age - it is simply the wrong value. Only <strong>verification</strong> against the original source can catch that.</div>
+      </details>
+    </div>
+  </div>
+</div>
+
+<div class="section" id="s7-3">
+  <div class="section-header">
+    <span class="snum">7.3</span>
+    <h2>Development and Testing</h2>
+  </div>
+  <div class="section-body">
+    <div class="sub" id="s7-3-why">
+      <h3>Why the system must be tested before implementation</h3>
+      <ul>
+        <li>To find and correct errors <strong>before</strong> the system is used for real work</li>
+        <li>To make sure the system meets the requirements identified in the analysis</li>
+        <li>To prevent loss of data, loss of money and loss of confidence in the system</li>
+        <li>Because errors found after implementation are far more expensive and damaging to fix</li>
+      </ul>
+    </div>
+
+    <div class="sub" id="s7-3-designs">
+      <h3>Test designs and test strategies</h3>
+      <div class="grid-2">
+        <div class="mini-card">
+          <h5>Test designs - what is tested</h5>
+          <ul>
+            <li><strong>Data structures</strong> - are the field names, types and lengths correct?</li>
+            <li><strong>File structures</strong> - are records stored, retrieved and linked correctly?</li>
+            <li><strong>Input formats</strong> - do the data capture forms work and accept the right data?</li>
+            <li><strong>Output formats</strong> - are screens and reports laid out correctly and complete?</li>
+            <li><strong>Validation routines</strong> - does each check reject bad data and accept good data?</li>
+          </ul>
+        </div>
+        <div class="mini-card">
+          <h5>Test strategies - how it is tested</h5>
+          <ul>
+            <li>Test <strong>each module</strong> on its own as it is written</li>
+            <li>Test <strong>each function</strong> within a module</li>
+            <li>Test the <strong>whole system</strong> once the modules are joined together</li>
+            <li>Re-test after every correction, because a fix can break something else</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="sub" id="s7-3-data">
+      <h3>Types of test data</h3>
+      <div class="table-wrap">
+        <table class="comp-table">
+          <thead><tr><th>Type</th><th>Definition</th><th>Expected outcome</th><th>Example (age 11 to 18)</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Normal</strong></td><td>Data that is within the acceptable range and of the correct type</td><td>Accepted</td><td>14</td></tr>
+            <tr><td><strong>Abnormal</strong></td><td>Data outside the acceptable range, of the wrong type, or missing</td><td>Rejected, with an error message</td><td>25, "fourteen", a blank entry</td></tr>
+            <tr><td><strong>Extreme</strong></td><td>Data at the very edges of the acceptable range - the largest and smallest valid values</td><td>Accepted</td><td>11 and 18</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note"><strong>Do not confuse extreme with abnormal.</strong> Extreme data is <em>valid</em> and must be accepted; abnormal data is <em>invalid</em> and must be rejected. Some questions also use <em>boundary</em> data, meaning the values just inside and just outside each limit.</div>
+    </div>
+
+    <div class="sub" id="s7-3-plan">
+      <h3>The test plan</h3>
+      <p>A test plan is a table, completed as testing goes on. Its columns are:</p>
+      <ul>
+        <li><strong>Test data</strong> - the exact value to be entered</li>
+        <li><strong>Expected outcome</strong> - what should happen, decided <em>before</em> the test is run</li>
+        <li><strong>Actual outcome</strong> - what really happened</li>
+        <li><strong>Remedial action</strong> - what was changed if the two did not match, and the re-test result</li>
+      </ul>
+      <div class="table-wrap">
+        <table class="comp-table">
+          <thead><tr><th>Test data</th><th>Type</th><th>Expected outcome</th><th>Actual outcome</th><th>Remedial action</th></tr></thead>
+          <tbody>
+            <tr><td>14</td><td>Normal</td><td>Accepted</td><td>Accepted</td><td>None</td></tr>
+            <tr><td>11</td><td>Extreme</td><td>Accepted</td><td>Rejected</td><td>Change the range check from &gt;11 to &gt;=11 and re-test</td></tr>
+            <tr><td>25</td><td>Abnormal</td><td>Rejected with error message</td><td>Rejected with error message</td><td>None</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="sub" id="s7-3-live">
+      <h3>The use of live data</h3>
+      <ul>
+        <li><strong>Live data</strong> is real data taken from the existing system, whose correct results are already known.</li>
+        <li>It is used once testing with test data is complete, to check the new system against known outcomes.</li>
+        <li>It tests the system with realistic volumes, and shows whether it is fast enough in practice.</li>
+        <li>Users can compare the new results with the old ones, which builds confidence in the system.</li>
+        <li>A <strong>copy</strong> of the live data is always used, so that real records cannot be damaged.</li>
+      </ul>
+    </div>
+
+    <div class="check">
+      <div class="label">Check your understanding</div>
+      <details class="q">
+        <summary>A field accepts marks from 0 to 60. Give one item of normal, abnormal and extreme test data, and the expected outcome of each.</summary>
+        <div class="answer">Normal: 35 - accepted. Abnormal: 75 or "forty" or a blank - rejected with an error message. Extreme: 0 and 60 - <strong>accepted</strong>, because they are the smallest and largest valid values.</div>
+      </details>
+      <details class="q">
+        <summary>Why is live data used as well as test data?</summary>
+        <div class="answer">Live data is real data whose <strong>correct results are already known</strong>, so the new system's output can be compared with the old. It also tests the system with realistic volumes of data, showing whether performance is acceptable, and it gives users confidence in the new system.</div>
+      </details>
+    </div>
+  </div>
+</div>
+
+<div class="section" id="s7-4">
+  <div class="section-header">
+    <span class="snum">7.4</span>
+    <h2>Implementation</h2>
+  </div>
+  <div class="section-body">
+    <div class="sub" id="s7-4-methods">
+      <h3>The four methods of implementation</h3>
+      <div class="device-card">
+        <div class="device-card-header">Direct changeover</div>
+        <div class="device-card-body">
+          <ul><li><strong>Characteristics:</strong> the old system is stopped and the new system starts immediately, usually overnight or over a weekend</li></ul>
+          <div class="uses-box"><div class="label">Uses</div><ul><li>Small systems, or where the old system has already failed</li><li>Where the new system must be in place by a fixed date</li></ul></div>
+          <div class="adv-dis">
+            <div class="adv-box"><div class="label">Advantages</div><ul><li>The <strong>cheapest and fastest</strong> method - only one system is run</li><li>The benefits of the new system are available immediately</li><li>No need to enter data twice or pay staff to run two systems</li></ul></div>
+            <div class="dis-box"><div class="label">Disadvantages</div><ul><li>The <strong>most risky</strong> - if the new system fails there is nothing to fall back on</li><li>Data can be lost and the business can stop trading</li><li>Staff must be fully trained before the changeover</li></ul></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="device-card">
+        <div class="device-card-header">Parallel running</div>
+        <div class="device-card-body">
+          <ul><li><strong>Characteristics:</strong> the old and new systems are run <strong>side by side</strong> on the same data until the new one is trusted</li></ul>
+          <div class="uses-box"><div class="label">Uses</div><ul><li>Systems where failure would be very serious, such as payroll or banking</li></ul></div>
+          <div class="adv-dis">
+            <div class="adv-box"><div class="label">Advantages</div><ul><li>If the new system fails, the <strong>old system is still running</strong>, so nothing is lost</li><li>Results from the two systems can be compared to check the new one is correct</li><li>Staff can be trained gradually on the new system</li></ul></div>
+            <div class="dis-box"><div class="label">Disadvantages</div><ul><li>The <strong>most expensive</strong> method - two systems and extra staff</li><li>All data has to be entered <strong>twice</strong>, which takes time and can introduce errors</li><li>Takes much longer to complete the changeover</li></ul></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="device-card">
+        <div class="device-card-header">Pilot running</div>
+        <div class="device-card-body">
+          <ul><li><strong>Characteristics:</strong> the whole new system is introduced into <strong>one branch, department or store</strong> first; when it works, it is rolled out everywhere</li></ul>
+          <div class="uses-box"><div class="label">Uses</div><ul><li>Organisations with many similar sites, such as a supermarket chain or a bank</li></ul></div>
+          <div class="adv-dis">
+            <div class="adv-box"><div class="label">Advantages</div><ul><li>If the system fails, only <strong>one part of the organisation</strong> is affected</li><li>Faults are found and fixed before the full roll-out</li><li>Staff from the pilot site can <strong>train the others</strong></li><li>Much cheaper than parallel running</li></ul></div>
+            <div class="dis-box"><div class="label">Disadvantages</div><ul><li>Takes longer than a direct changeover</li><li>The pilot branch has no fallback if the system fails there</li><li>The pilot site may not be typical of all sites</li></ul></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="device-card">
+        <div class="device-card-header">Phased implementation</div>
+        <div class="device-card-body">
+          <ul><li><strong>Characteristics:</strong> <strong>one part of the new system at a time</strong> replaces the equivalent part of the old system; the next part follows only when the first works</li></ul>
+          <div class="uses-box"><div class="label">Uses</div><ul><li>Large systems made of clearly separate modules, for example stock control then payroll then accounts</li></ul></div>
+          <div class="adv-dis">
+            <div class="adv-box"><div class="label">Advantages</div><ul><li>If a phase fails, only that <strong>part</strong> of the system is affected and the rest of the old system still runs</li><li>Staff have time to learn each part before the next arrives</li><li>Problems are found in a controlled way, phase by phase</li></ul></div>
+            <div class="dis-box"><div class="label">Disadvantages</div><ul><li>Takes the <strong>longest time</strong> overall</li><li>More expensive than a direct changeover</li><li>The old and new parts must be able to work together, which can be complicated</li></ul></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sub" id="s7-4-choosing">
+      <h3>Choosing the right method</h3>
+      <div class="table-wrap">
+        <table class="comp-table">
+          <thead><tr><th>Method</th><th>Cost</th><th>Risk</th><th>Best when</th></tr></thead>
+          <tbody>
+            <tr><td>Direct changeover</td><td>Lowest</td><td>Highest</td><td>The system is small and simple, or the old one has already failed</td></tr>
+            <tr><td>Parallel running</td><td>Highest</td><td>Lowest</td><td>Failure would be disastrous, such as payroll or patient records</td></tr>
+            <tr><td>Pilot running</td><td>Moderate</td><td>Limited to one site</td><td>The organisation has many similar branches or stores</td></tr>
+            <tr><td>Phased implementation</td><td>Moderate</td><td>Limited to one module</td><td>The system divides naturally into separate parts</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="check">
+      <div class="label">Check your understanding</div>
+      <details class="q">
+        <summary>A hospital is introducing a new patient records system. Which implementation method should it use, and why?</summary>
+        <div class="answer"><strong>Parallel running</strong>. Patient records are safety-critical, so if the new system failed the old one would still be available and no records would be lost. The results of the two systems can also be compared to prove the new one is correct. The drawbacks - high cost and entering data twice - are accepted because of the risk to patients.</div>
+      </details>
+      <details class="q">
+        <summary>State one advantage of pilot running over parallel running.</summary>
+        <div class="answer">Pilot running is much <strong>cheaper</strong>, because only one branch runs the new system and data does not have to be entered twice everywhere. Staff from the pilot branch can also train staff at the other sites.</div>
+      </details>
+    </div>
+  </div>
+</div>
+
+<div class="section" id="s7-5">
+  <div class="section-header">
+    <span class="snum">7.5</span>
+    <h2>Documentation</h2>
+  </div>
+  <div class="section-body">
+    <div class="sub" id="s7-5-purpose">
+      <h3>Purpose and uses</h3>
+      <div class="grid-2">
+        <div class="mini-card">
+          <h5>Technical documentation</h5>
+          <ul><li>Written for <strong>programmers and technicians</strong></li><li>Used to maintain, repair, update and improve the system in the future</li><li>Assumes technical knowledge</li></ul>
+        </div>
+        <div class="mini-card">
+          <h5>User documentation</h5>
+          <ul><li>Written for the <strong>people who will use the system</strong></li><li>Used to learn how to operate the system and to solve everyday problems</li><li>Written in plain language, with screenshots and no jargon</li></ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="sub" id="s7-5-components">
+      <h3>Components of each type</h3>
+      <div class="grid-2">
+        <div class="mini-card">
+          <h5>Technical documentation contains</h5>
+          <ul>
+            <li>Purpose of the system/program</li>
+            <li>Limitations of the system</li>
+            <li>Program listing</li>
+            <li>Program language</li>
+            <li>Program flowcharts / algorithms</li>
+            <li>System flowcharts</li>
+            <li>Hardware and software requirements</li>
+            <li>File structures</li>
+            <li>List of variables</li>
+            <li>Input format</li>
+            <li>Output format</li>
+            <li>Sample runs / test runs</li>
+            <li>Validation routines</li>
+          </ul>
+        </div>
+        <div class="mini-card">
+          <h5>User documentation contains</h5>
+          <ul>
+            <li>Purpose of the system</li>
+            <li>Limitations of the system</li>
+            <li>Hardware and software requirements</li>
+            <li>How to load / run / install the software</li>
+            <li>How to save a file</li>
+            <li>How to print data</li>
+            <li>How to add records</li>
+            <li>How to delete / edit records</li>
+            <li>Input format</li>
+            <li>Output format</li>
+            <li>Sample runs</li>
+            <li>Error messages</li>
+            <li>Error handling</li>
+            <li>Troubleshooting guide / helpline</li>
+            <li>Frequently asked questions</li>
+            <li>Glossary of terms</li>
+          </ul>
+        </div>
+      </div>
+      <div class="note"><strong>Shared items:</strong> purpose of the system, limitations of the system, hardware and software requirements, input format, output format and sample runs appear in <em>both</em> documents. Everything about program code, flowcharts, variables and validation is <em>technical only</em>; everything about how to carry out tasks, error messages and FAQs is <em>user only</em>.</div>
+    </div>
+
+    <div class="check">
+      <div class="label">Check your understanding</div>
+      <details class="q">
+        <summary>Which document would contain a list of variables, and why?</summary>
+        <div class="answer"><strong>Technical documentation</strong>, because a list of variables is only useful to a programmer who needs to understand or modify the code. A user would have no use for it.</div>
+      </details>
+      <details class="q">
+        <summary>Name three items that appear in both technical and user documentation.</summary>
+        <div class="answer">Purpose of the system, limitations of the system, hardware and software requirements, input format, output format, sample runs - any three.</div>
+      </details>
+    </div>
+  </div>
+</div>
+
+<div class="section" id="s7-6">
+  <div class="section-header">
+    <span class="snum">7.6</span>
+    <h2>Evaluation</h2>
+  </div>
+  <div class="section-body">
+    <div class="sub" id="s7-6-how">
+      <h3>How a solution is evaluated</h3>
+      <p>Evaluation happens after implementation. It judges the finished system against what was asked for, using three headings:</p>
+      <ul>
+        <li><strong>Efficiency</strong> of the solution - is the system fast enough? Does it use resources sensibly? Does it produce results more quickly and at lower cost than the old system?</li>
+        <li><strong>Ease of use</strong> of the solution - can users carry out tasks without difficulty? Are the screens clear, is the documentation adequate, and how much training was needed?</li>
+        <li><strong>Appropriateness</strong> of the solution - does it actually do the job the organisation needs, on the hardware it has, for the users it has?</li>
+      </ul>
+    </div>
+
+    <div class="sub" id="s7-6-steps">
+      <h3>The steps of an evaluation</h3>
+      <ul>
+        <li><strong>Compare the solution with the original task requirements</strong>, requirement by requirement, and state whether each has been met.</li>
+        <li><strong>Identify any limitations</strong> - things the system cannot do, or does not do well enough.</li>
+        <li><strong>Identify necessary improvements</strong> to the system, and say how they would be made.</li>
+        <li><strong>Evaluate the users' responses</strong> to the results of testing the system - gathered through questionnaires, interviews and observation of them working.</li>
+      </ul>
+      <div class="note"><strong>Exam tip:</strong> an evaluation answer must contain a <em>judgement</em>. "The system produces reports in 3 seconds compared with 2 hours by hand, so it is far more efficient" earns marks; "the system works" does not.</div>
+    </div>
+
+    <div class="check">
+      <div class="label">Check your understanding</div>
+      <details class="q">
+        <summary>Describe two ways the developer could collect users' responses to the new system.</summary>
+        <div class="answer"><strong>Questionnaires</strong> given to all users, which can be anonymous and reach many people quickly, and <strong>interviews</strong> with a smaller number of users, where answers can be explored in depth. <strong>Observing</strong> users working with the system also shows where they struggle.</div>
+      </details>
+      <details class="q">
+        <summary>Put the six stages of the systems life cycle in order.</summary>
+        <div class="answer">Analysis &rarr; Design &rarr; Development and testing &rarr; Implementation &rarr; Documentation &rarr; Evaluation. Evaluation may lead back to analysis, which is why it is called a <em>cycle</em>.</div>
+      </details>
+    </div>
+
+    <div class="recap">
+      <div class="label">Topic 7 checklist</div>
+      <ul>
+        <li>I can give characteristics, uses, advantages and disadvantages of observation, interviews, questionnaires and examining documents.</li>
+        <li>I can identify inputs, outputs, processing, problems and user requirements, and justify hardware and software.</li>
+        <li>I can design file structures, coding, input formats and output formats.</li>
+        <li>I can name and give an example of all seven validation routines.</li>
+        <li>I can explain test designs, test strategies, normal, abnormal and extreme test data, and the use of live data.</li>
+        <li>I can complete a test plan with test data, expected outcome, actual outcome and remedial action.</li>
+        <li>I can compare direct changeover, parallel running, pilot running and phased implementation and justify a choice.</li>
+        <li>I can list the components of technical and user documentation and say which belong to both.</li>
+        <li>I can evaluate a solution for efficiency, ease of use and appropriateness.</li>
+      </ul>
+    </div>
+  </div>
+</div>

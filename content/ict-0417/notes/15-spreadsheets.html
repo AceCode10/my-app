@@ -1,0 +1,306 @@
+<div class="page-header">
+  <div class="section-label">Cambridge IGCSE ICT 0417 &middot; Practical skills</div>
+  <h1>Spreadsheets</h1>
+  <p>The spreadsheet task carries the heaviest weighting of any single practical skill. The marks are in the <strong>formulae</strong> - whether they use the right functions, the right cell references, and whether they replicate correctly down a column.</p>
+  <div class="note"><strong>Syllabus coverage:</strong> 20.1 Create a data model &middot; 20.2 Manipulate data &middot; 20.3 Present data &middot; 16 Graphs and charts</div>
+</div>
+
+<div class="section" id="s20-1">
+  <div class="section-header">
+    <span class="snum">20.1</span>
+    <h2>Create a Data Model</h2>
+  </div>
+  <div class="section-body">
+    <div class="sub" id="s20-1-edit">
+      <h3>Creating and editing a spreadsheet model</h3>
+      <ul>
+        <li><strong>Insert</strong> cells, rows and columns, and <strong>delete</strong> cells, rows and columns.</li>
+        <li><strong>Merge cells</strong>, typically for a title spanning several columns.</li>
+        <li>Check after inserting or deleting that no formula now refers to the wrong cell.</li>
+      </ul>
+    </div>
+
+    <div class="sub" id="s20-1-formulae">
+      <h3>Formulae and functions</h3>
+      <div class="def-box">A <strong>formula</strong> is a calculation you write yourself using cell references and operators, for example <code>=B4*C4</code>. A <strong>function</strong> is a ready-made operation built into the software that is given arguments, for example <code>=SUM(B4:B20)</code>. Both are entered beginning with <code>=</code>.</div>
+      <h4>Arithmetic operators</h4>
+      <ul>
+        <li><code>+</code> add &middot; <code>-</code> subtract &middot; <code>*</code> multiply &middot; <code>/</code> divide &middot; <code>^</code> indices (raise to a power)</li>
+      </ul>
+      <h4>Order of operations</h4>
+      <ul>
+        <li>Operations are carried out in this order: <strong>Brackets, Indices, Division and Multiplication, Addition and Subtraction</strong>.</li>
+        <li>Division and multiplication rank equally and are worked left to right; so do addition and subtraction.</li>
+        <li><strong>Use brackets to make sure formulae work.</strong> <code>=A1+A2/2</code> halves A2 only; <code>=(A1+A2)/2</code> gives the average of the two - which is almost always what was wanted.</li>
+      </ul>
+    </div>
+
+    <div class="sub" id="s20-1-refs">
+      <h3>Cell referencing</h3>
+      <div class="grid-2">
+        <div class="mini-card">
+          <h5>Relative reference - <code>B4</code></h5>
+          <ul>
+            <li><strong>Changes when the formula is replicated.</strong> Copied one row down, B4 becomes B5</li>
+            <li>Use it when each row must use its own data</li>
+          </ul>
+        </div>
+        <div class="mini-card">
+          <h5>Absolute reference - <code>$B$4</code></h5>
+          <ul>
+            <li><strong>Stays fixed when the formula is replicated</strong>, because the $ signs lock the column and the row</li>
+            <li>Use it when every row must refer to the <strong>same</strong> cell - a tax rate, an exchange rate, a fixed price</li>
+            <li>A mixed reference locks only one part: <code>$B4</code> fixes the column, <code>B$4</code> fixes the row</li>
+          </ul>
+        </div>
+      </div>
+      <h4>Named cells and named ranges</h4>
+      <ul>
+        <li>A cell or range can be given a <strong>name</strong>, and that name used in formulae: <code>=B4*VAT_Rate</code>.</li>
+        <li>A name behaves like an absolute reference, so it does not change when replicated.</li>
+        <li>Names make formulae far easier to read and check, and reduce mistakes.</li>
+      </ul>
+      <div class="note"><strong>Replication is where marks are won and lost.</strong> Before copying a formula down a column, ask of every reference: "should this move with the row, or stay still?" If it should stay still, it needs $ signs or a name.</div>
+    </div>
+
+    <div class="sub" id="s20-1-functions">
+      <h3>Functions you must be able to use</h3>
+      <div class="table-wrap">
+        <table class="comp-table">
+          <thead><tr><th>Function</th><th>What it does</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr><td><strong>SUM</strong></td><td>Adds all the values in a range</td><td><code>=SUM(B4:B20)</code></td></tr>
+            <tr><td><strong>AVERAGE</strong></td><td>Calculates the mean of a range</td><td><code>=AVERAGE(B4:B20)</code></td></tr>
+            <tr><td><strong>MAX</strong></td><td>Returns the largest value in a range</td><td><code>=MAX(B4:B20)</code></td></tr>
+            <tr><td><strong>MIN</strong></td><td>Returns the smallest value in a range</td><td><code>=MIN(B4:B20)</code></td></tr>
+            <tr><td><strong>INT</strong></td><td>Returns the whole-number part, discarding the decimals</td><td><code>=INT(B4)</code></td></tr>
+            <tr><td><strong>ROUND</strong></td><td>Rounds a value to a stated number of decimal places</td><td><code>=ROUND(B4,2)</code></td></tr>
+            <tr><td><strong>COUNT</strong> / <strong>COUNTA</strong> / <strong>COUNTIF</strong></td><td>Counts numeric entries / all non-empty entries / entries meeting a condition</td><td><code>=COUNTIF(C4:C20,"Yes")</code></td></tr>
+            <tr><td><strong>IF</strong></td><td>Tests a condition and returns one value if true and another if false</td><td><code>=IF(B4&gt;=40,"Pass","Fail")</code></td></tr>
+            <tr><td><strong>LOOKUP</strong></td><td>Finds a value in a range and returns the matching item</td><td><code>=LOOKUP(A4,Codes,Names)</code></td></tr>
+            <tr><td><strong>VLOOKUP</strong></td><td>Looks a value up in the <strong>first column</strong> of a table and returns an item from a numbered column to its right</td><td><code>=VLOOKUP(A4,$H$4:$J$20,3,0)</code></td></tr>
+            <tr><td><strong>HLOOKUP</strong></td><td>Looks a value up in the <strong>first row</strong> of a table and returns an item from a numbered row below it</td><td><code>=HLOOKUP(A4,$B$1:$M$3,2,0)</code></td></tr>
+            <tr><td><strong>XLOOKUP</strong></td><td>Looks a value up in one range and returns the matching item from another, in any direction</td><td><code>=XLOOKUP(A4,Codes,Prices)</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h4>Nested functions</h4>
+      <ul>
+        <li>A <strong>nested function</strong> is a function used inside another function.</li>
+        <li><code>=IF(B4&gt;=70,"Distinction",IF(B4&gt;=40,"Pass","Fail"))</code> - an IF inside an IF, to choose between three outcomes.</li>
+        <li><code>=ROUND(AVERAGE(B4:B20),2)</code> - the average is calculated first, then rounded.</li>
+        <li>Work from the inside out when checking a nested formula, and count the brackets.</li>
+      </ul>
+      <h4>External data sources</h4>
+      <ul>
+        <li>A formula can refer to a cell in <strong>another worksheet</strong> - <code>=Prices!B4</code> - or in <strong>another file</strong>.</li>
+        <li>This keeps one master copy of shared data, so it only has to be updated in one place.</li>
+        <li>The linked file must remain available, or the formula will fail.</li>
+      </ul>
+    </div>
+
+    <div class="check">
+      <div class="label">Check your understanding</div>
+      <details class="q">
+        <summary>A VAT rate is in cell H1. Write the formula in C4 to add VAT to the price in B4, so that it can be replicated down to C20.</summary>
+        <div class="answer"><code>=B4*(1+$H$1)</code>. <strong>B4 is relative</strong> so it becomes B5, B6 and so on as the formula is copied down, but <strong>$H$1 is absolute</strong> so every row still refers to the single VAT rate cell. Naming H1 as VAT and writing <code>=B4*(1+VAT)</code> would work equally well.</div>
+      </details>
+      <details class="q">
+        <summary>Explain the difference between VLOOKUP and HLOOKUP.</summary>
+        <div class="answer"><strong>VLOOKUP</strong> searches for the value down the <strong>first column</strong> of the lookup table and returns an item from a numbered column to the right. <strong>HLOOKUP</strong> searches along the <strong>first row</strong> and returns an item from a numbered row below. Use VLOOKUP when the table is arranged in columns and HLOOKUP when it is arranged in rows.</div>
+      </details>
+      <details class="q">
+        <summary>What is the difference between a formula and a function?</summary>
+        <div class="answer">A <strong>formula</strong> is a calculation the user writes from cell references and operators, such as <code>=B4*C4</code>. A <strong>function</strong> is a ready-made operation built into the software that is given arguments, such as <code>=SUM(B4:B20)</code>. A formula may contain functions.</div>
+      </details>
+    </div>
+  </div>
+</div>
+
+<div class="section" id="s20-2">
+  <div class="section-header">
+    <span class="snum">20.2</span>
+    <h2>Manipulate Data</h2>
+  </div>
+  <div class="section-body">
+    <div class="sub" id="s20-2-sort">
+      <h3>Sorting</h3>
+      <ul>
+        <li>Sort into <strong>ascending</strong> or <strong>descending</strong> order using a <strong>single criterion</strong> or <strong>multiple criteria</strong>.</li>
+        <li>Always select <strong>all the columns</strong> of the data before sorting. Sorting one column alone scrambles the rows and destroys the data.</li>
+        <li>Tell the software whether the data has a header row, so the headings are not sorted with the data.</li>
+      </ul>
+    </div>
+    <div class="sub" id="s20-2-search">
+      <h3>Searching and selecting</h3>
+      <ul>
+        <li>Select subsets of data using a <strong>single criterion</strong> or <strong>multiple criteria</strong>, normally with a filter.</li>
+        <li>Operators: <strong>AND</strong>, <strong>OR</strong>, <strong>NOT</strong>, <strong>&gt;</strong>, <strong>&lt;</strong>, <strong>=</strong>, <strong>&gt;=</strong>, <strong>&lt;=</strong>, <strong>&lt;&gt;</strong>.</li>
+        <li>Perform searches using <strong>wildcards</strong> - <code>*</code> for any number of characters and <code>?</code> for exactly one.</li>
+        <li>Remember that <strong>AND narrows</strong> the results and <strong>OR widens</strong> them.</li>
+      </ul>
+    </div>
+
+    <div class="check">
+      <div class="label">Check your understanding</div>
+      <details class="q">
+        <summary>Why must the whole table be selected before sorting?</summary>
+        <div class="answer">If only one column is selected, <strong>only that column is reordered</strong> while the other columns stay where they are. Each row's data then belongs to the wrong record, and the data is corrupted beyond repair.</div>
+      </details>
+    </div>
+  </div>
+</div>
+
+<div class="section" id="s20-3">
+  <div class="section-header">
+    <span class="snum">20.3</span>
+    <h2>Present Data</h2>
+  </div>
+  <div class="section-body">
+    <div class="sub" id="s20-3-display">
+      <h3>Adjusting the display features</h3>
+      <ul>
+        <li><strong>Display either formulae or values</strong> - the formula view is normally required as evidence, and the value view to show the results.</li>
+        <li><strong>Adjust row height, column width and cell sizes</strong> so that all data, labels and formulae are <strong>fully visible</strong>.</li>
+        <li><strong>Wrap text within cells</strong> so long labels appear on several lines instead of being cut off.</li>
+        <li><strong>Hide and display rows and columns</strong>, for example to print only the columns that are needed.</li>
+      </ul>
+      <div class="note"><strong>The single most common practical error:</strong> printing the formula view with the columns too narrow, so the formulae are truncated. Widen every column first, and check no cell shows <code>####</code>.</div>
+    </div>
+
+    <div class="sub" id="s20-3-format">
+      <h3>Formatting a spreadsheet</h3>
+      <ul>
+        <li>Enhance the spreadsheet with <strong>text colour, cell colour, bold, underline, italic and shading</strong>.</li>
+        <li>Format numeric data appropriately:
+          <ul>
+            <li>a stated <strong>number of decimal places</strong></li>
+            <li>different <strong>currency symbols</strong></li>
+            <li><strong>percentages</strong></li>
+          </ul>
+        </li>
+        <li>Use <strong>conditional formatting</strong> to change the display format depending on the contents of a cell - for example showing every value below 40 with a red background, so exceptions stand out automatically and update themselves when the data changes.</li>
+      </ul>
+    </div>
+
+    <div class="sub" id="s20-3-page">
+      <h3>Setting the page layout for printing</h3>
+      <ul>
+        <li>Set the <strong>orientation</strong> to portrait or landscape - landscape usually suits a wide table or the formula view.</li>
+        <li>Control the page layout to print:
+          <ul>
+            <li>a <strong>specified number of pages</strong>, by scaling the sheet to fit</li>
+            <li>a defined <strong>print area</strong>, so only the required range is printed</li>
+            <li><strong>display or hide gridlines</strong></li>
+            <li><strong>display or hide row and column headings</strong> - the numbers and letters, which are usually needed as evidence in the formula view</li>
+          </ul>
+        </li>
+        <li>Add headers and footers with your name, the file name and the page number.</li>
+      </ul>
+    </div>
+
+    <div class="check">
+      <div class="label">Check your understanding</div>
+      <details class="q">
+        <summary>Why are row and column headings usually displayed when printing the formula view?</summary>
+        <div class="answer">They show <strong>which cell each formula is in</strong>, so the examiner can check that the references are correct. Without the row numbers and column letters the formulae cannot be matched to their cells.</div>
+      </details>
+      <details class="q">
+        <summary>Give one use of conditional formatting.</summary>
+        <div class="answer">Highlighting values that meet a condition automatically - for example shading every mark below 40 in red so failing grades stand out at a glance. The formatting <strong>updates itself</strong> whenever the data changes.</div>
+      </details>
+    </div>
+  </div>
+</div>
+
+<div class="section" id="s16-charts">
+  <div class="section-header">
+    <span class="snum">16</span>
+    <h2>Graphs and Charts</h2>
+  </div>
+  <div class="section-body">
+    <div class="sub" id="s16-select">
+      <h3>Selecting data and choosing the chart type</h3>
+      <ul>
+        <li>Select the data to produce a graph or chart using:
+          <ul>
+            <li><strong>Contiguous data</strong> - ranges next to each other, selected in one drag</li>
+            <li><strong>Non-contiguous data</strong> - separate ranges, selected by holding the Ctrl key while dragging each one</li>
+            <li><strong>Specified data ranges</strong> - exactly the rows and columns the question names</li>
+          </ul>
+        </li>
+        <li>Always include the <strong>labels</strong> as well as the values, so the chart is labelled automatically.</li>
+      </ul>
+      <div class="table-wrap">
+        <table class="comp-table">
+          <thead><tr><th>Chart type</th><th>Best for</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Pie chart</strong></td><td>Showing the <strong>proportion</strong> each item contributes to a whole - one data series only</td></tr>
+            <tr><td><strong>Bar or column chart</strong></td><td><strong>Comparing</strong> separate categories against each other</td></tr>
+            <tr><td><strong>Line graph</strong></td><td>Showing a <strong>trend over time</strong> or a continuous change</td></tr>
+            <tr><td><strong>Scatter graph</strong></td><td>Showing the <strong>relationship</strong> between two variables</td></tr>
+            <tr><td><strong>Comparative / stacked charts</strong></td><td>Comparing two or more data series on the same axes</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="sub" id="s16-label">
+      <h3>Labelling a graph or chart</h3>
+      <p>All of these must be set correctly when the question asks for them:</p>
+      <ul>
+        <li><strong>Chart title</strong></li>
+        <li><strong>Legend</strong> - naming each data series (a pie chart with sector labels usually needs no legend)</li>
+        <li><strong>Sector labels</strong>, <strong>sector values</strong> and <strong>percentages</strong> on a pie chart</li>
+        <li><strong>Category axis title</strong> and <strong>value axis title</strong></li>
+        <li><strong>Category axis labels</strong> and <strong>value axis labels</strong></li>
+        <li><strong>Data value labels</strong> on the bars, points or sectors</li>
+      </ul>
+    </div>
+
+    <div class="sub" id="s16-edit">
+      <h3>Editing and enhancing a chart</h3>
+      <ul>
+        <li><strong>Add a second data series</strong>, so two sets of values are compared on the same chart.</li>
+        <li><strong>Add a second axis</strong>, needed when the two series use very different scales - for example rainfall in millimetres and temperature in degrees.</li>
+        <li>Format numerical values to a <strong>specified number of decimal places</strong>.</li>
+        <li>Format numerical values to display <strong>currency symbols</strong>.</li>
+        <li>Adjust the <strong>maximum and minimum values of an axis scale</strong> and set the <strong>incremental values</strong> (the interval between gridlines), so the data fills the chart and is easy to read.</li>
+        <li>Enhance the appearance by <strong>extracting (exploding) a pie chart sector</strong> to draw attention to it, and by changing the <strong>colour scheme or fill patterns</strong>.</li>
+      </ul>
+      <div class="note"><strong>Choosing well is a marked skill.</strong> A pie chart cannot show a trend, and a line graph cannot show proportions of a whole. Read what the chart is meant to communicate before choosing its type.</div>
+    </div>
+
+    <div class="check">
+      <div class="label">Check your understanding</div>
+      <details class="q">
+        <summary>Monthly sales for two products over a year are to be compared. Which chart type suits this, and why?</summary>
+        <div class="answer">A <strong>line graph with two data series</strong>, because the data is over time and a line graph shows the <strong>trend</strong> for each product and lets the two be compared directly. A pie chart could not be used, as it only shows proportions of a single total.</div>
+      </details>
+      <details class="q">
+        <summary>Rainfall (0-300 mm) and temperature (0-35 degrees) are plotted on one chart. What must be added and why?</summary>
+        <div class="answer">A <strong>second axis</strong>. The two series use very different scales, so plotted against one axis the temperature line would be almost flat along the bottom. A second value axis lets each series use its own scale and stay readable.</div>
+      </details>
+      <details class="q">
+        <summary>How do you select the names in column A and the totals in column E, ignoring columns B to D?</summary>
+        <div class="answer">Select column A, then hold the <strong>Ctrl key</strong> and select column E. This is a <strong>non-contiguous</strong> selection, so only the two required ranges are charted.</div>
+      </details>
+    </div>
+
+    <div class="recap">
+      <div class="label">Spreadsheets and charts checklist</div>
+      <ul>
+        <li>I can insert, delete and merge cells, rows and columns.</li>
+        <li>I can write formulae with +, -, *, / and indices, and apply the correct order of operations using brackets.</li>
+        <li>I can explain the difference between a formula and a function.</li>
+        <li>I can use relative and absolute references and named cells and ranges, and replicate formulae correctly.</li>
+        <li>I can use SUM, AVERAGE, MAX, MIN, INT, ROUND, COUNT, LOOKUP, VLOOKUP, HLOOKUP, XLOOKUP and IF, including nested functions and external data.</li>
+        <li>I can sort on single and multiple criteria and filter with AND, OR, NOT, comparison operators and wildcards.</li>
+        <li>I can switch between formula and value view and make sure everything is fully visible.</li>
+        <li>I can format cells, numbers, currency and percentages, and apply conditional formatting.</li>
+        <li>I can set orientation, print area, page count, gridlines and row and column headings for printing.</li>
+        <li>I can select contiguous and non-contiguous data, choose the right chart type, label it fully, add a second series and a second axis, set axis scales, and enhance it.</li>
+      </ul>
+    </div>
+  </div>
+</div>

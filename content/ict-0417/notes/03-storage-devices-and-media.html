@@ -1,0 +1,611 @@
+<div class="page-header">
+  <div class="section-label">Cambridge IGCSE ICT 0417 &middot; Topic 3</div>
+  <h1>Storage Devices and Media</h1>
+  <p>Every file you keep after the power goes off lives on backing storage. This topic asks you to know the three storage technologies - magnetic, optical and solid-state - and, for each one, its <strong>characteristics</strong>, its <strong>uses</strong>, its <strong>media</strong>, and its <strong>advantages and disadvantages</strong>. You also need to be able to tell backing storage apart from internal memory.</p>
+  <div class="note"><strong>Syllabus coverage:</strong> Topic 3 is not divided into numbered sub-sections in the 0417 syllabus (2026-2028). The sections below are teaching sections; between them they cover both syllabus strands - <em>Storage devices</em> and <em>Storage media</em>.</div>
+</div>
+
+<div class="section" id="storage-basics">
+  <div class="section-header">
+    <span class="snum">3.1</span>
+    <h2>Storage Media and Storage Devices</h2>
+  </div>
+  <div class="section-body">
+    <div class="sub" id="storage-media-vs-device">
+      <h3>The difference you must be able to state <span class="syllabus-tag">Storage devices &middot; Storage media</span></h3>
+      <p>Examiners award marks for keeping these two words apart. They are not interchangeable.</p>
+      <div class="grid-2">
+        <div class="mini-card">
+          <h5>Storage media</h5>
+          <ul>
+            <li>The hardware on which the data is <strong>actually stored</strong></li>
+            <li>Examples: a CD, a DVD, a hard disk platter, magnetic tape, an SD card</li>
+            <li>Often removable from the device that reads it</li>
+          </ul>
+        </div>
+        <div class="mini-card">
+          <h5>Storage device</h5>
+          <ul>
+            <li>The hardware that <strong>reads from and writes to</strong> the media</li>
+            <li>Examples: a DVD drive, a tape drive, a card reader, a hard disk drive</li>
+            <li>Contains the motor, read/write head or laser</li>
+          </ul>
+        </div>
+      </div>
+      <div class="note"><strong>Watch out:</strong> in a fixed hard disk drive and in a solid-state drive the media and the device are sealed into one unit, so the same name is used for both. In an optical system they are clearly separate - the disc is the medium, the drive is the device.</div>
+    </div>
+
+    <div class="sub" id="secondary-storage">
+      <h3>Secondary (backing) storage</h3>
+      <div class="def-box"><strong>Backing storage</strong> is <strong>non-volatile</strong> storage held outside the CPU. It keeps its contents permanently, even when the computer is switched off.</div>
+      <h4>The three technologies</h4>
+      <div class="grid-3">
+        <div class="mini-card">
+          <h5>Magnetic</h5>
+          <ul>
+            <li>Data stored by magnetising tiny areas of a surface</li>
+            <li>Has moving parts</li>
+            <li>Hard disks, magnetic tape</li>
+          </ul>
+        </div>
+        <div class="mini-card">
+          <h5>Optical</h5>
+          <ul>
+            <li>Data stored by burning pits into a reflective layer with a laser</li>
+            <li>Has moving parts</li>
+            <li>CD, DVD, Blu-ray</li>
+          </ul>
+        </div>
+        <div class="mini-card">
+          <h5>Solid-state</h5>
+          <ul>
+            <li>Data stored as charge in NAND flash memory cells</li>
+            <li>No moving parts</li>
+            <li>SSD, pen drive, memory card</li>
+          </ul>
+        </div>
+      </div>
+      <h4>Access methods</h4>
+      <ul>
+        <li><strong>Serial access</strong> - the device must read through every record from the start until it reaches the one it wants. Used by magnetic tape. Very slow for finding one record.</li>
+        <li><strong>Direct (random) access</strong> - the device can go straight to the position of the data it wants. Used by hard disks, optical discs and solid-state media.</li>
+      </ul>
+    </div>
+
+    <div class="check">
+      <div class="label">Check your understanding</div>
+      <details class="q">
+        <summary>A student writes "a DVD is a storage device". Correct the statement and explain why.</summary>
+        <div class="answer">A DVD is a storage <strong>medium</strong> - it is the surface the data is actually stored on. The DVD <strong>drive</strong> is the storage device, because it is the hardware that reads from and writes to the disc.</div>
+      </details>
+      <details class="q">
+        <summary>Why is magnetic tape described as having "prolonged data access times"?</summary>
+        <div class="answer">Tape uses <strong>serial access</strong>, so the drive must wind through all the data that comes before the record it wants. A hard disk uses direct access and can move its head straight to the required track and sector.</div>
+      </details>
+    </div>
+  </div>
+</div>
+
+<div class="section" id="magnetic-storage">
+  <div class="section-header">
+    <span class="snum">3.2</span>
+    <h2>Magnetic Storage</h2>
+  </div>
+  <div class="section-body">
+    <div class="sub" id="magnetic-how">
+      <h3>How magnetic storage works</h3>
+      <ul>
+        <li>The surface of the medium is coated with a material that can be <strong>magnetised</strong>.</li>
+        <li>A <strong>read/write head</strong> passes over the surface and magnetises tiny areas in one of two directions.</li>
+        <li>The two directions represent <strong>1</strong> and <strong>0</strong>.</li>
+        <li>The surface is divided into concentric <strong>tracks</strong>, which are split into <strong>sectors</strong>.</li>
+        <li>Because the magnetism stays after the power is removed, magnetic storage is <strong>non-volatile</strong>.</li>
+      </ul>
+      <div class="note"><strong>Exam tip:</strong> anything that stores data using magnetism can be corrupted by a strong magnetic field. That single fact is worth a mark in many "disadvantages" questions.</div>
+    </div>
+
+    <div class="sub" id="magnetic-tape">
+      <h3>Magnetic tape</h3>
+      <div class="device-card">
+        <div class="device-card-header">Magnetic tape <span class="badge badge-storage">Magnetic media</span></div>
+        <div class="device-card-body">
+          <h4>Characteristics</h4>
+          <ul>
+            <li>A long plastic ribbon coated with a magnetic layer, wound in a cassette</li>
+            <li>Read and written by a <strong>tape drive</strong></li>
+            <li><strong>Serial access</strong> only</li>
+            <li>Very high capacity and known to be very stable over long periods</li>
+          </ul>
+          <div class="uses-box">
+            <div class="label">Uses</div>
+            <ul>
+              <li>Used as a <strong>backup medium</strong> where vast amounts of data need to be stored</li>
+              <li>Used in <strong>long-term archiving</strong> of data, because tapes have huge storage capacities and are very stable</li>
+              <li>Batch processing systems, for example utility billing and payroll, where a whole file is read in order</li>
+            </ul>
+          </div>
+          <div class="adv-dis">
+            <div class="adv-box">
+              <div class="label">Advantages</div>
+              <ul>
+                <li>Generally <strong>less expensive</strong> than hard disk drives</li>
+                <li><strong>Huge</strong> data storage capacity</li>
+                <li>Very stable, so suitable for archives kept for years</li>
+                <li>Data transfer rate is fast once the tape is running, which suits whole-file backups</li>
+              </ul>
+            </div>
+            <div class="dis-box">
+              <div class="label">Disadvantages</div>
+              <ul>
+                <li><strong>Prolonged data access times</strong>, because it uses serial access</li>
+                <li>When updating, <strong>another tape is needed</strong> to store the final updated version</li>
+                <li>Affected by <strong>magnetic fields</strong> - a strong field can corrupt the data stored on the tape</li>
+                <li>Tape and drive are bulky compared with solid-state media</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sub" id="magnetic-hard-disk">
+      <h3>Magnetic hard disks and hard disk drives (HDD)</h3>
+      <div class="device-card">
+        <div class="device-card-header">Fixed hard disk drive <span class="badge badge-storage">Magnetic device</span></div>
+        <div class="device-card-body">
+          <h4>Characteristics</h4>
+          <ul>
+            <li>One or more rigid <strong>platters</strong> (the media) spinning at high speed inside a sealed unit</li>
+            <li>Read/write heads move across the platters on an arm - so it has <strong>moving parts</strong></li>
+            <li><strong>Direct access</strong>, so any file can be reached quickly</li>
+            <li>Fitted inside the computer and not normally removed</li>
+          </ul>
+          <div class="uses-box">
+            <div class="label">Uses</div>
+            <ul>
+              <li>To store the <strong>operating system, systems software and working data/files</strong></li>
+              <li>Storing <strong>applications files</strong></li>
+              <li>Real-time systems and online systems, such as booking and banking systems, where data must be found instantly</li>
+              <li>File servers in a network</li>
+            </ul>
+          </div>
+          <div class="adv-dis">
+            <div class="adv-box">
+              <div class="label">Advantages</div>
+              <ul>
+                <li>Generally offers <strong>larger storage capacities</strong> than SSDs</li>
+                <li><strong>More affordable</strong> per gigabyte compared to SSDs</li>
+                <li>Well suited to <strong>long-term storage</strong> needs</li>
+                <li>Fast direct access compared with tape or optical media</li>
+              </ul>
+            </div>
+            <div class="dis-box">
+              <div class="label">Disadvantages</div>
+              <ul>
+                <li>Has <strong>moving parts</strong>, making it more prone to damage if knocked or dropped</li>
+                <li><strong>Heavier and bulkier</strong> compared to SSDs</li>
+                <li><strong>Higher power consumption</strong></li>
+                <li>Generates more <strong>heat and noise</strong></li>
+                <li>Can be corrupted by strong magnetic fields</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="device-card">
+        <div class="device-card-header">Portable hard disk drive <span class="badge badge-storage">Magnetic device</span></div>
+        <div class="device-card-body">
+          <h4>Characteristics</h4>
+          <ul>
+            <li>The same technology as a fixed HDD, but in a protective case that plugs into a USB port</li>
+            <li>Can be carried between computers and disconnected without opening the case</li>
+          </ul>
+          <div class="uses-box">
+            <div class="label">Uses</div>
+            <ul>
+              <li>Backing up whole systems or large folders</li>
+              <li>Transferring very large files, such as video, between computers</li>
+              <li>Storing an offsite copy of company data</li>
+            </ul>
+          </div>
+          <div class="adv-dis">
+            <div class="adv-box">
+              <div class="label">Advantages</div>
+              <ul>
+                <li>Very large capacity for the price</li>
+                <li>Portable, so data can be taken offsite or shared</li>
+                <li>Fast data transfer rate over USB</li>
+              </ul>
+            </div>
+            <div class="dis-box">
+              <div class="label">Disadvantages</div>
+              <ul>
+                <li>Still contains moving parts, so it is easily damaged if dropped while spinning</li>
+                <li>Easier to lose or have stolen than a fixed drive, which is a security risk</li>
+                <li>Heavier and larger than a pen drive or memory card</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="check">
+      <div class="label">Check your understanding</div>
+      <details class="q">
+        <summary>A company backs up its 40 TB database every night. Give two reasons why magnetic tape suits this task better than optical discs.</summary>
+        <div class="answer">
+          <ul>
+            <li>Tape has a <strong>huge storage capacity</strong>, so the whole backup fits on very few tapes, while optical discs hold far less data and would need hundreds of discs.</li>
+            <li>Tape is <strong>less expensive</strong> per gigabyte and is very stable for long-term archiving.</li>
+            <li>The backup is written and read as a whole file, so serial access is not a drawback.</li>
+          </ul>
+        </div>
+      </details>
+      <details class="q">
+        <summary>Explain why an HDD is a poor choice for a computer that will be carried around a building site.</summary>
+        <div class="answer">An HDD has <strong>moving parts</strong> - spinning platters and moving read/write heads - so knocks and vibration can damage the drive and corrupt data. It is also heavier and uses more power. A solid-state drive, which has no moving parts, would be more reliable.</div>
+      </details>
+    </div>
+
+    <div class="recap">
+      <div class="label">Recap</div>
+      <ul>
+        <li>Magnetic storage magnetises tiny areas of a surface to store 1s and 0s.</li>
+        <li>Tape = serial access, huge capacity, cheap, used for backup and archiving.</li>
+        <li>HDD = direct access, holds the OS and working files, cheaper per GB than SSD but has moving parts.</li>
+        <li>All magnetic media can be corrupted by strong magnetic fields.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="section" id="optical-storage">
+  <div class="section-header">
+    <span class="snum">3.3</span>
+    <h2>Optical Storage</h2>
+  </div>
+  <div class="section-body">
+    <div class="sub" id="optical-how">
+      <h3>How optical storage works</h3>
+      <ul>
+        <li>Optical storage holds data by burning <strong>'dots' (pits)</strong> onto the surface of the disc with a <strong>high-powered laser</strong>.</li>
+        <li>The burned pits and the unburned areas (<strong>lands</strong>) reflect the reading laser differently.</li>
+        <li>The drive detects the change in reflection and converts it into <strong>1s and 0s</strong>.</li>
+        <li>Data is written in a single <strong>spiral track</strong> running from the centre outwards.</li>
+      </ul>
+      <h4>Why capacities differ</h4>
+      <ul>
+        <li><strong>CD and DVD</strong> use <strong>red lasers</strong>. DVDs have a higher capacity than CDs because the <strong>pits are smaller</strong> and they can use <strong>dual-layering</strong>.</li>
+        <li><strong>Blu-ray</strong> uses a <strong>blue laser</strong>, which has a <strong>shorter wavelength</strong>, allowing the pits to be even smaller. It holds up to <strong>5 times more data than a DVD</strong> (for example 25 GB per layer).</li>
+      </ul>
+      <div class="note"><strong>Exam tip:</strong> "shorter wavelength &rarr; smaller pits &rarr; more pits in the same area &rarr; higher capacity" is the chain of reasoning examiners look for.</div>
+    </div>
+
+    <div class="sub" id="optical-compare">
+      <h3>CD vs DVD vs Blu-ray</h3>
+      <div class="table-wrap">
+        <table class="comp-table">
+          <thead>
+            <tr><th>Feature</th><th>CD</th><th>DVD</th><th>Blu-ray</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Laser colour</td><td>Red</td><td>Red</td><td>Blue</td></tr>
+            <tr><td>Laser wavelength</td><td>Longest</td><td>Shorter than CD</td><td>Shortest</td></tr>
+            <tr><td>Pit size</td><td>Largest</td><td>Smaller than CD</td><td>Smallest</td></tr>
+            <tr><td>Typical capacity</td><td>About 700 MB</td><td>About 4.7 GB single layer, about 8.5 GB dual layer</td><td>About 25 GB per layer, about 50 GB dual layer</td></tr>
+            <tr><td>Layers</td><td>Single layer</td><td>Can be dual-layered</td><td>Can be dual-layered</td></tr>
+            <tr><td>Typical uses</td><td>Audio (music), smaller data files, some basic video (VCD)</td><td>Full-length movies, larger software, high-quality video and audio</td><td>Home video consoles, storing and playing back high-definition movies</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="sub" id="optical-formats">
+      <h3>Disc formats you should recognise</h3>
+      <div class="term-list">
+        <details class="term">
+          <summary>ROM (CD-ROM, DVD-ROM, BD-ROM)</summary>
+          <div>Read-only. The pits are pressed in during manufacture, so the user can read the data but never change it. Used for commercial software, games and films.</div>
+        </details>
+        <details class="term">
+          <summary>R (CD-R, DVD-R, BD-R)</summary>
+          <div>Recordable - the user can write to the disc <strong>once</strong>, using the drive's laser to burn the dye layer. Useful where a permanent, unalterable record is wanted.</div>
+        </details>
+        <details class="term">
+          <summary>RW (CD-RW, DVD-RW, BD-RE)</summary>
+          <div>Rewritable - the layer can be changed back and forth between two states, so the disc can be written to and erased many times. Useful for short-term backups.</div>
+        </details>
+        <details class="term">
+          <summary>DVD-RAM</summary>
+          <div>Uses concentric tracks instead of one spiral, so it can read and write at the same time and rewrite very many times. Used in recording devices such as set-top boxes and CCTV.</div>
+        </details>
+      </div>
+    </div>
+
+    <div class="sub" id="optical-pros-cons">
+      <h3>Advantages and disadvantages of optical storage</h3>
+      <div class="adv-dis">
+        <div class="adv-box">
+          <div class="label">Advantages</div>
+          <ul>
+            <li><strong>Less expensive</strong> than hard disk drive systems</li>
+            <li>Very <strong>portable</strong>, as they are small and light</li>
+            <li>Not affected by magnetic fields</li>
+            <li>ROM and R discs give a permanent copy that cannot be altered</li>
+          </ul>
+        </div>
+        <div class="dis-box">
+          <div class="label">Disadvantages</div>
+          <ul>
+            <li>Hold <strong>far less data</strong> than hard disk drives or memory sticks</li>
+            <li><strong>Very slow data transfer rate and access times</strong> compared with hard disks and solid-state media</li>
+            <li>The surface is easily <strong>scratched</strong>, which makes data unreadable</li>
+            <li>Many modern laptops no longer include an optical drive</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="check">
+      <div class="label">Check your understanding</div>
+      <details class="q">
+        <summary>Explain why a Blu-ray disc can store more data than a DVD of the same physical size.</summary>
+        <div class="answer">Blu-ray uses a <strong>blue laser with a shorter wavelength</strong> than the red laser used for DVDs. A shorter wavelength can burn and read <strong>smaller pits</strong>, so more pits fit into the same area of disc and the capacity rises - up to about five times that of a DVD.</div>
+      </details>
+      <details class="q">
+        <summary>A music shop sells albums on CD. Give one reason why CD-ROM rather than CD-RW is used.</summary>
+        <div class="answer">A CD-ROM is <strong>read-only</strong>, so the customer cannot overwrite or erase the recording. It is also cheaper to mass-produce by pressing, and protects the producer's content.</div>
+      </details>
+    </div>
+  </div>
+</div>
+
+<div class="section" id="solid-state-storage">
+  <div class="section-header">
+    <span class="snum">3.4</span>
+    <h2>Solid-State Backing Storage</h2>
+  </div>
+  <div class="section-body">
+    <div class="sub" id="solid-state-how">
+      <h3>How solid-state storage works</h3>
+      <ul>
+        <li><strong>No moving parts</strong>; it uses <strong>NAND flash memory</strong> and transistors with <strong>floating gates and control gates</strong> to store data.</li>
+        <li>A charge is trapped on the floating gate; whether the charge is present or absent represents <strong>1 or 0</strong>.</li>
+        <li>The charge stays when the power is removed, so solid-state storage is <strong>non-volatile</strong>.</li>
+        <li>Solid-state media include <strong>solid-state drives (SSD), pen drives</strong> and <strong>memory cards (SD, xD, CFast)</strong>.</li>
+      </ul>
+    </div>
+
+    <div class="sub" id="ssd">
+      <h3>Solid-state drives (SSD)</h3>
+      <div class="device-card">
+        <div class="device-card-header">Solid-state drive <span class="badge badge-storage">Solid-state device</span></div>
+        <div class="device-card-body">
+          <h4>Characteristics</h4>
+          <ul>
+            <li>Flash memory chips on a board, in the same form factor as a hard drive or fitted directly to the motherboard</li>
+            <li>Available as a <strong>fixed</strong> internal drive or a <strong>portable</strong> external drive</li>
+            <li>Direct access with no seek time, because there is no head to move</li>
+          </ul>
+          <div class="uses-box">
+            <div class="label">Uses</div>
+            <ul>
+              <li>Main drive in laptops, tablets and smartphones</li>
+              <li>Holding the operating system and applications so they load quickly</li>
+              <li>Servers that need very fast response, such as web and database servers</li>
+            </ul>
+          </div>
+          <div class="adv-dis">
+            <div class="adv-box">
+              <div class="label">Advantages</div>
+              <ul>
+                <li><strong>More reliable</strong> - there are no moving parts to go wrong</li>
+                <li>Considerably <strong>lighter</strong>, which makes them suitable for laptops</li>
+                <li>They do not have to <strong>'get up to speed'</strong> before they work properly</li>
+                <li><strong>Lower power consumption</strong>, so battery life is longer</li>
+                <li>Run much <strong>cooler</strong> than HDDs and are much quieter</li>
+                <li>Because there are no moving parts they can be made <strong>very thin</strong></li>
+                <li><strong>Data transfer speed</strong> is much faster than for HDDs</li>
+              </ul>
+            </div>
+            <div class="dis-box">
+              <div class="label">Disadvantages</div>
+              <ul>
+                <li>Limited <strong>endurance</strong> - a finite number of write operations compared with magnetic media</li>
+                <li><strong>Higher cost per gigabyte</strong> - SSDs are generally more expensive than HDDs for the same amount of storage</li>
+                <li>Typically a more <strong>limited maximum storage capacity</strong></li>
+                <li>Data recovery after failure is usually harder than on a magnetic disk</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sub" id="pen-drives">
+      <h3>Pen drives and flash drives</h3>
+      <div class="device-card">
+        <div class="device-card-header">Pen drive / flash drive / memory stick <span class="badge badge-storage">Solid-state</span></div>
+        <div class="device-card-body">
+          <h4>Characteristics</h4>
+          <ul>
+            <li>Flash memory with a built-in USB connector, so no separate reader is needed</li>
+            <li>Very small, light and robust; powered by the USB port</li>
+          </ul>
+          <div class="uses-box">
+            <div class="label">Uses</div>
+            <ul>
+              <li>Transporting files between computers, for example coursework between school and home</li>
+              <li>Carrying small backups and portable applications</li>
+              <li>Distributing software or promotional material</li>
+            </ul>
+          </div>
+          <div class="adv-dis">
+            <div class="adv-box">
+              <div class="label">Advantages</div>
+              <ul>
+                <li>Extremely portable and robust - no moving parts</li>
+                <li>Plugs straight into a USB port on almost any computer</li>
+                <li>Faster access than optical media</li>
+              </ul>
+            </div>
+            <div class="dis-box">
+              <div class="label">Disadvantages</div>
+              <ul>
+                <li>Small size makes them easy to <strong>lose or steal</strong>, which risks data loss or disclosure</li>
+                <li>Much smaller capacity than a hard disk</li>
+                <li>Can be forgotten in the port, and can carry viruses between machines</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sub" id="memory-cards">
+      <h3>Memory cards</h3>
+      <div class="device-card">
+        <div class="device-card-header">Memory cards <span class="badge badge-storage">Solid-state media</span></div>
+        <div class="device-card-body">
+          <h4>Different types of memory card</h4>
+          <ul>
+            <li><strong>SD cards</strong> (secure digital card) - widely used in portable devices</li>
+            <li><strong>xD cards</strong> (extreme digital card) - mainly found in older digital cameras</li>
+            <li><strong>CFast cards</strong> (compact, fast card) - designed for high-speed data transfer in professional cameras</li>
+          </ul>
+          <div class="uses-box">
+            <div class="label">Uses</div>
+            <ul>
+              <li>Storing photographs and video in digital cameras and camcorders</li>
+              <li>Expanding the storage of smartphones, tablets and games consoles</li>
+              <li>Holding the operating system in small single-board computers</li>
+            </ul>
+          </div>
+          <div class="adv-dis">
+            <div class="adv-box">
+              <div class="label">Advantages</div>
+              <ul>
+                <li>Very <strong>compact</strong></li>
+                <li>Because they have <strong>no moving parts</strong>, they are very durable</li>
+                <li>They can hold <strong>large amounts of data</strong></li>
+                <li>Low power consumption, which suits battery-powered devices</li>
+              </ul>
+            </div>
+            <div class="dis-box">
+              <div class="label">Disadvantages</div>
+              <ul>
+                <li><strong>Expensive per gigabyte</strong> of memory when compared to HDDs</li>
+                <li><strong>Lower storage capacity</strong> than hard disks</li>
+                <li>Small size makes them easier to be <strong>lost, stolen or damaged</strong></li>
+                <li>A card reader is needed if the computer has no card slot</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="check">
+      <div class="label">Check your understanding</div>
+      <details class="q">
+        <summary>A laptop manufacturer replaces HDDs with SSDs. Give three benefits for the user.</summary>
+        <div class="answer">
+          <ul>
+            <li>The laptop is <strong>lighter and thinner</strong>, because an SSD has no platters or motor.</li>
+            <li><strong>Longer battery life</strong>, because SSDs consume less power, and the machine runs cooler and quieter.</li>
+            <li><strong>Faster</strong> - files and the operating system load more quickly, and the drive does not have to get up to speed.</li>
+            <li>More <strong>reliable</strong> when the laptop is carried around, because there are no moving parts to damage.</li>
+          </ul>
+        </div>
+      </details>
+      <details class="q">
+        <summary>Give two reasons why a video-editing studio might still choose HDDs for its archive.</summary>
+        <div class="answer">HDDs offer a <strong>larger maximum capacity</strong> and are <strong>cheaper per gigabyte</strong>, so storing many terabytes of footage costs far less. HDDs also have no write-endurance limit of the kind that affects flash memory.</div>
+      </details>
+    </div>
+
+    <div class="recap">
+      <div class="label">Recap</div>
+      <ul>
+        <li>Solid-state storage uses NAND flash with control and floating gates - no moving parts.</li>
+        <li>SSDs are faster, lighter, cooler and more reliable, but cost more per GB and have limited write endurance.</li>
+        <li>Pen drives and memory cards trade capacity for portability, and are easy to lose or steal.</li>
+        <li>SD, xD and CFast are the three memory card types named in the syllabus.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="section" id="internal-vs-backing">
+  <div class="section-header">
+    <span class="snum">3.5</span>
+    <h2>Internal Memory vs Backing Storage</h2>
+  </div>
+  <div class="section-body">
+    <div class="sub" id="internal-vs-backing-compare">
+      <h3>The comparison examiners ask for</h3>
+      <div class="grid-2">
+        <div class="mini-card">
+          <h5>Internal memory (RAM and ROM)</h5>
+          <ul>
+            <li><strong>Extremely fast</strong> data access but much <strong>smaller capacity</strong></li>
+            <li>Much more <strong>expensive per byte</strong></li>
+            <li>Directly addressable by the CPU</li>
+            <li>RAM is <strong>volatile</strong> - its contents are lost when the power is switched off</li>
+            <li>ROM is non-volatile and holds the start-up instructions</li>
+          </ul>
+        </div>
+        <div class="mini-card">
+          <h5>Backing storage (HDD, SSD, optical)</h5>
+          <ul>
+            <li>Holds its contents <strong>permanently (non-volatile)</strong>, even when powered down</li>
+            <li>Much larger capacity and far cheaper per byte</li>
+            <li><strong>Not directly addressable</strong> - data must be moved into RAM before the CPU can process it</li>
+            <li>Slower access than internal memory</li>
+          </ul>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="comp-table">
+          <thead>
+            <tr><th>Feature</th><th>Internal memory (RAM)</th><th>Backing storage</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Volatility</td><td>Volatile - contents lost on power-off</td><td>Non-volatile - contents kept</td></tr>
+            <tr><td>Speed of access</td><td>Extremely fast</td><td>Slower</td></tr>
+            <tr><td>Capacity</td><td>Much smaller</td><td>Much larger</td></tr>
+            <tr><td>Cost per byte</td><td>Much more expensive</td><td>Much cheaper</td></tr>
+            <tr><td>Access by CPU</td><td>Directly addressable</td><td>Must be copied into RAM first</td></tr>
+            <tr><td>Purpose</td><td>Holds data and instructions in current use</td><td>Holds files and software for long-term keeping</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note"><strong>Exam tip:</strong> if a question asks why a computer needs backing storage <em>as well as</em> RAM, the answer is volatility and capacity - RAM loses everything when the power goes off, and it is too small and too expensive to hold all a user's files.</div>
+    </div>
+
+    <div class="check">
+      <div class="label">Check your understanding</div>
+      <details class="q">
+        <summary>Why must a file be copied from the hard disk into RAM before it can be edited?</summary>
+        <div class="answer">Backing storage is <strong>not directly addressable</strong> by the CPU, and it is far slower than RAM. The data must be loaded into RAM, which the CPU can access directly and quickly, before it can be processed.</div>
+      </details>
+      <details class="q">
+        <summary>State two differences between RAM and a solid-state drive, given that both are made from silicon chips.</summary>
+        <div class="answer">RAM is <strong>volatile</strong> and loses its contents when the power is off, while an SSD is <strong>non-volatile</strong>. RAM is also much faster and much smaller in capacity, and is directly addressable by the CPU whereas the SSD is not.</div>
+      </details>
+    </div>
+
+    <div class="recap">
+      <div class="label">Topic 3 checklist</div>
+      <ul>
+        <li>I can state the difference between storage media and storage devices.</li>
+        <li>I can describe how magnetic, optical and solid-state storage each record data.</li>
+        <li>I can give characteristics, uses, advantages and disadvantages for tape, fixed and portable HDD, CD/DVD/Blu-ray, SSD, pen drive and memory cards.</li>
+        <li>I can compare CD, DVD and Blu-ray and explain why their capacities differ.</li>
+        <li>I can compare internal memory with backing storage on volatility, speed, capacity, cost and addressability.</li>
+      </ul>
+    </div>
+  </div>
+</div>

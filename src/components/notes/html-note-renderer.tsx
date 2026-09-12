@@ -268,6 +268,145 @@ const NOTE_STYLES = `
   color: var(--note-h2);
   margin-bottom: 0.4rem;
 }
+/* SYLLABUS REFERENCE TAG */
+.ict-note .syllabus-tag {
+  display: inline-block;
+  background: #e8eef6;
+  color: var(--note-h2);
+  border-radius: 100px;
+  padding: 0.1rem 0.55rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  margin-left: 0.4rem;
+  vertical-align: middle;
+}
+
+/* KEY-WORD REVEAL LIST (details/summary, no script needed) */
+.ict-note .term-list { display: grid; gap: 0.4rem; margin: 0.75rem 0; }
+.ict-note details.term {
+  border: 1px solid var(--note-border);
+  border-radius: 6px;
+  background: var(--note-card);
+  overflow: hidden;
+}
+.ict-note details.term > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--note-h2);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.ict-note details.term > summary::-webkit-details-marker { display: none; }
+.ict-note details.term > summary::before {
+  content: '+';
+  flex-shrink: 0;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 4px;
+  background: #e8eef6;
+  color: var(--note-h2);
+  font-weight: 800;
+  font-size: 0.8rem;
+  line-height: 1.1rem;
+  text-align: center;
+}
+.ict-note details.term[open] > summary::before { content: '\\2013'; }
+.ict-note details.term[open] > summary { border-bottom: 1px solid var(--note-border); }
+.ict-note details.term > div { padding: 0.6rem 0.85rem; font-size: 0.84rem; }
+
+/* CHECK-YOUR-UNDERSTANDING BLOCK */
+.ict-note .check {
+  background: #f0f4f9;
+  border: 1px solid #d0dff0;
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  margin: 1.25rem 0 0;
+}
+.ict-note .check > .label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--note-h3);
+  margin-bottom: 0.5rem;
+}
+.ict-note details.q {
+  border-bottom: 1px solid #dbe5f1;
+  padding: 0.35rem 0;
+}
+.ict-note details.q:last-child { border-bottom: none; padding-bottom: 0; }
+.ict-note details.q > summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--note-h1);
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+.ict-note details.q > summary::-webkit-details-marker { display: none; }
+.ict-note details.q > summary::before {
+  content: 'Q';
+  flex-shrink: 0;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 100px;
+  background: var(--note-h2);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  line-height: 1.15rem;
+  text-align: center;
+}
+.ict-note details.q > .answer {
+  margin: 0.45rem 0 0.3rem 1.65rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--note-adv-bg);
+  border-left: 3px solid var(--note-adv-border);
+  border-radius: 0 6px 6px 0;
+  font-size: 0.83rem;
+  color: var(--note-adv-text);
+}
+.ict-note details.q > .answer strong { color: var(--note-adv-text); }
+.ict-note details.q > .answer ul { margin-bottom: 0; }
+
+/* END-OF-SECTION RECAP */
+.ict-note .recap {
+  background: var(--note-bg-page);
+  border: 1px dashed var(--note-border);
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  margin-top: 1.25rem;
+}
+.ict-note .recap > .label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--note-accent);
+  margin-bottom: 0.4rem;
+}
+.ict-note .recap ul { list-style: none; padding-left: 0; margin-bottom: 0; }
+.ict-note .recap li {
+  font-size: 0.84rem;
+  padding-left: 1.35rem;
+  position: relative;
+  margin-bottom: 0.3rem;
+}
+.ict-note .recap li::before {
+  content: '\\2713';
+  position: absolute;
+  left: 0;
+  color: var(--note-adv-border);
+  font-weight: 800;
+}
+
 .ict-note svg { max-width: 100%; height: auto; }
 /* A note's own <style> block beats its presentation attributes, so a class like
    .mem-text { text-anchor: middle } silently re-centres text the markup asked to
@@ -288,6 +427,12 @@ const NOTE_STYLES = `
 }
 @media print {
   .ict-note .device-card, .ict-note .section, .ict-note .mini-card { break-inside: avoid; }
+  /* A printed or exported note has no one to click the reveals, so show the
+     answers. Browsers hide a closed <details>' content through the shadow tree,
+     which only ::details-content can reach; the display rule covers the rest. */
+  .ict-note details::details-content { content-visibility: visible; }
+  .ict-note details > *:not(summary) { display: block; }
+  .ict-note details.q, .ict-note details.term { break-inside: avoid; }
 }
 `;
 

@@ -1,0 +1,274 @@
+<div class="page-header">
+  <div class="section-label">Cambridge IGCSE ICT 0417 &middot; Practical skills</div>
+  <h1>Web Authoring</h1>
+  <p>Website authoring is tested by <strong>writing the code yourself</strong>, not by using a design package. You need to know the three development layers, the HTML that builds the content layer, and the CSS that builds the presentation layer - and you must be able to explain why relative file paths are used.</p>
+  <div class="note"><strong>Syllabus coverage:</strong> 21.1 Web development layers &middot; 21.2 Create a web page &middot; 21.3 Use stylesheets</div>
+</div>
+
+<div class="section" id="s21-1">
+  <div class="section-header">
+    <span class="snum">21.1</span>
+    <h2>Web Development Layers</h2>
+  </div>
+  <div class="section-body">
+    <div class="sub" id="s21-1-three">
+      <h3>The three layers</h3>
+      <div class="grid-3">
+        <div class="mini-card">
+          <h5>Content layer</h5>
+          <ul>
+            <li>Used to <strong>enter the content and create the structure</strong> of a web page</li>
+            <li>Written in <strong>HTML</strong></li>
+            <li>Holds the text, images, tables and links - what the page says</li>
+          </ul>
+        </div>
+        <div class="mini-card">
+          <h5>Presentation layer</h5>
+          <ul>
+            <li>Used to <strong>display and format elements</strong> within a web page</li>
+            <li>Written in <strong>CSS</strong></li>
+            <li>Holds the colours, fonts, sizes, spacing and borders - how the page looks</li>
+          </ul>
+        </div>
+        <div class="mini-card">
+          <h5>Behaviour layer</h5>
+          <ul>
+            <li>For a <strong>scripting language to control elements</strong> within a web page</li>
+            <li>Written in a scripting language such as JavaScript</li>
+            <li>Handles what happens when the user interacts - what the page does</li>
+          </ul>
+        </div>
+      </div>
+      <div class="note"><strong>Why separate the layers?</strong> The same content can be restyled by editing one stylesheet, one stylesheet can format an entire site consistently, the HTML stays short and readable, and the site is quicker to maintain.</div>
+    </div>
+  </div>
+</div>
+
+<div class="section" id="s21-2">
+  <div class="section-header">
+    <span class="snum">21.2</span>
+    <h2>Create a Web Page (HTML)</h2>
+  </div>
+  <div class="section-body">
+    <div class="sub" id="s21-2-structure">
+      <h3>The head and body sections</h3>
+      <div class="grid-2">
+        <div class="mini-card">
+          <h5>Purpose of the head section</h5>
+          <ul>
+            <li>Holds information <strong>about</strong> the page, most of which the visitor never sees</li>
+            <li>The page <strong>title</strong> displayed in the browser tab</li>
+            <li>Links to <strong>external stylesheets</strong></li>
+            <li><strong>Metatags</strong> for the charset, description, keywords, author and viewport</li>
+            <li>A default target window for links</li>
+          </ul>
+        </div>
+        <div class="mini-card">
+          <h5>Purpose of the body section</h5>
+          <ul>
+            <li>Holds the content the visitor actually <strong>sees</strong> in the browser window</li>
+            <li>Headings, paragraphs, lists, tables, images, video and hyperlinks</li>
+            <li>The <code>&lt;div&gt;</code> containers that structure the page</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="sub" id="s21-2-head">
+      <h3>Elements in the head section</h3>
+      <ul>
+        <li><strong>Page title</strong> - <code>&lt;title&gt;Home page&lt;/title&gt;</code> - displayed in the browser tab and used by search engines.</li>
+        <li><strong>Attach external stylesheets</strong> - <code>&lt;link rel="stylesheet" href="styles/main.css"&gt;</code> - using a <strong>relative file path</strong>. Where several stylesheets are attached, the <strong>hierarchy matters</strong>: the one listed last is applied last and therefore wins.</li>
+        <li><strong>Metatags</strong>, with the appropriate name and content attributes:
+          <ul>
+            <li><strong>charset</strong> - defines the character set, so accented and non-Latin characters display correctly</li>
+            <li><strong>description</strong> - a summary of the page, often shown by search engines in their results</li>
+            <li><strong>keywords</strong> - words a search engine may index the page under</li>
+            <li><strong>author</strong> - who wrote the page</li>
+            <li><strong>viewport</strong> - makes the page display correctly on all devices, including phones and tablets</li>
+          </ul>
+        </li>
+        <li><strong>Default target window</strong> - <code>&lt;base target="_blank"&gt;</code> sets where every link on the page opens unless a link says otherwise.</li>
+      </ul>
+    </div>
+
+    <div class="sub" id="s21-2-body">
+      <h3>Content in the body section</h3>
+      <h4>Text elements</h4>
+      <ul>
+        <li>Apply tags to display pre-defined styles: <code>&lt;h1&gt;</code>, <code>&lt;h2&gt;</code>, <code>&lt;h3&gt;</code>, <code>&lt;p&gt;</code> and <code>&lt;li&gt;</code>.</li>
+        <li>Lists are built with <code>&lt;ul&gt;</code> for an <strong>unordered (bulleted) list</strong> and <code>&lt;ol&gt;</code> for an <strong>ordered (numbered) list</strong>, each containing <code>&lt;li&gt;</code> items.</li>
+      </ul>
+      <h4>Tables</h4>
+      <ul>
+        <li>Insert a table with <code>&lt;table&gt;</code>, containing <strong>table rows</strong> <code>&lt;tr&gt;</code>, <strong>table headers</strong> <code>&lt;th&gt;</code> and <strong>table data</strong> <code>&lt;td&gt;</code>.</li>
+        <li>Use table attributes to meet the needs of the audience:
+          <ul>
+            <li><code>colspan</code> and <code>rowspan</code> to make a cell <strong>span more than one column or row</strong></li>
+            <li>table and cell sizes set in <strong>pixels or % values</strong> - a percentage lets the table resize with the window</li>
+            <li>styles and classes applied to the table, rows and cells</li>
+          </ul>
+        </li>
+        <li><strong>Why tables are used:</strong> to <strong>structure and position elements</strong> on a page in a predictable grid, so that text, images and other content line up consistently in every browser - as well as to display tabular data.</li>
+      </ul>
+      <h4>Objects</h4>
+      <ul>
+        <li><strong>Images</strong> - <code>&lt;img src="logo.png" alt="School logo" width="200"&gt;</code>. Set the size, keep the <strong>aspect ratio</strong> unless told otherwise, and always give <strong>alternate text</strong> so the image is described if it cannot load and can be read by screen readers.</li>
+        <li><strong>Sound clips</strong> and <strong>video</strong>, with attributes to <strong>display controls, remove controls</strong> or <strong>autoplay</strong>, and to adjust the size and aspect ratio.</li>
+        <li><strong>The <code>&lt;div&gt;</code> tag</strong> - a container used to group content so that <strong>styles and classes</strong> can be applied to a whole block at once.</li>
+        <li><strong>Classes</strong> applied to elements - <code>&lt;p class="intro"&gt;</code> - so that a named set of styles can be used on any element, any number of times.</li>
+      </ul>
+    </div>
+
+    <div class="sub" id="s21-2-links">
+      <h3>Bookmarks, anchors and hyperlinks</h3>
+      <div class="def-box">A <strong>bookmark</strong> is a named place within a web page, created by giving an element an <strong>id attribute</strong>: <code>&lt;h2 id="top"&gt;</code>. An <strong>anchor</strong> is the <code>&lt;a&gt;</code> element that creates a hyperlink; its <strong>function</strong> is to link from one point to another. A <strong>hyperlink's function</strong> is to take the visitor to another location when it is clicked.</div>
+      <p>Create hyperlinks from text <em>and</em> from images to:</p>
+      <ul>
+        <li>A <strong>bookmark on the same page</strong> - <code>&lt;a href="#top"&gt;Back to top&lt;/a&gt;</code></li>
+        <li><strong>Other locally stored web pages</strong> - <code>&lt;a href="contact.htm"&gt;Contact&lt;/a&gt;</code></li>
+        <li>A <strong>website, using the URL</strong> - <code>&lt;a href="https://www.example.com"&gt;Example&lt;/a&gt;</code></li>
+        <li><strong>Send mail to a specified email address</strong> - <code>&lt;a href="mailto:info@example.com"&gt;Email us&lt;/a&gt;</code></li>
+        <li>Open in a <strong>specified location</strong> using the target attribute: the <strong>same window</strong> (<code>_self</code>), a <strong>new window</strong> (<code>_blank</code>), or a <strong>window named as specified</strong> (<code>target="results"</code>)</li>
+      </ul>
+      <h4>Relative and absolute file paths</h4>
+      <div class="grid-2">
+        <div class="mini-card">
+          <h5>Relative file path</h5>
+          <ul>
+            <li>Describes where a file is <strong>in relation to the current page</strong> - <code>images/logo.png</code> or <code>../index.htm</code></li>
+            <li>Still works when the whole site is moved or uploaded to a web server</li>
+            <li><strong>Must</strong> be used for links to locally saved web pages and objects, and for attached stylesheets</li>
+          </ul>
+        </div>
+        <div class="mini-card">
+          <h5>Absolute file path</h5>
+          <ul>
+            <li>Gives the full location from the root of a particular computer - <code>C:/Users/Ann/site/images/logo.png</code></li>
+            <li><strong>Must not</strong> be used for local pages or objects: that folder only exists on the author's computer, so every link would break as soon as the site was uploaded or opened on any other machine</li>
+            <li>A full URL to an external website is the one acceptable use</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="check">
+      <div class="label">Check your understanding</div>
+      <details class="q">
+        <summary>Explain why a stylesheet must be attached with a relative file path.</summary>
+        <div class="answer">A relative path describes the stylesheet's position <strong>in relation to the web page</strong>, so it still resolves correctly when the whole site is uploaded to a web server or copied to another computer. An absolute path points to a folder that exists only on the author's machine, so the stylesheet would not be found and the page would lose all its formatting.</div>
+      </details>
+      <details class="q">
+        <summary>State the function of the viewport metatag and of the charset metatag.</summary>
+        <div class="answer">The <strong>viewport</strong> metatag makes the page display correctly on all devices, scaling it for phones and tablets rather than showing a shrunken desktop layout. The <strong>charset</strong> metatag defines the character set so that accented and non-Latin characters are displayed correctly.</div>
+      </details>
+      <details class="q">
+        <summary>Why are tables used to structure elements within a web page?</summary>
+        <div class="answer">They provide a <strong>predictable grid</strong> in which text, images and other content can be positioned and aligned consistently, so the layout holds together in the same way in different browsers and at different window sizes.</div>
+      </details>
+    </div>
+  </div>
+</div>
+
+<div class="section" id="s21-3">
+  <div class="section-header">
+    <span class="snum">21.3</span>
+    <h2>Use Stylesheets (CSS)</h2>
+  </div>
+  <div class="section-body">
+    <div class="sub" id="s21-3-what">
+      <h3>Attached stylesheets and inline styles</h3>
+      <div class="grid-2">
+        <div class="mini-card">
+          <h5>Attached (external) stylesheet</h5>
+          <ul>
+            <li>A separate <strong>.css file</strong> linked from the head of the page</li>
+            <li><strong>One file formats the whole website</strong>, so the style is consistent and a change is made once</li>
+            <li>Keeps the HTML short and readable, and the file is cached so pages load faster</li>
+          </ul>
+        </div>
+        <div class="mini-card">
+          <h5>Inline style attribute</h5>
+          <ul>
+            <li>Written inside the element itself: <code>&lt;p style="color:red;"&gt;</code></li>
+            <li>Affects <strong>that one element only</strong></li>
+            <li>Useful for a single exception, but it mixes presentation into the content layer and must be changed everywhere if the design changes</li>
+          </ul>
+        </div>
+      </div>
+      <h4>Hierarchy - which style wins</h4>
+      <ul>
+        <li>Styles cascade: where rules conflict, the one applied <strong>last or most specifically</strong> is used.</li>
+        <li>An <strong>inline style attribute overrides</strong> any attached stylesheet.</li>
+        <li>Where <strong>several stylesheets are attached</strong>, the one linked <strong>last</strong> in the head section overrides those linked before it.</li>
+        <li>A class applied to an element overrides a generic style for that element.</li>
+      </ul>
+    </div>
+
+    <div class="sub" id="s21-3-styles">
+      <h3>Creating styles and classes</h3>
+      <div class="def-box">A <strong>style</strong> created for a tag (such as <code>h1</code>) is applied <strong>automatically to every occurrence</strong> of that tag. A <strong>class</strong> is a named set of rules, written with a full stop before the name, that is applied <strong>only where it is called</strong> by the class attribute - and it can be used on different kinds of element.</div>
+      <h4>Create external styles to be tagged in a web page</h4>
+      <ul>
+        <li>Styles for <code>h1</code>, <code>h2</code>, <code>h3</code>, <code>p</code> and <code>li</code>.</li>
+        <li>Styles for lists - both <strong>ordered</strong> and <strong>unordered</strong>.</li>
+      </ul>
+      <h4>Properties you must be able to set, in both generic styles and classes</h4>
+      <ul>
+        <li><strong>Background properties</strong> - colour and images</li>
+        <li><strong>Font properties</strong> - font family, size, colour, alignment, bold and italic</li>
+        <li><strong>Table, table row, table header and table data properties</strong>:
+          <ul>
+            <li>size</li>
+            <li>background colour</li>
+            <li>horizontal and vertical alignment</li>
+            <li>spacing and padding</li>
+            <li>borders - including <strong>collapsed</strong>, colour, thickness and visible/invisible</li>
+          </ul>
+        </li>
+      </ul>
+      <h4>Comments and saving</h4>
+      <ul>
+        <li>Attach <strong>comments</strong> to an external stylesheet with <code>/* ... */</code> - used to state the author, the date and what each block of rules does, so the sheet can be maintained later.</li>
+        <li><strong>Save styles in cascading stylesheet format</strong> - a plain text file with a <strong>.css</strong> extension.</li>
+      </ul>
+      <div class="note"><strong>Example of the two together</strong><br>
+        <code>h1 { font-family: Arial, sans-serif; font-size: 32pt; color: #003366; text-align: center; }</code><br>
+        <code>.warning { background-color: #ffe0e0; color: #900; font-weight: bold; }</code><br>
+        The <code>h1</code> style applies to every <code>&lt;h1&gt;</code> automatically; the <code>.warning</code> class applies only where <code>class="warning"</code> is written, and can be used on a paragraph, a table cell or a div.</div>
+    </div>
+
+    <div class="check">
+      <div class="label">Check your understanding</div>
+      <details class="q">
+        <summary>State two differences between a style and a class.</summary>
+        <div class="answer">A <strong>style</strong> is created for a tag and is applied <strong>automatically to every occurrence</strong> of that tag; a <strong>class</strong> is given a name and is applied <strong>only where it is called</strong> with the class attribute. A class can also be applied to <strong>different types of element</strong>, while a tag style only affects that one tag.</div>
+      </details>
+      <details class="q">
+        <summary>Three stylesheets are attached to a page and all set a different colour for h1. Which colour is used?</summary>
+        <div class="answer">The colour from the stylesheet attached <strong>last</strong> in the head section, because later rules override earlier ones in the cascade. An inline style attribute on the <code>&lt;h1&gt;</code> itself would override all three.</div>
+      </details>
+      <details class="q">
+        <summary>Give two advantages of an attached stylesheet over inline styles.</summary>
+        <div class="answer">One stylesheet formats <strong>every page of the site</strong>, so the appearance is consistent and a design change is made <strong>once in one file</strong> instead of in every element. It also keeps the HTML short and readable by separating the presentation layer from the content layer, and the cached file makes pages load faster.</div>
+      </details>
+    </div>
+
+    <div class="recap">
+      <div class="label">Web authoring checklist</div>
+      <ul>
+        <li>I can name the three web development layers and say what each does and which language it uses.</li>
+        <li>I can state the purpose of the head and body sections.</li>
+        <li>I can insert a page title, attach external stylesheets in the correct hierarchy with relative paths, write metatags for charset, description, keywords, author and viewport, and set a default target window.</li>
+        <li>I can build tables with table headers, rows and data, span cells across rows and columns, and set sizes in pixels or percentages.</li>
+        <li>I can explain why tables are used to structure a page.</li>
+        <li>I can insert text, images, sound and video with size, aspect ratio, alternate text and control attributes.</li>
+        <li>I can use div tags and apply classes and styles to elements.</li>
+        <li>I can create bookmarks with id attributes and hyperlinks from text and images to bookmarks, local pages, URLs and email addresses, opening in a specified window.</li>
+        <li>I can explain relative and absolute file paths and why absolute paths must not be used for local links.</li>
+        <li>I can write external styles for h1, h2, h3, p and li, create classes, and set background, font, table, border, spacing and padding properties.</li>
+        <li>I can explain the hierarchy of attached stylesheets and inline styles, the difference between a style and a class, add comments, and save in .css format.</li>
+      </ul>
+    </div>
+  </div>
+</div>

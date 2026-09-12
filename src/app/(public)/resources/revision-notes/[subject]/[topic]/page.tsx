@@ -180,12 +180,19 @@ export default function TopicNotesPage({
     if (!selectedNote || !contentRef.current) return;
     
     setIsDownloading(true);
+    // Self-test answers and key-word definitions sit in collapsed <details>. The
+    // capture below photographs the live DOM, so open them for the download and
+    // put them back the way the reader left them afterwards.
+    const collapsed = Array.from(
+      contentRef.current.querySelectorAll<HTMLDetailsElement>('details:not([open])')
+    );
     try {
       const html2canvas = (await import('html2canvas')).default;
       const { jsPDF } = await import('jspdf');
-      
+
       const element = contentRef.current;
-      
+      collapsed.forEach((details) => { details.open = true; });
+
       // Capture at 3x scale for sharp text
       const canvas = await html2canvas(element, {
         scale: 3,
@@ -300,6 +307,7 @@ export default function TopicNotesPage({
         description: 'Could not generate PDF. Please try again.',
       });
     } finally {
+      collapsed.forEach((details) => { details.open = false; });
       setIsDownloading(false);
     }
   };

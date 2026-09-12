@@ -1,15 +1,15 @@
 /**
- * Import the standalone IGCSE ICT 0417 theory notes (a folder of self-contained
- * HTML documents) into the `notes` table as rendered_html, one note per topic.
+ * Publish the IGCSE ICT 0417 theory and practical notes into the `notes` table.
  *
- * The source documents carry their own sidebar, cross-file navigation and
- * "gap analysis" annotations. None of that survives the import: the app supplies
- * navigation, and the gap-analysis material is editorial scaffolding, not content.
+ * The note bodies live in the repository under content/ict-0417/notes, already
+ * written in the markup HtmlNoteRenderer styles (page-header / section /
+ * section-body / sub, device-card, adv-dis, comp-table, check, recap ...), so
+ * this script only reads them, works out a read time and upserts one note per
+ * topic. There is no cleaning step: what is in the file is what is published.
  *
  * Usage:
- *   node scripts/import-ict-notes.js [path-to-notes-folder] [--dry-run]
+ *   node scripts/import-ict-notes.js [--dry-run] [--only=slug-prefix]
  *
- * Default source folder: C:/Users/Denny/Downloads/ICT Notes/notes
  * Requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.local
  */
 
@@ -22,29 +22,101 @@ const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes('--dry-run');
-// --out=DIR writes the processed HTML to disk for review instead of touching the DB
-const OUT_DIR = (args.find((a) => a.startsWith('--out=')) || '').slice('--out='.length) || null;
-const SOURCE_DIR = args.find((a) => !a.startsWith('--')) || 'C:/Users/Denny/Downloads/ICT Notes/notes';
+const ONLY = (args.find((a) => a.startsWith('--only=')) || '').slice('--only='.length) || null;
 
-if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
-  console.error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.local');
-  process.exit(1);
-}
+const CONTENT_DIR = path.join(__dirname, '..', 'content', 'ict-0417', 'notes');
 
-const BASE_URL = SUPABASE_URL.replace(/\/$/, '');
+/**
+ * Topics whose notes must never be touched by this script.
+ *
+ * The "Networks and the Effects of Using Them" note is the reference version the
+ * other topics were written to match, and it is the one currently in production.
+ * It is deliberately not in SECTIONS and is refused here as well, so that a
+ * mistyped --only or a stray file cannot overwrite it.
+ */
+const PRESERVED_SLUG_PREFIXES = ['networks-and-the-effects'];
 
-/** One note per topic. `files` are concatenated in order into a single note. */
+/**
+ * One note per topic. `slugPrefixes` are matched against the start of the topic
+ * slug in the database; the first topic that matches wins.
+ */
 const SECTIONS = [
-  { files: ['s1.html'], slugPrefix: 'types-and-components', title: 'Types and Components of Computer Systems' },
-  { files: ['s2.html'], slugPrefix: 'input-and-output-devices', title: 'Input and Output Devices' },
-  { files: ['s3.html'], slugPrefix: 'storage-devices-and-media', title: 'Storage Devices and Media' },
-  { files: ['s4.html'], slugPrefix: 'networks-and-the-effects', title: 'Networks and the Effects of Using Them' },
-  { files: ['s5.html'], slugPrefix: 'the-effects-of-using-it', title: 'The Effects of Using IT' },
-  { files: ['s6a.html', 's6b.html'], slugPrefix: 'ict-applications', title: 'ICT Applications' },
-  { files: ['s7.html'], slugPrefix: 'the-systems-life-cycle', title: 'The Systems Life Cycle' },
-  { files: ['s8.html'], slugPrefix: 'safety-and-security', title: 'Safety and Security' },
-  { files: ['s9.html'], slugPrefix: 'audience', title: 'Audience' },
-  { files: ['s10.html'], slugPrefix: 'communication', title: 'Communication' },
+  {
+    file: '01-types-and-components.html',
+    slugPrefixes: ['types-and-components'],
+    title: 'Types and Components of Computer Systems',
+  },
+  {
+    file: '02-input-and-output-devices.html',
+    slugPrefixes: ['input-and-output-devices'],
+    title: 'Input and Output Devices',
+  },
+  {
+    file: '03-storage-devices-and-media.html',
+    slugPrefixes: ['storage-devices-and-media'],
+    title: 'Storage Devices and Media',
+  },
+  // Topic 4, Networks and the Effects of Using Them, is intentionally absent.
+  {
+    file: '05-the-effects-of-using-it.html',
+    slugPrefixes: ['the-effects-of-using-it'],
+    title: 'The Effects of Using IT',
+  },
+  {
+    file: '06-ict-applications.html',
+    slugPrefixes: ['ict-applications'],
+    title: 'ICT Applications',
+  },
+  {
+    file: '07-the-systems-life-cycle.html',
+    slugPrefixes: ['the-systems-life-cycle'],
+    title: 'The Systems Life Cycle',
+  },
+  {
+    file: '08-safety-and-security.html',
+    slugPrefixes: ['safety-and-security'],
+    title: 'Safety and Security',
+  },
+  {
+    file: '09-audience.html',
+    slugPrefixes: ['audience'],
+    title: 'Audience',
+  },
+  {
+    file: '10-communication.html',
+    slugPrefixes: ['communication'],
+    title: 'Communication',
+  },
+  {
+    file: '11-file-management.html',
+    slugPrefixes: ['file-management'],
+    title: 'File Management',
+  },
+  {
+    file: '12-document-production.html',
+    slugPrefixes: ['document-production'],
+    title: 'Document Production',
+  },
+  {
+    file: '13-databases.html',
+    slugPrefixes: ['databases', 'database'],
+    title: 'Databases',
+  },
+  {
+    file: '14-presentations.html',
+    slugPrefixes: ['presentations', 'presentation'],
+    title: 'Presentations',
+  },
+  {
+    file: '15-spreadsheets.html',
+    slugPrefixes: ['spreadsheets', 'spreadsheet'],
+    title: 'Spreadsheets',
+  },
+  {
+    file: '16-web-authoring.html',
+    slugPrefixes: ['web-authoring', 'website-authoring'],
+    title: 'Web Authoring',
+  },
 ];
 
 // ---------------------------------------------------------------- REST helpers
@@ -76,149 +148,69 @@ async function restWrite(method, pathAndQuery, data) {
   return text ? JSON.parse(text) : null;
 }
 
-// ------------------------------------------------------------ HTML processing
-
-/** Remove a whole element (with nested children) given the opening-tag pattern. */
-function stripElement(html, openTagPattern, tagName) {
-  let out = '';
-  let rest = html;
-  for (;;) {
-    const match = rest.match(openTagPattern);
-    if (!match) return out + rest;
-
-    const start = match.index;
-    out += rest.slice(0, start);
-
-    // Walk forward balancing <tag ...> / </tag> to find the true closing tag
-    let depth = 0;
-    let i = start;
-    const openRe = new RegExp(`<${tagName}\\b`, 'gi');
-    const closeRe = new RegExp(`</${tagName}\\s*>`, 'gi');
-    let cursor = start;
-    for (;;) {
-      openRe.lastIndex = cursor;
-      closeRe.lastIndex = cursor;
-      const nextOpen = openRe.exec(rest);
-      const nextClose = closeRe.exec(rest);
-      if (!nextClose) {
-        i = rest.length;
-        break;
-      }
-      if (nextOpen && nextOpen.index < nextClose.index) {
-        depth += 1;
-        cursor = nextOpen.index + nextOpen[0].length;
-        continue;
-      }
-      depth -= 1;
-      cursor = nextClose.index + nextClose[0].length;
-      if (depth === 0) {
-        i = cursor;
-        break;
-      }
-    }
-    rest = rest.slice(i);
-  }
-}
-
-function extractMain(html) {
-  const match = html.match(/<main class="main">([\s\S]*?)<\/main>/);
-  if (!match) throw new Error('No <main class="main"> block found');
-  return match[1];
-}
-
-function cleanNoteHtml(raw) {
-  let html = extractMain(raw);
-
-  // Cross-file navigation (links to s1.html, s2.html, ...) has no meaning in-app
-  html = stripElement(html, /<div class="page-nav">/, 'div');
-
-  // Gap-analysis annotations: editorial scaffolding, removed with the gap page
-  html = html.replace(/<span class="gap-badge">[\s\S]*?<\/span>/g, '');
-  html = stripElement(html, /<div class="gap-summary">/, 'div');
-  html = html.replace(/<span class="gap-tag">[\s\S]*?<\/span>/g, '');
-
-  // Wide comparison tables scroll inside their own box instead of stretching the page
-  html = html.replace(
-    /<table class="comp-table"([^>]*)>([\s\S]*?)<\/table>/g,
-    '<div class="table-wrap"><table class="comp-table"$1>$2</table></div>'
-  );
-
-  // House style: em dash becomes a plain hyphen
-  html = html.replace(/\u2014/g, '-').replace(/&mdash;|&#8212;|&#x2014;/gi, '-');
-
-  // A few source sections carry a stray </div> that would otherwise close the
-  // wrapper the app renders the note into
-  html = dropStrayClosingDivs(html);
-
-  // Collapse the blank lines left by the removals
-  return html.replace(/\n{3,}/g, '\n\n').trim();
-}
-
-function dropStrayClosingDivs(html) {
-  let depth = 0;
-  return html.replace(/<div\b|<\/div>/g, (tag) => {
-    if (tag === '<div') {
-      depth += 1;
-      return tag;
-    }
-    if (depth === 0) return '';
-    depth -= 1;
-    return tag;
-  });
-}
-
-function stripPageHeader(html) {
-  return stripElement(html, /<div class="page-header">/, 'div');
-}
+// --------------------------------------------------------------------- helpers
 
 function estimateReadTime(html) {
   const words = html.replace(/<[^>]+>/g, ' ').split(/\s+/).filter(Boolean).length;
   return Math.max(1, Math.round(words / 200));
 }
 
+function isPreserved(slug) {
+  return PRESERVED_SLUG_PREFIXES.some((prefix) => slug.startsWith(prefix));
+}
+
+function selectedSections() {
+  if (!ONLY) return SECTIONS;
+  return SECTIONS.filter((section) => section.slugPrefixes.some((p) => p.startsWith(ONLY)));
+}
+
 // ------------------------------------------------------------------------ main
 
+let BASE_URL;
+
 async function main() {
-  console.log('=== IGA Prep: ICT theory notes import ===');
-  console.log(`Source: ${SOURCE_DIR}${DRY_RUN ? '  (dry run)' : ''}\n`);
+  console.log('=== IGA Prep: ICT 0417 notes publish ===');
+  console.log(`Source: ${CONTENT_DIR}${DRY_RUN ? '  (dry run)' : ''}`);
+  console.log(`Preserved, never written: ${PRESERVED_SLUG_PREFIXES.join(', ')}\n`);
+
+  const sections = selectedSections();
+  if (sections.length === 0) throw new Error(`No note matches --only=${ONLY}`);
 
   const subjects = await restGet('subjects?select=id,name,slug,code');
-  const subject = subjects.find((s) => s.code === '0417') ||
+  const subject =
+    subjects.find((s) => s.code === '0417') ||
     subjects.find((s) => /information and communication technology/i.test(s.name));
   if (!subject) throw new Error('ICT (0417) subject not found');
-  console.log(`Subject: ${subject.name} (${subject.code})`);
+  console.log(`Subject: ${subject.name} (${subject.code})\n`);
 
   const topics = await restGet(
     `topics?select=id,name,slug,display_order&subject_id=eq.${subject.id}&order=display_order`
   );
 
-  for (const section of SECTIONS) {
-    const topic = topics.find((t) => t.slug.startsWith(section.slugPrefix));
+  let written = 0;
+  let skipped = 0;
+
+  for (const section of sections) {
+    const topic = topics.find((t) => section.slugPrefixes.some((p) => t.slug.startsWith(p)));
     if (!topic) {
-      console.log(`! No topic matching "${section.slugPrefix}" - skipped`);
+      console.log(`! No topic matching "${section.slugPrefixes[0]}" - skipped`);
+      skipped += 1;
       continue;
     }
 
-    // Concatenate the parts of a multi-file section, keeping only the first header
-    let html = '';
-    section.files.forEach((file, index) => {
-      const raw = fs.readFileSync(path.join(SOURCE_DIR, file), 'utf8');
-      const cleaned = cleanNoteHtml(raw);
-      html += (index === 0 ? cleaned : stripPageHeader(cleaned)) + '\n';
-    });
-    html = html.trim();
-
-    const readTime = estimateReadTime(html);
-    console.log(
-      `${topic.name}\n  ${section.files.join(' + ')} -> ${(html.length / 1024).toFixed(1)} KB, ~${readTime} min`
-    );
-
-    if (OUT_DIR) {
-      fs.mkdirSync(OUT_DIR, { recursive: true });
-      fs.writeFileSync(path.join(OUT_DIR, `${section.slugPrefix}.html`), html, 'utf8');
+    if (isPreserved(topic.slug)) {
+      console.log(`= ${topic.name} is preserved - left untouched`);
+      skipped += 1;
+      continue;
     }
 
-    if (DRY_RUN || OUT_DIR) continue;
+    const html = fs.readFileSync(path.join(CONTENT_DIR, section.file), 'utf8').trim();
+    const readTime = estimateReadTime(html);
+    console.log(
+      `${topic.name}\n  ${section.file} -> ${(html.length / 1024).toFixed(1)} KB, ~${readTime} min`
+    );
+
+    if (DRY_RUN) continue;
 
     const existing = await restGet(
       `notes?select=id,title,display_order&topic_id=eq.${topic.id}&order=display_order`
@@ -254,10 +246,18 @@ async function main() {
       });
       console.log('  created new note');
     }
+    written += 1;
   }
 
-  console.log('\n=== Done ===');
+  console.log(`\n=== Done: ${written} published, ${skipped} skipped ===`);
 }
+
+if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+  console.error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.local');
+  process.exit(1);
+}
+
+BASE_URL = SUPABASE_URL.replace(/\/$/, '');
 
 main().catch((err) => {
   console.error('Fatal error:', err.message);

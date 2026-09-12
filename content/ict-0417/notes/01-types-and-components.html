@@ -1,0 +1,596 @@
+<div class="page-header">
+  <div class="section-label">Cambridge IGCSE ICT 0417 &middot; Topic 1</div>
+  <h1>Types and Components of Computer Systems</h1>
+  <p>This topic sets up the vocabulary for the whole course: what hardware and software are, what the main parts of a computer system do, how operating systems let people control them, the types of computer available, and the emerging technologies changing everyday life.</p>
+  <div class="note"><strong>Syllabus coverage:</strong> 1.1 Hardware and software &middot; 1.2 The main components of computer systems &middot; 1.3 Operating systems &middot; 1.4 Types of computer &middot; 1.5 Emerging technologies</div>
+</div>
+
+<div class="section" id="s1-1">
+  <div class="section-header">
+    <span class="snum">1.1</span>
+    <h2>Hardware and Software</h2>
+  </div>
+  <div class="section-body">
+    <div class="sub" id="s1-1-hardware">
+      <h3>Hardware</h3>
+      <div class="def-box"><strong>Hardware</strong> consists of the <strong>physical components</strong> of a computer system - the parts you can touch.</div>
+      <h4>Internal components</h4>
+      <ul>
+        <li><strong>Central Processing Unit (CPU) / processor</strong> - carries out the instructions of a program</li>
+        <li><strong>Motherboard</strong> - the main circuit board that everything else plugs into and communicates through</li>
+        <li><strong>Internal memory</strong> - <strong>random access memory (RAM)</strong> and <strong>read-only memory (ROM)</strong></li>
+      </ul>
+      <h4>Other hardware components</h4>
+      <ul>
+        <li><strong>Graphics card</strong> - processes and outputs images to the monitor</li>
+        <li><strong>Sound card</strong> - converts digital sound data into signals for speakers, and audio input into digital data</li>
+        <li><strong>Network Interface Card (NIC)</strong> - connects the computer to a network, and holds the MAC address</li>
+        <li><strong>Camera</strong> - captures still images or video as input</li>
+        <li><strong>Internal and external storage devices</strong> - hard disk drives, solid-state drives, optical drives, portable drives</li>
+        <li><strong>Input and output devices</strong> - keyboard, mouse, monitor, printer and so on</li>
+      </ul>
+    </div>
+
+    <div class="sub" id="s1-1-software">
+      <h3>Software</h3>
+      <div class="def-box"><strong>Software</strong> are <strong>programs</strong> for controlling the operation of a computer or the processing of electronic data.</div>
+      <div class="grid-2">
+        <div class="mini-card">
+          <h5>Applications software</h5>
+          <p>Provides the <strong>services that the user requires</strong> to solve a task.</p>
+          <ul>
+            <li>Word processing</li>
+            <li>Spreadsheet</li>
+            <li>Database management systems</li>
+            <li>Control and measurement software</li>
+            <li>Applets and apps</li>
+            <li>Video editing</li>
+            <li>Graphics editing</li>
+            <li>Audio editing</li>
+            <li>Computer aided design (CAD)</li>
+          </ul>
+        </div>
+        <div class="mini-card">
+          <h5>System software</h5>
+          <p>Provides the <strong>services that the computer requires</strong> to operate.</p>
+          <ul>
+            <li>Compilers - translate a whole high-level program into machine code</li>
+            <li>Linkers - join compiled modules into one executable program</li>
+            <li>Device drivers - let the operating system communicate with hardware</li>
+            <li>Operating systems - manage the hardware and provide the user interface</li>
+            <li>Utilities - housekeeping tools such as anti-virus, file compression, defragmentation</li>
+          </ul>
+        </div>
+      </div>
+      <div class="note"><strong>Exam tip:</strong> "software runs the computer, applications run for the user" is a safe one-line distinction. Never name a brand - no marks are awarded for brand names of software packages or hardware.</div>
+    </div>
+
+    <div class="sub" id="s1-1-analogue-digital">
+      <h3>Analogue and digital data</h3>
+      <div class="grid-2">
+        <div class="mini-card">
+          <h5>Analogue data</h5>
+          <ul>
+            <li><strong>Continuously varying</strong> - it can take any value within a range</li>
+            <li>Physical quantities in the real world are analogue: temperature, sound, light, pressure</li>
+            <li>Represented by a smooth, continuous wave</li>
+          </ul>
+        </div>
+        <div class="mini-card">
+          <h5>Digital data</h5>
+          <ul>
+            <li><strong>Discrete</strong> - it uses separate, fixed values only</li>
+            <li>Represented in a computer as <strong>1s and 0s</strong></li>
+            <li>Represented by a stepped, square waveform</li>
+          </ul>
+        </div>
+      </div>
+      <h4>Why conversion is needed</h4>
+      <ul>
+        <li><strong>Analogue to digital (ADC)</strong> - a computer can only process digital data, so readings from sensors and microphones must be converted before the computer can use them.</li>
+        <li><strong>Digital to analogue (DAC)</strong> - actuators, motors, valves and speakers respond to analogue signals, so the computer's digital output must be converted before it can control these devices.</li>
+      </ul>
+      <div class="note"><strong>Common exam question:</strong> "A computer controls a greenhouse heater using a temperature sensor. Explain why an ADC and a DAC are needed." The sensor produces a continuously varying (analogue) reading that must be converted to digital for the processor; the processor's digital signal must be converted back to analogue to drive the heater.</div>
+    </div>
+
+    <div class="check">
+      <div class="label">Check your understanding</div>
+      <details class="q">
+        <summary>Classify each of these as applications software or system software: a device driver, a CAD package, a linker, an audio editor.</summary>
+        <div class="answer">System software: device driver, linker. Applications software: CAD package, audio editor.</div>
+      </details>
+      <details class="q">
+        <summary>State two differences between analogue and digital data.</summary>
+        <div class="answer">Analogue data varies <strong>continuously</strong> and can take any value in a range; digital data is <strong>discrete</strong> and uses only fixed values, stored as 1s and 0s. Analogue is drawn as a smooth wave, digital as a stepped/square wave.</div>
+      </details>
+    </div>
+  </div>
+</div>
+
+<div class="section" id="s1-2">
+  <div class="section-header">
+    <span class="snum">1.2</span>
+    <h2>The Main Components of Computer Systems</h2>
+  </div>
+  <div class="section-body">
+    <div class="sub" id="s1-2-cpu">
+      <h3>Central Processing Unit (CPU)</h3>
+      <ul>
+        <li>The CPU <strong>processes the instructions</strong> entered into the computer in order to produce an <strong>output</strong>.</li>
+        <li>It fetches each instruction, decodes what it means, and executes it.</li>
+        <li>It controls the movement of data between memory, input devices and output devices.</li>
+        <li>It performs all arithmetic and logical operations.</li>
+      </ul>
+      <div class="note"><strong>Remember the chain:</strong> INPUT &rarr; PROCESSING (CPU) &rarr; OUTPUT, with STORAGE available at every stage.</div>
+    </div>
+
+    <div class="sub" id="s1-2-memory">
+      <h3>Internal memory: RAM and ROM</h3>
+      <div class="table-wrap">
+        <table class="comp-table">
+          <thead>
+            <tr><th>Feature</th><th>RAM</th><th>ROM</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Full name</td><td>Random access memory</td><td>Read-only memory</td></tr>
+            <tr><td>Volatility</td><td><strong>Volatile</strong> - contents lost when power is off</td><td><strong>Non-volatile</strong> - contents kept permanently</td></tr>
+            <tr><td>Can be changed?</td><td>Contents can be read and written</td><td>Contents can normally only be read</td></tr>
+            <tr><td>What it holds</td><td>The data, files and parts of programs currently in use, including part of the operating system</td><td>The start-up instructions (the boot program / BIOS) and configuration data</td></tr>
+            <tr><td>Size</td><td>Larger than ROM</td><td>Much smaller than RAM</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="sub" id="s1-2-io">
+      <h3>Input and output devices</h3>
+      <div class="grid-2">
+        <div class="mini-card">
+          <h5>Input devices</h5>
+          <ul>
+            <li>Allow data and instructions to be <strong>put into</strong> the computer</li>
+            <li>Convert the user's actions or real-world quantities into digital data</li>
+            <li>Examples: keyboard, mouse, scanner, microphone, sensor</li>
+          </ul>
+        </div>
+        <div class="mini-card">
+          <h5>Output devices</h5>
+          <ul>
+            <li>Allow results to be <strong>taken out of</strong> the computer in a form people or machines can use</li>
+            <li>Convert digital data into text, images, sound or movement</li>
+            <li>Examples: monitor, printer, speaker, actuator</li>
+          </ul>
+        </div>
+      </div>
+      <div class="note">A <strong>touch screen</strong> is the classic device that is both: it accepts input by touch and outputs the display.</div>
+    </div>
+
+    <div class="sub" id="s1-2-backing">
+      <h3>Backing storage</h3>
+      <ul>
+        <li><strong>Non-volatile</strong> - it keeps files permanently when the power is switched off.</li>
+        <li>Much <strong>larger capacity</strong> and much <strong>cheaper per byte</strong> than internal memory.</li>
+        <li>Data must be <strong>copied into RAM</strong> before the CPU can process it - backing storage is not directly addressable.</li>
+        <li>Slower to access than internal memory.</li>
+      </ul>
+      <div class="note"><strong>Link:</strong> this is covered in full in Topic 3, Storage Devices and Media.</div>
+    </div>
+
+    <div class="check">
+      <div class="label">Check your understanding</div>
+      <details class="q">
+        <summary>A computer has 8 GB of RAM and a 512 GB SSD. Explain why both are needed.</summary>
+        <div class="answer">RAM is very fast and directly addressable, so it holds the data and programs in current use - but it is <strong>volatile</strong>, so everything is lost when the power goes off, and it is too small and too costly to hold all of the user's files. The SSD is <strong>non-volatile</strong> and far larger, so it keeps files and software permanently, ready to be loaded into RAM when needed.</div>
+      </details>
+      <details class="q">
+        <summary>Why is ROM used to store the boot program rather than RAM?</summary>
+        <div class="answer">ROM is <strong>non-volatile</strong>, so the start-up instructions are still there when the computer is switched on. RAM would be empty, because its contents are lost every time the power is removed.</div>
+      </details>
+    </div>
+  </div>
+</div>
+
+<div class="section" id="s1-3">
+  <div class="section-header">
+    <span class="snum">1.3</span>
+    <h2>Operating Systems</h2>
+  </div>
+  <div class="section-body">
+    <div class="sub" id="s1-3-what">
+      <h3>What an operating system does</h3>
+      <div class="def-box">An <strong>operating system</strong> is system software that manages the hardware and resources of a computer and provides the interface through which the user communicates with it.</div>
+      <ul>
+        <li>Manages the processor, memory, backing storage and peripherals</li>
+        <li>Handles files - saving, loading, copying, deleting and organising them</li>
+        <li>Handles errors and provides security, including user accounts and passwords</li>
+        <li>Provides the <strong>user interface</strong></li>
+      </ul>
+    </div>
+
+    <div class="sub" id="s1-3-interfaces">
+      <h3>Types of interface</h3>
+      <div class="device-card">
+        <div class="device-card-header">Command Line Interface (CLI)</div>
+        <div class="device-card-body">
+          <h4>Characteristics</h4>
+          <ul>
+            <li>The user <strong>types in commands</strong> to carry out every task</li>
+            <li>The user must learn and remember the exact commands and their syntax</li>
+            <li>The user is in direct communication with the computer</li>
+          </ul>
+          <div class="adv-dis">
+            <div class="adv-box">
+              <div class="label">Advantages</div>
+              <ul>
+                <li>The user is in direct control and can change settings the GUI hides</li>
+                <li>Uses very little memory and processing power</li>
+                <li>Commands can be combined into scripts, which is fast for repeated tasks</li>
+              </ul>
+            </div>
+            <div class="dis-box">
+              <div class="label">Disadvantages</div>
+              <ul>
+                <li>The user has to <strong>learn many commands</strong></li>
+                <li>All commands must be typed with perfect accuracy - one mistyped character fails</li>
+                <li>Slow to use for beginners and harder to learn</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="device-card">
+        <div class="device-card-header">Graphical User Interface (GUI)</div>
+        <div class="device-card-body">
+          <h4>Characteristics</h4>
+          <ul>
+            <li>Uses <strong>windows, icons, menus and pointers (WIMP)</strong></li>
+            <li>The user selects items by clicking or tapping instead of typing commands</li>
+            <li>Some GUIs are designed for touch, using <strong>post-WIMP</strong> gestures such as pinch and swipe</li>
+          </ul>
+          <div class="adv-dis">
+            <div class="adv-box">
+              <div class="label">Advantages</div>
+              <ul>
+                <li>Much easier for a beginner - no commands to remember</li>
+                <li>Consistent look across applications, so skills transfer</li>
+                <li>Little chance of a typing error stopping a task</li>
+              </ul>
+            </div>
+            <div class="dis-box">
+              <div class="label">Disadvantages</div>
+              <ul>
+                <li>Uses considerably <strong>more memory and processing power</strong></li>
+                <li>The user is limited to the options the designer provided</li>
+                <li>Can be slower for an expert than typing a command</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="device-card">
+        <div class="device-card-header">Dialogue based interface</div>
+        <div class="device-card-body">
+          <h4>Characteristics</h4>
+          <ul>
+            <li>The user <strong>speaks</strong> to the device and it responds, often in speech</li>
+            <li>Used in smart speakers, in-car systems and voice assistants</li>
+          </ul>
+          <div class="adv-dis">
+            <div class="adv-box">
+              <div class="label">Advantages</div>
+              <ul>
+                <li>The user's hands and eyes stay free - safer when driving</li>
+                <li>Very useful for users with a physical disability</li>
+                <li>No commands or menus to learn; the user speaks naturally</li>
+              </ul>
+            </div>
+            <div class="dis-box">
+              <div class="label">Disadvantages</div>
+              <ul>
+                <li>Accents, unusual words and background noise cause recognition errors</li>
+                <li>The vocabulary understood is still limited</li>
+                <li>Privacy concerns, because a microphone is always listening</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="device-card">
+        <div class="device-card-header">Gesture based interface</div>
+        <div class="device-card-body">
+          <h4>Characteristics</h4>
+          <ul>
+            <li>Cameras or sensors detect <strong>body or hand movements</strong> and turn them into commands</li>
+            <li>Used in games consoles, in-car controls and some medical equipment</li>
+          </ul>
+          <div class="adv-dis">
+            <div class="adv-box">
+              <div class="label">Advantages</div>
+              <ul>
+                <li>No need to touch anything, which is hygienic and safe in an operating theatre</li>
+                <li>Natural and quick to use once learned</li>
+                <li>Keeps the driver's hands near the wheel</li>
+              </ul>
+            </div>
+            <div class="dis-box">
+              <div class="label">Disadvantages</div>
+              <ul>
+                <li>Only a limited set of gestures can be recognised</li>
+                <li>The user must stay within range of the sensor</li>
+                <li>Unintended movements can be read as commands</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="check">
+      <div class="label">Check your understanding</div>
+      <details class="q">
+        <summary>A network technician prefers a CLI while an office worker prefers a GUI. Explain why.</summary>
+        <div class="answer">The technician knows the commands and needs <strong>direct control</strong> over settings the GUI does not expose, and can script repeated jobs, which is faster. The office worker is not a computer expert, so a GUI is <strong>easier to learn and use</strong>, with icons and menus instead of memorised commands.</div>
+      </details>
+      <details class="q">
+        <summary>Give one situation where a gesture based interface is better than a touch screen.</summary>
+        <div class="answer">In an operating theatre a surgeon can control images without touching anything, which keeps their hands <strong>sterile</strong>. (A driver controlling a car system without taking their hands from the wheel is equally acceptable.)</div>
+      </details>
+    </div>
+  </div>
+</div>
+
+<div class="section" id="s1-4">
+  <div class="section-header">
+    <span class="snum">1.4</span>
+    <h2>Types of Computer</h2>
+  </div>
+  <div class="section-body">
+    <div class="sub" id="s1-4-desktop">
+      <h3>Desktop computer</h3>
+      <h4>Characteristics</h4>
+      <ul>
+        <li>Made up of <strong>separate components</strong> - system unit, monitor, keyboard, mouse - connected together</li>
+        <li>Stays in one place and is powered from the mains</li>
+        <li>Components can be upgraded or replaced individually</li>
+      </ul>
+      <div class="uses-box">
+        <div class="label">Uses</div>
+        <ul>
+          <li>Office and business management</li>
+          <li>Education</li>
+          <li>Gaming and entertainment</li>
+        </ul>
+      </div>
+      <div class="adv-dis">
+        <div class="adv-box">
+          <div class="label">Advantages</div>
+          <ul>
+            <li><strong>Expandable</strong> - easy to add memory, storage or a better graphics card</li>
+            <li>Cheaper than a laptop of the same specification</li>
+            <li>Less likely to be stolen; easier and cheaper to repair</li>
+            <li>Better cooling allows more powerful processors</li>
+          </ul>
+        </div>
+        <div class="dis-box">
+          <div class="label">Disadvantages</div>
+          <ul>
+            <li><strong>Not portable</strong> - it must be used in one place</li>
+            <li>Many cables and separate parts to set up</li>
+            <li>Stops working in a power cut, as there is no battery</li>
+            <li>Takes up a lot of desk space</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="sub" id="s1-4-mobile">
+      <h3>Mobile computers</h3>
+      <div class="grid-2">
+        <div class="mini-card">
+          <h5>Laptop computer</h5>
+          <ul>
+            <li>Monitor, keyboard, pointing device and processor built into one case</li>
+            <li>Battery powered and light enough to carry</li>
+            <li>Full keyboard and the most processing power of the mobile devices</li>
+          </ul>
+        </div>
+        <div class="mini-card">
+          <h5>Smartphone</h5>
+          <ul>
+            <li>Pocket-sized, with a touch screen and on-screen keyboard</li>
+            <li>Connects over wi-fi and mobile phone networks</li>
+            <li>Runs apps, and includes camera, GPS and sensors</li>
+          </ul>
+        </div>
+        <div class="mini-card">
+          <h5>Tablet computer</h5>
+          <ul>
+            <li>Larger touch screen than a phone, with no physical keyboard</li>
+            <li>Very fast to start up, long battery life</li>
+            <li>Uses solid-state storage, so no moving parts</li>
+          </ul>
+        </div>
+        <div class="mini-card">
+          <h5>Phablet computer</h5>
+          <ul>
+            <li>Sits between a smartphone and a tablet in screen size</li>
+            <li>Makes phone calls like a smartphone but gives more screen for reading and video</li>
+            <li>Still fits in a large pocket or bag</li>
+          </ul>
+        </div>
+      </div>
+      <div class="uses-box">
+        <div class="label">Uses of mobile computers</div>
+        <ul>
+          <li>Office and business management, including working while travelling</li>
+          <li>Education</li>
+          <li>Gaming and entertainment, including streaming</li>
+          <li><strong>Remotely controlled devices</strong>, such as controlling home heating, lighting or a drone</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="sub" id="s1-4-compare">
+      <h3>Comparing the types <span class="syllabus-tag">portability &middot; expandability</span></h3>
+      <div class="table-wrap">
+        <table class="comp-table">
+          <thead>
+            <tr><th>Feature</th><th>Desktop</th><th>Laptop</th><th>Tablet / phablet</th><th>Smartphone</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Portability</td><td>None</td><td>Good</td><td>Very good</td><td>Excellent</td></tr>
+            <tr><td>Expandability</td><td>Excellent</td><td>Limited</td><td>Almost none</td><td>Almost none</td></tr>
+            <tr><td>Processing power</td><td>Highest</td><td>High</td><td>Moderate</td><td>Moderate</td></tr>
+            <tr><td>Input</td><td>Full keyboard and mouse</td><td>Full keyboard and trackpad</td><td>Touch screen</td><td>Small touch screen</td></tr>
+            <tr><td>Battery</td><td>None - mains only</td><td>Several hours</td><td>Long</td><td>Long</td></tr>
+            <tr><td>Risk of loss or theft</td><td>Low</td><td>Higher</td><td>Higher</td><td>Highest</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="adv-dis">
+        <div class="adv-box">
+          <div class="label">Advantages of mobile computers</div>
+          <ul>
+            <li><strong>Portable</strong> - can be used almost anywhere, including on the move</li>
+            <li>One unit to carry, with no trailing cables</li>
+            <li>Battery powered, so they keep working in a power cut</li>
+            <li>Connect wirelessly to networks and to the internet</li>
+          </ul>
+        </div>
+        <div class="dis-box">
+          <div class="label">Disadvantages of mobile computers</div>
+          <ul>
+            <li><strong>Limited expandability</strong> - parts are usually not upgradeable</li>
+            <li>Smaller screens and keyboards make long tasks harder</li>
+            <li>Easier to lose, damage or have stolen, which is a data security risk</li>
+            <li>Less processing power and shorter working time between charges</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="check">
+      <div class="label">Check your understanding</div>
+      <details class="q">
+        <summary>A graphic designer buys a desktop rather than a laptop. Give two reasons.</summary>
+        <div class="answer">A desktop is <strong>expandable</strong>, so extra memory, storage and a more powerful graphics card can be fitted as the work demands. It also gives more processing power and a larger screen for the same money, and is cheaper and easier to repair or upgrade.</div>
+      </details>
+      <details class="q">
+        <summary>Explain why tablets start up more quickly than most desktop computers.</summary>
+        <div class="answer">Tablets use <strong>solid-state storage</strong> with no moving parts, so there is no drive to get up to speed, and their operating systems are smaller and designed to resume rather than fully reboot.</div>
+      </details>
+    </div>
+  </div>
+</div>
+
+<div class="section" id="s1-5">
+  <div class="section-header">
+    <span class="snum">1.5</span>
+    <h2>Emerging Technologies</h2>
+  </div>
+  <div class="section-body">
+    <div class="sub" id="s1-5-ai">
+      <h3>Artificial Intelligence (AI)</h3>
+      <div class="def-box"><strong>Artificial Intelligence</strong> is the use of computer systems to carry out tasks that would normally need human intelligence, such as recognising speech, making decisions and learning from data.</div>
+      <h4>Impact on everyday life</h4>
+      <ul>
+        <li>Voice assistants, translation and predictive text</li>
+        <li>Medical diagnosis support and analysis of scans</li>
+        <li>Autonomous vehicles and traffic management</li>
+        <li>Recommendations on shopping, music and video services</li>
+        <li>Fraud detection in banking and filtering of spam email</li>
+      </ul>
+      <div class="adv-dis">
+        <div class="adv-box">
+          <div class="label">Positive effects</div>
+          <ul>
+            <li>Dangerous, repetitive and dirty jobs can be done by machines</li>
+            <li>Decisions can be made faster and from far more data than a person could read</li>
+            <li>Services can run 24 hours a day at lower cost</li>
+            <li>Greater accuracy in tasks such as spotting patterns in medical images</li>
+          </ul>
+        </div>
+        <div class="dis-box">
+          <div class="label">Negative effects</div>
+          <ul>
+            <li><strong>Unemployment</strong> as tasks are automated, and the need for retraining</li>
+            <li>Systems can be <strong>biased</strong> if the data they learned from was biased</li>
+            <li>Large amounts of personal data are collected, raising privacy concerns</li>
+            <li>People may rely on decisions they cannot check or explain</li>
+            <li>High cost of development and of the expertise needed</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="sub" id="s1-5-xr">
+      <h3>Extended reality: virtual and augmented</h3>
+      <div class="grid-2">
+        <div class="mini-card">
+          <h5>Virtual reality (VR)</h5>
+          <ul>
+            <li>A <strong>fully computer-generated</strong> environment, usually seen through a headset</li>
+            <li>Replaces what the user can see of the real world</li>
+            <li>Uses: pilot and surgical training, architecture walkthroughs, gaming, treating phobias</li>
+          </ul>
+        </div>
+        <div class="mini-card">
+          <h5>Augmented reality (AR)</h5>
+          <ul>
+            <li><strong>Adds</strong> computer-generated images or data <strong>on top of</strong> the real world</li>
+            <li>Seen through a phone camera, tablet or smart glasses</li>
+            <li>Uses: navigation arrows on a live street view, seeing furniture in your own room before buying, maintenance instructions overlaid on machinery</li>
+          </ul>
+        </div>
+      </div>
+      <div class="adv-dis">
+        <div class="adv-box">
+          <div class="label">Positive effects</div>
+          <ul>
+            <li>Training can be done safely, and mistakes cost nothing</li>
+            <li>Expensive or impossible experiences become available, for example visiting a museum in another country</li>
+            <li>Helps customers make better decisions before buying</li>
+            <li>Improves access to education and to remote expertise</li>
+          </ul>
+        </div>
+        <div class="dis-box">
+          <div class="label">Negative effects</div>
+          <ul>
+            <li>Headsets and software are expensive, and the equipment dates quickly</li>
+            <li>Can cause eye strain, headaches and motion sickness</li>
+            <li>Users may become isolated from real social contact</li>
+            <li>A user wearing a headset or looking at an AR screen may not notice real hazards</li>
+          </ul>
+        </div>
+      </div>
+      <div class="note"><strong>Exam tip:</strong> the giveaway difference is that <strong>VR replaces</strong> the real world and <strong>AR adds to</strong> it.</div>
+    </div>
+
+    <div class="check">
+      <div class="label">Check your understanding</div>
+      <details class="q">
+        <summary>A furniture shop offers an app that shows a sofa in the customer's living room. Name the technology and give one benefit to the shop.</summary>
+        <div class="answer">This is <strong>augmented reality</strong>, because the computer-generated sofa is added on top of a live view of the real room. The shop benefits from <strong>fewer returns</strong>, because customers can see whether the item fits and suits the room before buying, and it can sell without holding large showroom stock.</div>
+      </details>
+      <details class="q">
+        <summary>Give one positive and one negative effect of using AI in medical diagnosis.</summary>
+        <div class="answer">Positive: AI can analyse scans and patient data <strong>faster and across far more cases</strong> than a doctor, helping to spot problems early. Negative: if the training data was <strong>biased</strong> or incomplete the system may be wrong for some groups of patients, and staff may rely on a decision they cannot check.</div>
+      </details>
+    </div>
+
+    <div class="recap">
+      <div class="label">Topic 1 checklist</div>
+      <ul>
+        <li>I can define hardware and software and give examples of internal components, applications software and system software.</li>
+        <li>I can describe analogue and digital data and explain why ADC and DAC are needed.</li>
+        <li>I can state the role of the CPU and compare RAM with ROM, and internal memory with backing storage.</li>
+        <li>I can give characteristics, advantages and disadvantages of CLI, GUI, dialogue based and gesture based interfaces.</li>
+        <li>I can compare desktop and mobile computers on portability and expandability, and give uses of each.</li>
+        <li>I can describe the impact of AI and of virtual and augmented reality on everyday life.</li>
+      </ul>
+    </div>
+  </div>
+</div>

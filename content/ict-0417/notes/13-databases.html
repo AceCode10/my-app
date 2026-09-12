@@ -1,0 +1,251 @@
+<div class="page-header">
+  <div class="section-label">Cambridge IGCSE ICT 0417 &middot; Practical skills</div>
+  <h1>Databases</h1>
+  <p>The database question is worth a large share of the practical marks and follows a predictable shape: <strong>import the data, set the field types, build a form, run queries, and produce a report</strong>. Precision matters - a single wrong data type or a missing label costs the mark.</p>
+  <div class="note"><strong>Syllabus coverage:</strong> 18.1 Create a database structure &middot; 18.2 Manipulate data &middot; 18.3 Present data</div>
+</div>
+
+<div class="section" id="s18-1">
+  <div class="section-header">
+    <span class="snum">18.1</span>
+    <h2>Create a Database Structure</h2>
+  </div>
+  <div class="section-body">
+    <div class="sub" id="s18-1-import">
+      <h3>Importing data and setting up tables</h3>
+      <ul>
+        <li><strong>Import data from existing files</strong> - including <strong>.csv and .txt</strong> - using the <strong>specified field names</strong> to create the tables.</li>
+        <li>Check after importing that every record has arrived and that no field has been split or merged incorrectly.</li>
+        <li>Use exactly the field names the question gives, including capitals and spacing.</li>
+      </ul>
+    </div>
+
+    <div class="sub" id="s18-1-types">
+      <h3>Data types</h3>
+      <div class="table-wrap">
+        <table class="comp-table">
+          <thead><tr><th>Data type</th><th>Holds</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Text</strong> (alphanumeric)</td><td>Letters, digits and symbols that are not calculated with</td><td>Name, address, telephone number, product code</td></tr>
+            <tr><td><strong>Numeric - integer</strong></td><td>Whole numbers only</td><td>Quantity in stock: 47</td></tr>
+            <tr><td><strong>Numeric - decimal</strong></td><td>Numbers with a fractional part</td><td>Weight: 2.75</td></tr>
+            <tr><td><strong>Numeric - currency</strong></td><td>Money, with a currency symbol and normally two decimal places</td><td>Price: $12.50</td></tr>
+            <tr><td><strong>Date/time</strong></td><td>Dates and times, which can be sorted and calculated with</td><td>Date of birth: 04/09/2010</td></tr>
+            <tr><td><strong>Boolean/logical</strong></td><td>One of two values only</td><td>Member? Yes/No</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h4>Sub-types and display formats you must be able to set</h4>
+      <ul>
+        <li><strong>Numeric sub-types</strong> - percentage, and a specified <strong>number of decimal places</strong>.</li>
+        <li><strong>Boolean/logical display format</strong> - yes/no, true/false or a checkbox.</li>
+        <li><strong>Date/time display format</strong> - for example dd/mm/yyyy, or a long date showing the month name.</li>
+      </ul>
+      <div class="note"><strong>Classic trap:</strong> a telephone number is <strong>text</strong>, not numeric. Leading zeros would be lost in a numeric field, and no one ever adds two telephone numbers together.</div>
+    </div>
+
+    <div class="sub" id="s18-1-keys">
+      <h3>Primary and foreign keys, and relationships</h3>
+      <div class="def-box">A <strong>primary key</strong> is a field whose value is <strong>unique to each record</strong>, so it identifies that record and no other. A <strong>foreign key</strong> is a field in one table that holds the value of the primary key of another table, creating the link between them.</div>
+      <ul>
+        <li><strong>Create and edit</strong> primary and foreign keys.</li>
+        <li><strong>Create relationships</strong> between tables by joining the primary key of one table to the foreign key of another.</li>
+        <li>A primary key must be unique and must never be left empty.</li>
+      </ul>
+      <h4>Flat file and relational databases</h4>
+      <div class="table-wrap">
+        <table class="comp-table">
+          <thead><tr><th></th><th>Flat file database</th><th>Relational database</th></tr></thead>
+          <tbody>
+            <tr><td>Structure</td><td><strong>One table</strong> holding all the data</td><td><strong>Several linked tables</strong>, joined by keys</td></tr>
+            <tr><td>Uses</td><td>Small, simple sets of data - a club membership list, a personal address book</td><td>Larger systems where data is related - school, stock control, booking systems</td></tr>
+            <tr><td>Advantages</td><td>Simple and quick to set up; easy for a beginner; needs no specialist knowledge; low cost</td><td>No unnecessary duplication of data; less storage used; data only has to be updated in one place, so it stays consistent; better security, as access can be granted table by table; complex queries across tables are possible</td></tr>
+            <tr><td>Disadvantages</td><td>Data is <strong>duplicated</strong> in many records, wasting space; an update must be made everywhere, so data easily becomes inconsistent; harder to query in complex ways; less secure, as a user sees the whole table</td><td>More complex to design and set up; needs more expertise; specialist software is more expensive</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="sub" id="s18-1-form">
+      <h3>Creating and using a data entry form</h3>
+      <p>You must be able to create a data entry form including:</p>
+      <ul>
+        <li>The <strong>specified fields</strong> - and no others</li>
+        <li>Appropriate <strong>font styles and sizes</strong></li>
+        <li>Appropriate <strong>spacing between fields</strong></li>
+        <li>Suitable <strong>character spacing of individual fields</strong> - each field wide enough for its longest entry</li>
+        <li>Sensible use of <strong>white space</strong></li>
+        <li><strong>Radio buttons</strong>, <strong>check boxes</strong> and <strong>drop down menus</strong> where the choice is limited</li>
+      </ul>
+      <h4>Characteristics of good form design</h4>
+      <ul>
+        <li>A clear title and, where needed, brief instructions.</li>
+        <li>Fields in a <strong>logical order</strong>, ideally matching the order on the source document, so entry is fast.</li>
+        <li>Clear labels for every field, with enough space so nothing is truncated.</li>
+        <li><strong>Consistent</strong> fonts, sizes, colours and alignment throughout.</li>
+        <li>Enough <strong>white space</strong> that the form is not cramped and is easy to read.</li>
+        <li>Controls that <strong>limit the choice</strong> - drop-down lists, radio buttons for one choice from several, check boxes for yes/no - which speeds entry and removes typing errors.</li>
+        <li>Related fields grouped together, and only the data that is actually needed requested.</li>
+      </ul>
+    </div>
+
+    <div class="check">
+      <div class="label">Check your understanding</div>
+      <details class="q">
+        <summary>A school stores learner details and the subjects each learner takes. Explain why a relational database is better than a flat file.</summary>
+        <div class="answer">In a flat file the learner's name and address would be <strong>repeated for every subject</strong> they take, wasting storage and meaning an address change has to be made in many places - so the data easily becomes inconsistent. A relational database stores each learner once in one table, each subject once in another, and links them with a <strong>foreign key</strong>, so data is entered and updated only once.</div>
+      </details>
+      <details class="q">
+        <summary>Give three features of a well-designed data entry form.</summary>
+        <div class="answer">Any three of: fields in a <strong>logical order matching the source document</strong>; clear labels with enough space so entries are not truncated; <strong>drop-down lists, radio buttons or check boxes</strong> to limit choices and prevent typing errors; consistent fonts and sizes; sensible use of white space so it is not cramped.</div>
+      </details>
+    </div>
+  </div>
+</div>
+
+<div class="section" id="s18-2">
+  <div class="section-header">
+    <span class="snum">18.2</span>
+    <h2>Manipulate Data</h2>
+  </div>
+  <div class="section-body">
+    <div class="sub" id="s18-2-calc">
+      <h3>Performing calculations</h3>
+      <ul>
+        <li>Use arithmetic operations or numeric functions to perform calculations, including <strong>calculated fields</strong> (stored in a query or table) and <strong>calculated controls</strong> (worked out on a form or report).</li>
+        <li>Use formulae and functions to perform calculations <strong>at run time</strong>:
+          <ul>
+            <li>addition, subtraction, multiplication, division</li>
+            <li><strong>sum</strong>, <strong>average</strong>, <strong>maximum</strong>, <strong>minimum</strong>, <strong>count</strong></li>
+          </ul>
+        </li>
+        <li>Calculating at run time means the result is always up to date, and it does not have to be stored - so it can never disagree with the data it came from.</li>
+      </ul>
+    </div>
+
+    <div class="sub" id="s18-2-sort">
+      <h3>Sorting data</h3>
+      <ul>
+        <li>Sort into <strong>ascending</strong> (A to Z, smallest first, earliest first) or <strong>descending</strong> order.</li>
+        <li>Sort on a <strong>single criterion</strong>, or on <strong>multiple criteria</strong> - the first field sorts the records, and the second sorts within each group of equal values.</li>
+        <li>Read the order of the criteria carefully: sorting by Surname then Forename is not the same as Forename then Surname.</li>
+      </ul>
+    </div>
+
+    <div class="sub" id="s18-2-query">
+      <h3>Searching and selecting data with queries</h3>
+      <ul>
+        <li>Use a <strong>single criterion</strong> or <strong>multiple criteria</strong> to select subsets of data using a query.</li>
+      </ul>
+      <h4>Operators</h4>
+      <div class="table-wrap">
+        <table class="comp-table">
+          <thead><tr><th>Operator</th><th>Meaning</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr><td><strong>AND</strong></td><td>Both conditions must be true</td><td>Subject = "ICT" AND Grade &lt; 4</td></tr>
+            <tr><td><strong>OR</strong></td><td>Either condition may be true</td><td>Town = "Lagos" OR Town = "Abuja"</td></tr>
+            <tr><td><strong>NOT</strong></td><td>The condition must be false</td><td>NOT Status = "Left"</td></tr>
+            <tr><td><strong>LIKE</strong></td><td>Matches a pattern, used with wildcards</td><td>Surname LIKE "Mc*"</td></tr>
+            <tr><td><strong>&gt;</strong> and <strong>&lt;</strong></td><td>Greater than / less than</td><td>Price &gt; 100</td></tr>
+            <tr><td><strong>=</strong></td><td>Equal to</td><td>Year = 11</td></tr>
+            <tr><td><strong>&gt;=</strong> and <strong>&lt;=</strong></td><td>Greater than or equal to / less than or equal to</td><td>Mark &gt;= 40</td></tr>
+            <tr><td><strong>&lt;&gt;</strong></td><td>Not equal to</td><td>Country &lt;&gt; "UK"</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h4>Wildcards</h4>
+      <ul>
+        <li><strong>*</strong> (or %) stands for <strong>any number of characters</strong> - <code>LIKE "S*"</code> finds every entry beginning with S.</li>
+        <li><strong>?</strong> (or _) stands for <strong>exactly one character</strong> - <code>LIKE "?at"</code> finds cat, bat and hat but not chat.</li>
+        <li>Wildcards are used with <strong>LIKE</strong>, never with =.</li>
+      </ul>
+      <div class="note"><strong>AND narrows, OR widens.</strong> If a query returns no records, check whether you used AND where the question meant OR. If it returns everything, check the opposite.</div>
+    </div>
+
+    <div class="check">
+      <div class="label">Check your understanding</div>
+      <details class="q">
+        <summary>Write the criteria to find members from Nairobi who joined before 01/01/2024.</summary>
+        <div class="answer">Town = "Nairobi" <strong>AND</strong> JoinDate &lt; 01/01/2024. Both conditions must be true, so AND is required - OR would return every member from Nairobi plus every member who joined early, wherever they live.</div>
+      </details>
+      <details class="q">
+        <summary>What does the criterion LIKE "*ton" find, and how does it differ from LIKE "?ton"?</summary>
+        <div class="answer"><code>LIKE "*ton"</code> finds entries <strong>ending in "ton"</strong> with any number of characters before it - Brighton, Preston, ton. <code>LIKE "?ton"</code> requires <strong>exactly one</strong> character before "ton", so it would find Eton but not Brighton.</div>
+      </details>
+    </div>
+  </div>
+</div>
+
+<div class="section" id="s18-3">
+  <div class="section-header">
+    <span class="snum">18.3</span>
+    <h2>Present Data</h2>
+  </div>
+  <div class="section-body">
+    <div class="sub" id="s18-3-reports">
+      <h3>Producing reports</h3>
+      <ul>
+        <li>Produce reports that display <strong>all the required data and labels in full</strong> - nothing truncated, no field showing <code>###</code>, no label cut off.</li>
+        <li><strong>Set report titles</strong> exactly as the question specifies.</li>
+        <li>Produce different <strong>output layouts</strong>, controlling the display of data and labels in <strong>tabular</strong> (records in rows, fields in columns) or <strong>columnar</strong> (one record per block, fields listed down the page) format.</li>
+      </ul>
+      <h4>Headers and footers in a database report</h4>
+      <div class="table-wrap">
+        <table class="comp-table">
+          <thead><tr><th>Section</th><th>Where it appears</th><th>Typical contents</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Report header</strong></td><td>Once, at the very start of the report</td><td>The report title, a logo, the date it was produced</td></tr>
+            <tr><td><strong>Page header</strong></td><td>At the top of every page</td><td>The column headings / field labels</td></tr>
+            <tr><td><strong>Page footer</strong></td><td>At the bottom of every page</td><td>Page number, date</td></tr>
+            <tr><td><strong>Report footer</strong></td><td>Once, at the very end of the report</td><td>Grand totals, averages, counts</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note"><strong>Common error:</strong> a grand total placed in the <em>page</em> footer prints on every page and is wrong. Totals for the whole report belong in the <strong>report footer</strong>.</div>
+    </div>
+
+    <div class="sub" id="s18-3-format">
+      <h3>Aligning and formatting the data</h3>
+      <ul>
+        <li>Align data and labels appropriately - <strong>right align numeric data</strong> and use <strong>decimal alignment</strong> so figures line up on the decimal point and can be compared at a glance.</li>
+        <li>Text is normally left aligned; labels should line up with the data they describe.</li>
+        <li>Control the display format of numeric data:
+          <ul>
+            <li>the <strong>number of decimal places</strong></li>
+            <li>a <strong>currency symbol</strong></li>
+            <li><strong>percentage</strong> format</li>
+          </ul>
+        </li>
+        <li>Keep formatting consistent across the whole report, and make sure fonts are large enough to read in print.</li>
+      </ul>
+    </div>
+
+    <div class="check">
+      <div class="label">Check your understanding</div>
+      <details class="q">
+        <summary>Where should a grand total of all sales appear in a report, and why?</summary>
+        <div class="answer">In the <strong>report footer</strong>, because that section prints <strong>once at the very end</strong> of the report. Putting it in the page footer would repeat it at the bottom of every page, which is incorrect.</div>
+      </details>
+      <details class="q">
+        <summary>Why should currency values be right or decimal aligned?</summary>
+        <div class="answer">So that the <strong>decimal points and digits line up vertically</strong>, making the column easy to read and the values easy to compare. Left-aligned figures of different lengths are hard to compare and look unprofessional.</div>
+      </details>
+    </div>
+
+    <div class="recap">
+      <div class="label">Databases checklist</div>
+      <ul>
+        <li>I can import .csv and .txt data using specified field names.</li>
+        <li>I can set text, numeric (integer, decimal, currency), date/time and Boolean data types, with sub-types and display formats.</li>
+        <li>I can create primary and foreign keys and build relationships between tables.</li>
+        <li>I can compare flat file and relational databases and state the characteristics of good form design.</li>
+        <li>I can create a data entry form with radio buttons, check boxes and drop-down menus.</li>
+        <li>I can build calculated fields and controls, and use sum, average, maximum, minimum and count.</li>
+        <li>I can sort on single and multiple criteria, ascending and descending.</li>
+        <li>I can write queries using AND, OR, NOT, LIKE, &gt;, &lt;, =, &gt;=, &lt;=, &lt;&gt; and wildcards.</li>
+        <li>I can produce tabular and columnar reports with correct titles and report, page header and footer sections.</li>
+        <li>I can align and format numeric data with decimal places, currency symbols and percentages.</li>
+      </ul>
+    </div>
+  </div>
+</div>
