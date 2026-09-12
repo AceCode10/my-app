@@ -310,8 +310,23 @@ async function main() {
     if (DRY_RUN) continue;
 
     const existing = await restGet(
-      `notes?select=id,title,display_order&topic_id=eq.${topic.id}&order=display_order`
+      `notes?select=id,title,display_order,rendered_html,content_md&topic_id=eq.${topic.id}` +
+        '&order=display_order'
     );
+
+    // Publishing overwrites whatever is on the topic now, so keep a copy first.
+    for (const note of existing) {
+      fs.mkdirSync(BACKUP_DIR, { recursive: true });
+      fs.writeFileSync(
+        path.join(BACKUP_DIR, `${topic.slug}-${note.id}.before.json`),
+        JSON.stringify(
+          { id: note.id, title: note.title, rendered_html: note.rendered_html, content_md: note.content_md },
+          null,
+          2
+        ),
+        'utf8'
+      );
+    }
 
     const payload = {
       title: section.title,
