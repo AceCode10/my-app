@@ -48,8 +48,18 @@ const NOTE_STYLES = `
 }
 .ict-note * { box-sizing: border-box; margin: 0; padding: 0; }
 .ict-note p { margin-bottom: 0.6rem; }
+/* Tailwind's preflight sets list-style to none on every ul/ol, so a note's
+   lists arrive with no bullets or numbers at all. Put the markers back, and
+   give nested levels their own so a sub-list reads as subordinate. */
 .ict-note ul, .ict-note ol { padding-left: 1.5rem; margin-bottom: 0.6rem; }
-.ict-note li { margin-bottom: 0.2rem; }
+.ict-note ul { list-style: disc outside; }
+.ict-note ol { list-style: decimal outside; }
+.ict-note ul ul { list-style-type: circle; }
+.ict-note ul ul ul { list-style-type: square; }
+.ict-note ol ol { list-style-type: lower-alpha; }
+.ict-note li { display: list-item; margin-bottom: 0.2rem; }
+.ict-note li::marker { color: var(--note-h3); }
+.ict-note li > ul, .ict-note li > ol { margin-top: 0.2rem; margin-bottom: 0.2rem; }
 .ict-note strong { font-weight: 700; color: var(--note-h1); }
 .ict-note a { color: var(--note-h3); }
 

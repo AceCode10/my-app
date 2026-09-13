@@ -99,7 +99,7 @@ describe('ICT 0417 note content', () => {
     });
 
     it('balances its div, details and table tags', () => {
-      for (const tag of ['div', 'details', 'table', 'ul', 'li', 'summary']) {
+      for (const tag of ['div', 'details', 'table', 'ul', 'ol', 'li', 'summary']) {
         const { open, close } = tagBalance(html, tag);
         expect({ tag, open, close }).toEqual({ tag, open, close: open });
       }
