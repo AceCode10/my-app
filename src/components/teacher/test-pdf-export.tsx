@@ -16,9 +16,17 @@ Font.register({
 
 // Glyph fallback for characters the Roboto subset lacks. Exam stems use ticks
 // ("Tick (✓)"), arrows, ≥ and Greek letters, which otherwise vanish from the PDF.
+// Every weight/style the page uses must resolve, or react-pdf throws on the
+// first bold or italic run ("Could not resolve font for Symbols ... italic").
+const SYMBOLS_TTF = 'https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37.3/ttf';
 Font.register({
   family: 'Symbols',
-  src: 'https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37.3/ttf/DejaVuSans.ttf',
+  fonts: [
+    { src: `${SYMBOLS_TTF}/DejaVuSans.ttf`, fontWeight: 400 },
+    { src: `${SYMBOLS_TTF}/DejaVuSans-Bold.ttf`, fontWeight: 700 },
+    { src: `${SYMBOLS_TTF}/DejaVuSans-Oblique.ttf`, fontStyle: 'italic', fontWeight: 400 },
+    { src: `${SYMBOLS_TTF}/DejaVuSans-BoldOblique.ttf`, fontStyle: 'italic', fontWeight: 700 },
+  ],
 });
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -33,6 +41,9 @@ import {
 } from '@/components/ui/dialog';
 import { Download, Loader2, Upload, Eye } from 'lucide-react';
 import { groupByTopLevelQuestion } from '@/lib/test-builder/question-groups';
+import { composeTestPdf, type ComposeItem, type Label as SourceLabel, type Region } from '@/lib/pdf/compose-test-pdf';
+import { toSourceQuestion } from '@/lib/pdf/source-mode';
+import { allowPastPaperContent } from '@/lib/test-generation/policy';
 
 interface Question {
   id: string;
@@ -48,6 +59,11 @@ interface Question {
   part_label?: string | null;
   question_number?: string;
   paper_id?: string | null;
+  exam_board_id?: string | null;
+  mark_scheme?: string | null;
+  // Where the question sits in its original paper (ingested past papers)
+  source_regions?: Region[] | null;
+  source_label?: SourceLabel | null;
   // Image support for image-heavy subjects
   image_url?: string | null;
   // Full question image mode
@@ -535,9 +551,70 @@ function getAnswerLineCount(marks: number, type: string): number {
   return 12;
 }
 
+type TestItem = TestSection['questions'][number];
+
+interface NumberedGroup {
+  number: number;
+  items: TestItem[];
+}
+
+// Top-level questions across all sections, each with its parts ordered under
+// their parents, numbered 1..n. Grouped by parent tree, not question_number:
+// every past paper has a Q1, so that merged unrelated questions into one.
+function numberedGroups(test: TestData): NumberedGroup[] {
+  const groups: NumberedGroup[] = [];
+  (test.sections ?? []).forEach(section => {
+    groupByTopLevelQuestion(section.questions, tq => tq.question).forEach(questions => {
+      const questionsById = new Map(questions.map(q => [q.question!.id, q]));
+      const childrenByParent = new Map<string, TestItem[]>();
+      const rootQuestions: TestItem[] = [];
+
+      questions.forEach(q => {
+        const parentId = q.question?.parent_question_id;
+        if (parentId && questionsById.has(parentId)) {
+          if (!childrenByParent.has(parentId)) childrenByParent.set(parentId, []);
+          childrenByParent.get(parentId)!.push(q);
+        } else {
+          rootQuestions.push(q);
+        }
+      });
+
+      // Context (no part_label) first, then by part_label
+      rootQuestions.sort((a, b) => {
+        const labelA = a.question?.part_label || '';
+        const labelB = b.question?.part_label || '';
+        if (!labelA && labelB) return -1;
+        if (labelA && !labelB) return 1;
+        return labelA.localeCompare(labelB);
+      });
+
+      const sorted: TestItem[] = [];
+      const addWithChildren = (q: TestItem) => {
+        sorted.push(q);
+        const children = childrenByParent.get(q.question!.id) || [];
+        children.sort((a, b) => (a.question?.part_label || '').localeCompare(b.question?.part_label || ''));
+        children.forEach(addWithChildren);
+      };
+      rootQuestions.forEach(addWithChildren);
+
+      groups.push({ number: groups.length + 1, items: sorted });
+    });
+  });
+  return groups;
+}
+
+interface QuestionPaperPDFProps {
+  test: TestData;
+  options: PDFOptions;
+  /** 'cover' or 'questions' render one half, for merging into a composed PDF. */
+  part?: 'full' | 'cover' | 'questions';
+  /** Render only these question numbers (numbering stays test-wide). */
+  only?: Set<number>;
+  hideFooter?: boolean;
+}
+
 // Question Paper PDF Component - Cambridge IGCSE Style
-function QuestionPaperPDF({ test, options }: { test: TestData; options: PDFOptions }) {
-  let questionNumber = 0;
+function QuestionPaperPDF({ test, options, part = 'full', only, hideFooter = false }: QuestionPaperPDFProps) {
 
   // Format duration
   const formatDuration = (minutes: number | null | undefined): string => {
@@ -554,6 +631,7 @@ function QuestionPaperPDF({ test, options }: { test: TestData; options: PDFOptio
   return (
     <Document>
       {/* Cover Page */}
+      {part !== 'questions' && (
       <Page size="A4" style={styles.coverPage}>
         {/* School Logo (optional) */}
         {options.schoolLogoUrl && (
@@ -678,63 +756,18 @@ function QuestionPaperPDF({ test, options }: { test: TestData; options: PDFOptio
           </View>
         </View>
       </Page>
+      )}
 
       {/* Questions Pages */}
+      {part !== 'cover' && (
       <Page size="A4" style={styles.page}>
-        {test.sections && Array.isArray(test.sections) && test.sections.map((section, sectionIndex) => {
-          // Group into top-level questions (a parent with its parts). Not by
-          // question_number: every past paper has a Q1, so that merged
-          // unrelated questions into one and numbered them all "1".
-          const questionGroups = groupByTopLevelQuestion(section.questions, tq => tq.question).map(questions => {
-            // Build parent-child relationships
-            const questionsById = new Map(questions.map(q => [q.question!.id, q]));
-            const childrenByParent = new Map<string, typeof questions>();
-            const rootQuestions: typeof questions = [];
-
-            questions.forEach(q => {
-              const parentId = q.question?.parent_question_id;
-              if (parentId && questionsById.has(parentId)) {
-                if (!childrenByParent.has(parentId)) {
-                  childrenByParent.set(parentId, []);
-                }
-                childrenByParent.get(parentId)!.push(q);
-              } else {
-                rootQuestions.push(q);
-              }
-            });
-
-            // Sort root questions: context (no part_label) first, then by part_label
-            rootQuestions.sort((a, b) => {
-              const labelA = a.question?.part_label || '';
-              const labelB = b.question?.part_label || '';
-              if (!labelA && labelB) return -1;
-              if (labelA && !labelB) return 1;
-              return labelA.localeCompare(labelB);
-            });
-
-            // Flatten with children after their parents
-            const sorted: typeof questions = [];
-            const addWithChildren = (q: typeof questions[0]) => {
-              sorted.push(q);
-              const children = childrenByParent.get(q.question!.id) || [];
-              children.sort((a, b) => {
-                const labelA = a.question?.part_label || '';
-                const labelB = b.question?.part_label || '';
-                return labelA.localeCompare(labelB);
-              });
-              children.forEach(child => addWithChildren(child));
-            };
-            rootQuestions.forEach(q => addWithChildren(q));
-            
-            return sorted;
-          });
-
+        {(() => {
+          const questionGroups = numberedGroups(test).filter(g => !only || only.has(g.number));
           return (
-          <View key={sectionIndex}>
-            {questionGroups.map((groupQuestions) => {
-              questionNumber++;
-              const displayQNum = String(questionNumber);
-              
+          <View>
+            {questionGroups.map(({ number, items: groupQuestions }) => {
+              const displayQNum = String(number);
+
               return (
                 <View key={groupQuestions[0].questionId} style={{ marginBottom: 20 }}>
                   {groupQuestions.map((tq, qIndex) => {
@@ -887,22 +920,28 @@ function QuestionPaperPDF({ test, options }: { test: TestData; options: PDFOptio
             })}
           </View>
           );
-        })}
+        })()}
 
-        {/* Content page footer with page numbers starting from 2 */}
-        <Text style={{ position: 'absolute', bottom: 20, left: 50, right: 40, borderTopWidth: 0.5, borderTopColor: '#ccc' }} fixed>{''}</Text>
-        <Text
-          style={{ position: 'absolute', bottom: 20, left: 50, fontSize: 8, color: '#666', paddingTop: 6 }}
-          fixed
-          render={({ pageNumber }: { pageNumber: number }) => `Page ${pageNumber + 1}`}
-        />
-        <Text style={{ position: 'absolute', bottom: 20, left: 0, right: 0, textAlign: 'center', fontSize: 8, color: '#666', paddingTop: 6 }} fixed>
-          © 2026 IGA Prep
-        </Text>
-        <View style={{ position: 'absolute', bottom: 20, right: 40, paddingTop: 6 }} fixed>
-          <Text style={{ fontSize: 8, color: '#666' }}>For more, visit <Link src="https://igaprep.com"><Text style={{ fontSize: 8, color: '#16a34a' }}>igaprep.com</Text></Link></Text>
-        </View>
+        {/* Content page footer with page numbers starting from 2. Omitted
+            when the pages are merged into a composed PDF, which stamps its own. */}
+        {!hideFooter && (
+          <>
+            <Text style={{ position: 'absolute', bottom: 20, left: 50, right: 40, borderTopWidth: 0.5, borderTopColor: '#ccc' }} fixed>{''}</Text>
+            <Text
+              style={{ position: 'absolute', bottom: 20, left: 50, fontSize: 8, color: '#666', paddingTop: 6 }}
+              fixed
+              render={({ pageNumber }: { pageNumber: number }) => `Page ${pageNumber + 1}`}
+            />
+            <Text style={{ position: 'absolute', bottom: 20, left: 0, right: 0, textAlign: 'center', fontSize: 8, color: '#666', paddingTop: 6 }} fixed>
+              © 2026 IGA Prep
+            </Text>
+            <View style={{ position: 'absolute', bottom: 20, right: 40, paddingTop: 6 }} fixed>
+              <Text style={{ fontSize: 8, color: '#666' }}>For more, visit <Link src="https://igaprep.com"><Text style={{ fontSize: 8, color: '#16a34a' }}>igaprep.com</Text></Link></Text>
+            </View>
+          </>
+        )}
       </Page>
+      )}
     </Document>
   );
 }
@@ -924,6 +963,148 @@ function formatAnswerForPDF(answer: any, type: string): string {
   }
   
   return JSON.stringify(answer);
+}
+
+// Answers for questions printed from the original paper: the clipped page has
+// no room for an inline answer box, so they are listed after the questions.
+function AnswerKeyPDF({ groups }: { groups: NumberedGroup[] }) {
+  return (
+    <Document>
+      <Page size="A4" style={styles.page}>
+        <Text style={styles.instructionTitle}>ANSWER KEY</Text>
+        {groups.map(group => (
+          <View key={group.number} style={{ marginBottom: 10 }}>
+            {group.items
+              .filter(tq => tq.question && (tq.question.correct_answer || tq.question.mark_scheme))
+              .map(tq => {
+                const question = tq.question!;
+                const answer = formatAnswerForPDF(question.correct_answer || question.mark_scheme, question.question_type);
+                const scheme = question.mark_scheme && question.mark_scheme !== answer ? question.mark_scheme : null;
+                return (
+                  <View key={tq.questionId} style={styles.questionRow} wrap={false}>
+                    <Text style={styles.subQuestionLabel}>
+                      {`${group.number}${question.part_label ? ` (${question.part_label.replace('(', ')(')})` : ''}`}
+                    </Text>
+                    <View style={styles.questionContentCol}>
+                      <Text style={styles.answerKeyText}>{answer}</Text>
+                      {scheme && <Text style={styles.examinerComment}>Mark scheme: {scheme}</Text>}
+                    </View>
+                  </View>
+                );
+              })}
+          </View>
+        ))}
+      </Page>
+    </Document>
+  );
+}
+
+async function renderToBytes(doc: React.ReactElement): Promise<Uint8Array> {
+  const blob = await pdf(doc as any).toBlob();
+  return new Uint8Array(await blob.arrayBuffer());
+}
+
+/**
+ * Which questions print from their original paper. Needs each paper's PDF URL
+ * and each board's licence; anything that cannot be resolved prints as text.
+ */
+async function resolveSourceQuestions(test: TestData) {
+  const groups = numberedGroups(test);
+  const rows = groups.flatMap(g => g.items.map(tq => tq.question).filter((q): q is Question => !!q));
+  const paperIds = Array.from(new Set(
+    rows.filter(q => q.paper_id && Array.isArray(q.source_regions) && q.source_regions.length > 0).map(q => q.paper_id!),
+  ));
+  const bySource = new Map<number, NonNullable<ReturnType<typeof toSourceQuestion>>>();
+  if (paperIds.length === 0) return bySource;
+
+  const supabase = (await import('@/lib/supabase/client')).createClient();
+  const boardIds = Array.from(new Set(rows.map(q => q.exam_board_id).filter((id): id is string => !!id)));
+  const [{ data: papers }, { data: boards }] = await Promise.all([
+    supabase.from('past_papers').select('id, question_paper_url, paper_url').in('id', paperIds),
+    boardIds.length > 0
+      ? supabase.from('exam_boards').select('id, code').in('id', boardIds)
+      : Promise.resolve({ data: [] as { id: string; code: string }[] }),
+  ]);
+
+  const paperUrls = new Map<string, string>();
+  (papers ?? []).forEach((p: any) => {
+    const url = p.question_paper_url || p.paper_url;
+    if (url) paperUrls.set(p.id, url);
+  });
+  const boardCodes = new Map<string, string>((boards ?? []).map((b: any) => [b.id, b.code]));
+  const context = {
+    paperUrls,
+    licensedBoards: (id: string | null | undefined) =>
+      allowPastPaperContent(id ? boardCodes.get(id) ?? null : null, 'pdf_export'),
+  };
+
+  for (const group of groups) {
+    const source = toSourceQuestion(
+      group.number,
+      group.items
+        .filter(tq => tq.question)
+        .map(tq => ({
+          marks: tq.marks,
+          stem: tq.question!.stem_markdown || tq.question!.stem_md,
+          paper_id: tq.question!.paper_id,
+          exam_board_id: tq.question!.exam_board_id,
+          source_regions: tq.question!.source_regions,
+          source_label: tq.question!.source_label,
+        })),
+      context,
+    );
+    if (source) bySource.set(group.number, source);
+  }
+  return bySource;
+}
+
+/**
+ * Cover and text questions from react-pdf, past-paper questions clipped from
+ * the original paper, merged in test order with one footer throughout.
+ */
+async function buildComposedPdf(
+  test: TestData,
+  options: PDFOptions,
+  sourceQuestions: Awaited<ReturnType<typeof resolveSourceQuestions>>,
+): Promise<Blob> {
+  const groups = numberedGroups(test);
+  const items: ComposeItem[] = [];
+  let run: number[] = [];
+
+  const flush = async () => {
+    if (run.length === 0) return;
+    items.push({
+      kind: 'pdf',
+      bytes: await renderToBytes(
+        <QuestionPaperPDF test={test} options={options} part="questions" only={new Set(run)} hideFooter />,
+      ),
+    });
+    run = [];
+  };
+
+  for (const group of groups) {
+    const source = sourceQuestions.get(group.number);
+    if (source) {
+      await flush();
+      items.push(source);
+    } else {
+      run.push(group.number);
+    }
+  }
+  await flush();
+
+  if (options.includeAnswers) {
+    const answered = groups.filter(g => sourceQuestions.has(g.number));
+    if (answered.length > 0) items.push({ kind: 'pdf', bytes: await renderToBytes(<AnswerKeyPDF groups={answered} />) });
+  }
+
+  const cover = await renderToBytes(<QuestionPaperPDF test={test} options={options} part="cover" />);
+  const bytes = await composeTestPdf({
+    cover,
+    items,
+    footer: { center: '© 2026 IGA Prep', right: 'For more, visit igaprep.com' },
+  });
+  return new Blob([bytes as BlobPart], { type: 'application/pdf' });
 }
 
 export function TestPDFExport({ test, open, onOpenChange }: TestPDFExportProps) {
@@ -1035,6 +1216,18 @@ export function TestPDFExport({ test, open, onOpenChange }: TestPDFExportProps) 
       showCandidateNumber,
       includeAnswers,
     };
+
+    // Licensed past-paper questions print exactly as the board laid them out.
+    // If that cannot be done (source paper unreachable, ...), the whole test
+    // falls back to the text layout rather than failing the export.
+    try {
+      const sourceQuestions = await resolveSourceQuestions(testWithQuestions);
+      if (sourceQuestions.size > 0) {
+        return await buildComposedPdf(testWithQuestions, options, sourceQuestions);
+      }
+    } catch (error) {
+      console.error('Printing from the original papers failed; using the text layout instead.', error);
+    }
 
     return await pdf(
       <QuestionPaperPDF test={testWithQuestions} options={options} />

@@ -111,6 +111,9 @@ interface Question {
   // Source tracking
   source?: 'topical' | 'paper';
   paper_id?: string | null;
+  // Where an ingested past-paper question sits in its original paper
+  source_regions?: { page: number; bbox: [number, number, number, number] }[] | null;
+  source_label?: { page: number; x: number; right?: number; top: number; bottom: number } | null;
 }
 
 interface TestQuestion {
@@ -349,6 +352,8 @@ export default function TestBuilderPage() {
           display_order,
           question_number,
           paper_id,
+          source_regions,
+          source_label,
           image_url,
           topic:topics(name),
           subject:subjects(name)
