@@ -13,6 +13,13 @@ Font.register({
     { src: 'https://fonts.gstatic.com/s/roboto/v30/KFOjCnqEu92Fr1Mu51TzBic6CsE.ttf', fontStyle: 'italic', fontWeight: 700 },
   ],
 });
+
+// Glyph fallback for characters the Roboto subset lacks. Exam stems use ticks
+// ("Tick (✓)"), arrows, ≥ and Greek letters, which otherwise vanish from the PDF.
+Font.register({
+  family: 'Symbols',
+  src: 'https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37.3/ttf/DejaVuSans.ttf',
+});
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -25,6 +32,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Download, Loader2, Upload, Eye } from 'lucide-react';
+import { groupByTopLevelQuestion } from '@/lib/test-builder/question-groups';
 
 interface Question {
   id: string;
@@ -39,6 +47,7 @@ interface Question {
   parent_question_id?: string | null;
   part_label?: string | null;
   question_number?: string;
+  paper_id?: string | null;
   // Image support for image-heavy subjects
   image_url?: string | null;
   // Full question image mode
@@ -89,7 +98,7 @@ const styles = StyleSheet.create({
     paddingLeft: 50,
     paddingRight: 40,
     fontSize: 11,
-    fontFamily: 'Arial',
+    fontFamily: ['Arial', 'Symbols'],
   },
   // Cover page styles
   coverPage: {
@@ -483,6 +492,30 @@ function parseOptionsForPDF(options: any): { label: string; text: string }[] {
   return [];
 }
 
+// Ingested MCQ stems still carry their options as trailing "A ...", "B ..."
+// lines. Split them off so options print once, in the options list, and so a
+// stem opening with the article "A" is never mistaken for option A.
+function splitMcqStem(stem: string): { stem: string; options: { label: string; text: string }[] } | null {
+  const lines = stem.split('\n');
+  const optionRe = /^\s*([A-H])[\s.):]\s*(.+)$/;
+  let end = lines.length;
+  while (end > 0 && !lines[end - 1].trim()) end--;
+
+  // Walk back over a D, C, B, A run that ends the stem.
+  const options: { label: string; text: string }[] = [];
+  let i = end - 1;
+  for (; i >= 0; i--) {
+    const match = lines[i].match(optionRe);
+    if (!match) break;
+    options.unshift({ label: match[1], text: match[2].trim() });
+    if (match[1] === 'A') break;
+  }
+  const isRun = options.length >= 2 && options.every((o, idx) => o.label === String.fromCharCode(65 + idx));
+  if (!isRun) return null;
+
+  return { stem: lines.slice(0, i).join('\n').trim(), options };
+}
+
 // Get number of answer lines based on marks and question type
 // Cambridge style: approximately 2 lines per mark for short answers, more for extended responses
 function getAnswerLineCount(marks: number, type: string): number {
@@ -649,20 +682,10 @@ function QuestionPaperPDF({ test, options }: { test: TestData; options: PDFOptio
       {/* Questions Pages */}
       <Page size="A4" style={styles.page}>
         {test.sections && Array.isArray(test.sections) && test.sections.map((section, sectionIndex) => {
-          // Group questions by question_number for proper hierarchical display
-          const questionGroups = new Map<string, typeof section.questions>();
-          
-          section.questions.forEach(tq => {
-            if (!tq.question) return;
-            const qNum = tq.question.question_number || `standalone_${tq.questionId}`;
-            if (!questionGroups.has(qNum)) {
-              questionGroups.set(qNum, []);
-            }
-            questionGroups.get(qNum)!.push(tq);
-          });
-
-          // Sort questions within each group by parent_question_id hierarchy and part_label
-          questionGroups.forEach((questions, qNum) => {
+          // Group into top-level questions (a parent with its parts). Not by
+          // question_number: every past paper has a Q1, so that merged
+          // unrelated questions into one and numbered them all "1".
+          const questionGroups = groupByTopLevelQuestion(section.questions, tq => tq.question).map(questions => {
             // Build parent-child relationships
             const questionsById = new Map(questions.map(q => [q.question!.id, q]));
             const childrenByParent = new Map<string, typeof questions>();
@@ -703,22 +726,25 @@ function QuestionPaperPDF({ test, options }: { test: TestData; options: PDFOptio
             };
             rootQuestions.forEach(q => addWithChildren(q));
             
-            questionGroups.set(qNum, sorted);
+            return sorted;
           });
 
           return (
           <View key={sectionIndex}>
-            {Array.from(questionGroups.entries()).map(([qNum, groupQuestions], groupIdx) => {
+            {questionGroups.map((groupQuestions) => {
               questionNumber++;
               const displayQNum = String(questionNumber);
               
               return (
-                <View key={qNum} style={{ marginBottom: 20 }}>
+                <View key={groupQuestions[0].questionId} style={{ marginBottom: 20 }}>
                   {groupQuestions.map((tq, qIndex) => {
                     const question = tq.question;
                     if (!question) return null;
 
-                    const rawQuestionText = stripMarkdown(question.stem_markdown || question.stem_md || '');
+                    const isMcq = question.question_type === 'mcq' || question.question_type === 'multiple_choice' || question.question_type === 'Multiple Choice';
+                    const mcq = isMcq ? splitMcqStem(stripMarkdown(question.stem_markdown || question.stem_md || '')) : null;
+                    const rawQuestionText = mcq ? mcq.stem : stripMarkdown(question.stem_markdown || question.stem_md || '');
+                    const mcqOptions = mcq?.options ?? parseOptionsForPDF(question.options);
                     const hasImageUrl = !!(question.image_url || question.question_image_url);
                     const questionText = (rawQuestionText === '[Image Question]' && hasImageUrl) ? '' : rawQuestionText;
                     const lineCount = getAnswerLineCount(tq.marks, question.question_type);
@@ -789,9 +815,9 @@ function QuestionPaperPDF({ test, options }: { test: TestData; options: PDFOptio
                             )}
                             
                             {/* MCQ Options */}
-                            {(question.question_type === 'mcq' || question.question_type === 'multiple_choice' || question.question_type === 'Multiple Choice') && question.options && (
+                            {isMcq && mcqOptions.length > 0 && (
                               <View style={styles.optionsContainer}>
-                                {parseOptionsForPDF(question.options).map((opt: any, idx: number) => (
+                                {mcqOptions.map((opt: any, idx: number) => (
                                   <View key={idx} style={styles.optionRow}>
                                     <Text style={styles.optionLabel}>
                                       {opt.label || String.fromCharCode(65 + idx)}

@@ -58,29 +58,35 @@ export function toQuestionsEnum(raw: string | null | undefined): QuestionsEnum {
   return map[t] ?? 'short_answer';
 }
 
-function extractOptions(text: string): McqOption[] | null {
+/**
+ * Options are the LAST run of consecutive lines labelled A, B, C, ... A stem
+ * that opens with the article "A" ("A book has an ISBN ...") also matches the
+ * option pattern, so taking the first "A" line made the stem option A.
+ */
+export function extractOptions(text: string): McqOption[] | null {
   const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
-  const options: McqOption[] = [];
-
-  for (const line of lines) {
+  const parsed = lines.map((line) => {
     const match = line.match(OPTION_LINE_RE);
-    if (!match) continue;
-    const label = match[1].toUpperCase();
+    if (!match) return null;
     const body = match[2].trim();
     // Guard against prose that happens to start with a capital and a stop.
-    if (!body || body.length > 160) continue;
-    if (options.some((o) => o.label === label)) continue;
-    options.push({ label, text: body, isCorrect: false });
+    if (!body || body.length > 160) return null;
+    return { label: match[1].toUpperCase(), text: body };
+  });
+
+  let best: McqOption[] | null = null;
+  for (let start = 0; start < parsed.length; start++) {
+    if (parsed[start]?.label !== 'A') continue;
+    const run: McqOption[] = [];
+    for (let i = start; i < parsed.length; i++) {
+      const option = parsed[i];
+      if (!option || option.label !== String.fromCharCode(65 + run.length)) break;
+      run.push({ label: option.label, text: option.text, isCorrect: false });
+    }
+    if (run.length >= 2) best = run;
   }
 
-  if (options.length < 2) return null;
-
-  // Labels must form a run starting at A.
-  const expected = options.map((_, i) => String.fromCharCode(65 + i));
-  const actual = options.map((o) => o.label);
-  if (expected.join('') !== actual.join('')) return null;
-
-  return options;
+  return best;
 }
 
 /** Labelled answer slots: "1 .....", "2 .....", "Extreme test data 1 .....". */

@@ -7,6 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Clock, Calculator, Shuffle, Eye } from 'lucide-react';
 import type { Assessment, AssessmentQuestion, Question } from '@/types/assessment';
 import { cn } from '@/lib/utils';
+import { groupByTopLevelQuestion } from '@/lib/test-builder/question-groups';
 
 interface TestPreviewProps {
   assessment: Partial<Assessment>;
@@ -22,27 +23,22 @@ interface ExtendedQuestion extends Question {
   part_label?: string | null;
 }
 
-// Group questions by question_number for multi-part display
+// A top-level question with its parts, numbered by position in the test
 interface QuestionGroup {
   questionNumber: string | number;
   parts: (AssessmentQuestion & { question: ExtendedQuestion })[];
   totalMarks: number;
 }
 
+// Grouped by parent/child tree, not question_number: questions come from many
+// past papers, so several unrelated questions share the number "1".
 function groupQuestionsByNumber(questions: (AssessmentQuestion & { question: Question })[]): QuestionGroup[] {
-  const groups = new Map<string | number, (AssessmentQuestion & { question: ExtendedQuestion })[]>();
-  
-  questions.forEach(aq => {
-    const q = aq.question as ExtendedQuestion;
-    const num = q?.question_number || aq.question_order || 'unknown';
-    if (!groups.has(num)) {
-      groups.set(num, []);
-    }
-    groups.get(num)!.push(aq as AssessmentQuestion & { question: ExtendedQuestion });
-  });
+  const items = questions as (AssessmentQuestion & { question: ExtendedQuestion })[];
+  const groups = groupByTopLevelQuestion(items, aq => aq.question);
   
   const result: QuestionGroup[] = [];
-  groups.forEach((parts, questionNumber) => {
+  groups.forEach((parts, groupIndex) => {
+    const questionNumber = groupIndex + 1;
     // Sort parts: context first (no part_label), then by part_label
     const sorted = [...parts].sort((a, b) => {
       const labelA = a.question?.part_label || '';
@@ -62,13 +58,6 @@ function groupQuestionsByNumber(questions: (AssessmentQuestion & { question: Que
     }, 0);
     
     result.push({ questionNumber, parts: sorted, totalMarks });
-  });
-  
-  // Sort by question number
-  result.sort((a, b) => {
-    const numA = typeof a.questionNumber === 'number' ? a.questionNumber : parseInt(String(a.questionNumber)) || 0;
-    const numB = typeof b.questionNumber === 'number' ? b.questionNumber : parseInt(String(b.questionNumber)) || 0;
-    return numA - numB;
   });
   
   return result;

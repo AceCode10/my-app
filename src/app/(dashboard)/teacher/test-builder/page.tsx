@@ -64,6 +64,7 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import { TestPDFExport } from '@/components/teacher/test-pdf-export';
 import { ExamQuestionCard } from '@/components/teacher/exam-question-card';
+import { baseQuestionNumber, groupByTopLevelQuestion } from '@/lib/test-builder/question-groups';
 import {
   DndContext,
   closestCenter,
@@ -347,6 +348,7 @@ export default function TestBuilderPage() {
           part_label,
           display_order,
           question_number,
+          paper_id,
           image_url,
           topic:topics(name),
           subject:subjects(name)
@@ -660,30 +662,15 @@ export default function TestBuilderPage() {
   // Calculate totals
   const totals = useMemo(() => {
     const totalMarks = testQuestions.reduce((sum, q) => sum + q.marks, 0);
-    // Count unique question groups (by question_number)
-    const questionGroups = new Set<string>();
-    testQuestions.forEach(tq => {
-      const qNum = tq.question?.question_number || tq.questionId;
-      questionGroups.add(qNum);
-    });
-    return { totalMarks, totalQuestions: questionGroups.size };
+    const totalQuestions = groupByTopLevelQuestion(testQuestions, tq => tq.question).length;
+    return { totalMarks, totalQuestions };
   }, [testQuestions]);
   
-  // Group test questions by question_number for display
+  // Group test questions into top-level questions (a parent with its parts).
+  // Not by question_number: every past paper has a Q1, so that merged
+  // unrelated questions into one.
   const groupedTestQuestions = useMemo(() => {
-    const groups = new Map<string, TestQuestion[]>();
-    
-    testQuestions.forEach(tq => {
-      if (!tq.question) return;
-      const qNum = tq.question.question_number || `standalone_${tq.questionId}`;
-      if (!groups.has(qNum)) {
-        groups.set(qNum, []);
-      }
-      groups.get(qNum)!.push(tq);
-    });
-    
-    // Sort questions within each group by parent_question_id hierarchy
-    groups.forEach((questions, qNum) => {
+    return groupByTopLevelQuestion(testQuestions, tq => tq.question).map(questions => {
       // Build parent-child relationships
       const questionsById = new Map(questions.map(q => [q.question!.id, q]));
       const childrenByParent = new Map<string, TestQuestion[]>();
@@ -724,10 +711,8 @@ export default function TestBuilderPage() {
       };
       rootQuestions.forEach(q => addWithChildren(q));
       
-      groups.set(qNum, sorted);
+      return sorted;
     });
-    
-    return Array.from(groups.values());
   }, [testQuestions]);
 
   // Add question to test (including all related parts)
@@ -761,110 +746,55 @@ export default function TestBuilderPage() {
     });
   }
   
-  // Get all related parts of a question (same question_number from same source, or parent-child relationship)
-  // This includes context questions, all children, and nested children (level 3)
+  // Get all related parts of a question: its root ancestor plus every
+  // descendant (context rows, parts and nested sub-parts). Unrelated questions
+  // that merely share a question_number are NOT parts - the bank holds a Q1
+  // from every ingested paper. Legacy parts that were never linked to a parent
+  // are matched by question number only within the same paper.
   function getRelatedQuestionParts(question: Question): Question[] {
-    // Helper to recursively get all descendants
-    const getAllDescendants = (parentId: string): Question[] => {
-      const children = questions.filter(q => q.parent_question_id === parentId);
-      const descendants: Question[] = [...children];
-      children.forEach(child => {
-        descendants.push(...getAllDescendants(child.id));
+    const byId = new Map(questions.map(q => [q.id, q]));
+
+    let root = question;
+    const seen = new Set<string>();
+    while (root.parent_question_id && byId.has(root.parent_question_id) && !seen.has(root.id)) {
+      seen.add(root.id);
+      root = byId.get(root.parent_question_id)!;
+    }
+
+    const roots = [root];
+    if (root.paper_id && root.question_number) {
+      const rootNumber = baseQuestionNumber(root.question_number);
+      questions.forEach(q => {
+        if (
+          q.id !== root.id &&
+          !q.parent_question_id &&
+          q.paper_id === root.paper_id &&
+          q.question_number &&
+          baseQuestionNumber(q.question_number) === rootNumber
+        ) {
+          roots.push(q);
+        }
       });
-      return descendants;
-    };
-    
-    // If question has no question_number or part_label, and no parent_question_id, it's standalone
-    if (!question.question_number && !question.parent_question_id) {
-      // But check if this question IS a parent with children (including grandchildren)
-      const descendants = getAllDescendants(question.id);
-      if (descendants.length > 0) {
-        return [question, ...descendants].sort((a, b) => {
-          if (a.display_order !== undefined && b.display_order !== undefined) {
+    }
+
+    const related: Question[] = [];
+    const addWithDescendants = (q: Question) => {
+      related.push(q);
+      questions
+        .filter(c => c.parent_question_id === q.id)
+        .sort((a, b) => {
+          if (a.display_order != null && b.display_order != null) {
             return a.display_order - b.display_order;
           }
-          const partA = a.part_label || '';
-          const partB = b.part_label || '';
-          return partA.localeCompare(partB);
-        });
-      }
-      return [question];
-    }
-    
-    // Find all questions with the same question_number from the same source
-    const relatedParts = questions.filter(q => {
-      // Check parent-child relationship first
-      if (question.parent_question_id) {
-        // This question is a child - find root parent first
-        let rootParentId = question.parent_question_id;
-        let rootParent = questions.find(p => p.id === rootParentId);
-        while (rootParent?.parent_question_id) {
-          rootParentId = rootParent.parent_question_id;
-          rootParent = questions.find(p => p.id === rootParentId);
-        }
-        
-        // Include root parent, self, and all descendants of root parent
-        if (q.id === rootParentId) return true;
-        if (q.id === question.id) return true;
-        
-        // Check if q is a descendant of root parent
-        let current = q;
-        while (current.parent_question_id) {
-          if (current.parent_question_id === rootParentId) return true;
-          const parent = questions.find(p => p.id === current.parent_question_id);
-          if (!parent) break;
-          current = parent;
-        }
-        return false;
-      }
-      
-      // Check if q is this question itself
-      if (q.id === question.id) {
-        return true;
-      }
-      
-      // Check if q is a descendant of this question (any level)
-      let current = q;
-      while (current.parent_question_id) {
-        if (current.parent_question_id === question.id) return true;
-        const parent = questions.find(p => p.id === current.parent_question_id);
-        if (!parent) break;
-        current = parent;
-      }
-      
-      // Must have the same question_number
-      if (q.question_number !== question.question_number) return false;
-      
-      // Must be from the same source (paper or topical)
-      if (q.source !== question.source) return false;
-      
-      // For paper questions, must be from the same paper
-      if (question.source === 'paper' && q.paper_id !== question.paper_id) return false;
-      
-      // For topical questions, must be from the same subject/topic
-      if (question.source === 'topical') {
-        if (q.subject_id !== question.subject_id) return false;
-      }
-      
-      return true;
-    });
-    
-    // Sort by display_order or part_label to maintain proper order
-    // Parent questions (no parent_question_id) should come first
-    return relatedParts.sort((a, b) => {
-      // Parent comes before children
-      if (!a.parent_question_id && b.parent_question_id) return -1;
-      if (a.parent_question_id && !b.parent_question_id) return 1;
-      
-      // Then sort by display_order if available
-      if (a.display_order !== undefined && b.display_order !== undefined) {
-        return a.display_order - b.display_order;
-      }
-      // Then by part_label (a, b, c, etc.)
-      const partA = a.part_label || '';
-      const partB = b.part_label || '';
-      return partA.localeCompare(partB);
-    });
+          return (a.part_label || '').localeCompare(b.part_label || '');
+        })
+        .forEach(addWithDescendants);
+    };
+    roots
+      .sort((a, b) => (a.part_label || '').localeCompare(b.part_label || ''))
+      .forEach(addWithDescendants);
+
+    return related;
   }
 
   // Remove question from test (removes all related parts)
