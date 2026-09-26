@@ -222,6 +222,8 @@ export async function persistQuestions(
       : null,
     source_page: q.sourcePage,
     source_bbox: q.sourceBBox,
+    source_regions: q.sourceRegions.length > 0 ? q.sourceRegions : null,
+    source_label: q.sourceLabel,
     extraction_confidence: q.confidence,
     extraction_method: 'python_v2',
     error_codes: q.errorCodes,

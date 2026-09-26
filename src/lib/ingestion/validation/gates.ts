@@ -336,6 +336,8 @@ export function synthesiseMissingParents(questions: ExtractedQuestion[]): Extrac
         sectionName: null,
         sourcePage: question.sourcePage,
         sourceBBox: null,
+        sourceRegions: [],
+        sourceLabel: null,
         markScheme: null,
         correctAnswer: null,
         figures: [],

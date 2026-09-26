@@ -204,6 +204,8 @@ export async function mirrorToQuestionBank(
       // every renderer finds the answer where it expects it.
       explanation: q.markScheme,
       image_url: (q as ExtractedQuestion & { imageUrl?: string }).imageUrl ?? null,
+      source_regions: q.sourceRegions.length > 0 ? q.sourceRegions : null,
+      source_label: q.sourceLabel,
       display_order: q.displayOrder,
       level: paper.level ?? options.level ?? null,
       status: options.publish && perQuestionOk ? 'published' : 'draft',

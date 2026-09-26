@@ -254,6 +254,8 @@ export function stubsForUnmatched(
         sectionName: null,
         sourcePage: entry.sourcePage,
         sourceBBox: null,
+        sourceRegions: [],
+        sourceLabel: null,
         markScheme: renderAnswer(entry),
         correctAnswer: primaryAnswer(entry),
         figures: [],

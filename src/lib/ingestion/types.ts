@@ -172,6 +172,27 @@ export interface TableData {
   answerMap?: Record<string, string>;
 }
 
+/**
+ * One rectangle of the source question paper that belongs to a question row.
+ * A row that runs onto the next page has one region per page. Regions of
+ * consecutive rows tile the page, so drawing a question's rows in order
+ * reproduces the original layout. `bbox` starts at the question-number gutter,
+ * so the printed number is outside it and a test can print its own.
+ */
+export interface SourceRegion {
+  /** 0-based page index in the question paper PDF. */
+  page: number;
+  bbox: BBox;
+}
+
+/** Where the paper printed this row's question number (question rows only). */
+export interface SourceLabel {
+  page: number;
+  x: number;
+  top: number;
+  bottom: number;
+}
+
 export interface ExtractedQuestion {
   /** Canonical id — "4", "2(a)", "11(b)(i)". Unique within a paper. */
   ref: string;
@@ -190,7 +211,10 @@ export interface ExtractedQuestion {
   tableData: TableData | null;
   sectionName: string | null;
   sourcePage: number;
+  /** The first source region's box (kept for single-box consumers). */
   sourceBBox: BBox | null;
+  sourceRegions: SourceRegion[];
+  sourceLabel: SourceLabel | null;
   /** Filled in by the join stage. */
   markScheme: string | null;
   correctAnswer: string | null;

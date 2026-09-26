@@ -166,5 +166,7 @@ export const cambridgeProfile: BoardProfile = {
     /^\s*(NIGRAM|SIHT|ETIRW|TON|OD|NI)\s*$/m, // reversed margin text
   ],
 
+  trailingMatter: [/^\s*Permission\s+to\s+reproduce\s+items/i],
+
   figureRefs: /\b(Fig|Figure|Table)\.?\s*\d+(\.\d+)?\b/i,
 };

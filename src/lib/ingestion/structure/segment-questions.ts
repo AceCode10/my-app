@@ -1,6 +1,7 @@
 import type { BoardProfile } from '../profiles/types';
 import { displayOrderFor, formatPartLabel, formatQuestionId, parentQuestionId } from '../question-id';
-import type { BBox, ExtractedQuestion, ParsedDocument, ParsedLine, ParsedPage } from '../types';
+import type { BBox, ExtractedQuestion, ParsedDocument, ParsedLine, ParsedPage, SourceLabel } from '../types';
+import { computeRegions, questionGutter } from './regions';
 
 /**
  * Deterministic question segmentation from line geometry.
@@ -55,7 +56,7 @@ function flattenLines(pages: ParsedPage[]): FlatLine[] {
   return out;
 }
 
-function isFurniture(text: string, profile: BoardProfile): boolean {
+export function isFurniture(text: string, profile: BoardProfile): boolean {
   const trimmed = text.trim();
   if (!trimmed) return true;
   // A lone page number.
@@ -314,16 +315,6 @@ function cleanBody(lines: ParsedLine[], profile: BoardProfile): string {
   return kept.join('\n').trim();
 }
 
-function unionBBox(lines: ParsedLine[]): BBox | null {
-  if (lines.length === 0) return null;
-  return [
-    Math.min(...lines.map((l) => l.x0)),
-    Math.min(...lines.map((l) => l.top)),
-    Math.max(...lines.map((l) => l.x1)),
-    Math.max(...lines.map((l) => l.bottom)),
-  ];
-}
-
 /**
  * Remove the leading label from a block's first line: "3 A company uses..." ->
  * "A company uses...", "(a) Explain..." -> "Explain...".
@@ -366,13 +357,17 @@ export function segmentQuestions(
   const questions: ExtractedQuestion[] = [];
   let currentNumber: number | null = null;
   let currentPart: string | null = null;
+  // Left edge of the current question's source regions, right of its number.
+  let currentGutter: number | null = null;
+  const furniture = (text: string) => isFurniture(text, profile);
 
   for (let i = 0; i < anchors.length; i += 1) {
     const anchor = anchors[i];
     const next = anchors[i + 1];
     const endIndex = next ? next.index : flat.length;
 
-    const blockLines = flat.slice(anchor.index, endIndex).map((f) => f.line);
+    const blockEntries = flat.slice(anchor.index, endIndex);
+    const blockLines = blockEntries.map((f) => f.line);
     if (blockLines.length === 0) continue;
 
     let ref: string;
@@ -405,13 +400,39 @@ export function segmentQuestions(
       ref = formatQuestionId(currentNumber, currentPart, anchor.text);
     }
 
+    // Rows that print a question number start a new gutter and get a label.
+    const printsNumber = anchor.kind === 'question' || anchor.explicitQuestionNumber !== undefined;
+    let sourceLabel: SourceLabel | null = null;
+    if (printsNumber) {
+      const numberText =
+        anchor.line.text.match(/^\s*(\d[\d\s.]*?)\s+(?=[^\d\s.])/)?.[1] ?? String(currentNumber);
+      const bodyStartXs = blockEntries
+        .slice(1)
+        .filter((e) => e.page === anchor.page && !furniture(e.line.text) && e.line.x0 > anchor.line.x0 + 2)
+        .map((e) => e.line.x0);
+      if (next && next.page === anchor.page && next.kind !== 'question') bodyStartXs.push(next.line.x0);
+      currentGutter = questionGutter(anchor.line, numberText, bodyStartXs);
+      sourceLabel = { page: anchor.page, x: anchor.line.x0, top: anchor.line.top, bottom: anchor.line.bottom };
+    }
+    const sourceRegions = computeRegions({
+      block: blockEntries,
+      next: next ? { line: next.line, page: next.page } : null,
+      pages: document.pages,
+      isFurniture: furniture,
+      trailingMatter: profile.trailingMatter,
+      gutterX: currentGutter ?? anchor.line.x0,
+    });
+
     const rawText = blockLines.map((l) => l.text).join('\n');
     const marks = extractMarks(rawText, profile);
     const body = stripLeadingLabel(cleanBody(blockLines, profile));
 
     // Attach only figures that fall inside this block's own vertical span, so a
-    // question cannot claim a figure belonging to the one after it.
-    const blockBottom = Math.max(...blockLines.map((l) => l.bottom));
+    // question cannot claim a figure belonging to the one after it. Only lines
+    // on the anchor page count: coordinates from later pages are not comparable.
+    const blockBottom = Math.max(
+      ...blockEntries.filter((e) => e.page === anchor.page).map((e) => e.line.bottom),
+    );
     const figures = document.pages
       .filter((p) => p.index === anchor.page)
       .flatMap((p) => p.figures)
@@ -442,7 +463,9 @@ export function segmentQuestions(
       tableData: null,
       sectionName: null,
       sourcePage: anchor.page,
-      sourceBBox: unionBBox(blockLines),
+      sourceBBox: sourceRegions.find((r) => r.page === anchor.page)?.bbox ?? sourceRegions[0]?.bbox ?? null,
+      sourceRegions,
+      sourceLabel,
       markScheme: null,
       correctAnswer: null,
       figures,

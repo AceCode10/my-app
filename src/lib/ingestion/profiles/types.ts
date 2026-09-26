@@ -95,6 +95,11 @@ export interface BoardProfile {
   markScheme: MarkSchemeRules;
   /** Lines matching any of these are page furniture, not question content. */
   pageFurniture: RegExp[];
+  /**
+   * Lines that start end-of-paper matter (copyright acknowledgements). Nothing
+   * from such a line onward belongs to the last question's source region.
+   */
+  trailingMatter?: RegExp[];
   /** Matches an in-text figure reference, e.g. "Fig. 12.1". */
   figureRefs: RegExp;
   /** Last-resort per-type mark guesses. Only used when no mark tag was found. */
