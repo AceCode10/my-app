@@ -111,7 +111,7 @@ export async function convertPdfToImages(
  */
 let pdfjsLibCache: any = null;
 
-async function loadPdfJs(): Promise<any> {
+export async function loadPdfJs(): Promise<any> {
   if (pdfjsLibCache) {
     return pdfjsLibCache;
   }

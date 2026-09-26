@@ -65,6 +65,9 @@ import rehypeKatex from 'rehype-katex';
 import { TestPDFExport } from '@/components/teacher/test-pdf-export';
 import { ExamQuestionCard } from '@/components/teacher/exam-question-card';
 import { baseQuestionNumber, groupByTopLevelQuestion } from '@/lib/test-builder/question-groups';
+import { SourceRegionView } from '@/components/questions/source-region-view';
+import { toSourceQuestion } from '@/lib/pdf/source-mode';
+import { allowPastPaperContent } from '@/lib/test-generation/policy';
 import {
   DndContext,
   closestCenter,
@@ -155,6 +158,27 @@ interface TestSettings {
 }
 
 // Sortable wrapper for ExamQuestionCard
+// Answers for a question shown as printed in the original paper, which has no
+// per-part text rows to attach them to.
+function SourceAnswers({ rows }: { rows: Question[] }) {
+  const answered = rows.filter(q => q.correct_answer);
+  if (answered.length === 0) return null;
+  return (
+    <div className="p-2 bg-green-50 dark:bg-green-950 rounded text-sm space-y-1">
+      {answered.map(q => (
+        <div key={q.id}>
+          <span className="font-medium text-green-700 dark:text-green-300">
+            {q.part_label ? `(${q.part_label.replace('(', ')(')}) ` : ''}Answer:{' '}
+          </span>
+          <span className="text-green-600 dark:text-green-400">
+            {typeof q.correct_answer === 'string' ? q.correct_answer : JSON.stringify(q.correct_answer)}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function SortableQuestionCard({
   id,
   question,
@@ -658,6 +682,52 @@ export default function TestBuilderPage() {
     
     return result;
   }, [filteredQuestions, questions]);
+
+  // Question paper PDFs for past-paper questions in the test or the preview,
+  // so they can be shown exactly as printed.
+  const sourcePaperIds = useMemo(() => {
+    const ids = new Set<string>();
+    testQuestions.forEach(tq => { if (tq.question?.paper_id && tq.question.source_regions?.length) ids.add(tq.question.paper_id); });
+    // A preview may open on a context row without regions of its own.
+    if (previewQuestion?.paper_id) ids.add(previewQuestion.paper_id);
+    return Array.from(ids).sort();
+  }, [testQuestions, previewQuestion]);
+
+  const { data: sourcePaperUrls } = useQuery({
+    queryKey: ['source-paper-urls', sourcePaperIds],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('past_papers')
+        .select('id, question_paper_url, paper_url')
+        .in('id', sourcePaperIds);
+      const urls = new Map<string, string>();
+      (data ?? []).forEach((p: any) => {
+        const url = p.question_paper_url || p.paper_url;
+        if (url) urls.set(p.id, url);
+      });
+      return urls;
+    },
+    enabled: sourcePaperIds.length > 0,
+    staleTime: 10 * 60 * 1000,
+  });
+
+  // The original-paper view of a question tree, or null to show the text view.
+  // In-app display of past-paper content is always allowed (policy.ts).
+  function sourceViewFor(rows: Question[]) {
+    if (!sourcePaperUrls) return null;
+    return toSourceQuestion(
+      0,
+      rows.map(q => ({
+        marks: q.marks,
+        stem: q.stem_markdown || q.stem_md,
+        paper_id: q.paper_id,
+        exam_board_id: q.exam_board_id,
+        source_regions: q.source_regions,
+        source_label: q.source_label,
+      })),
+      { paperUrls: sourcePaperUrls, licensedBoards: () => allowPastPaperContent(null, 'in_app') },
+    );
+  }
 
   // Get all selected question IDs
   const selectedQuestionIds = useMemo(() => {
@@ -1774,7 +1844,10 @@ export default function TestBuilderPage() {
                               </div>
                             </div>
                             
-                            {/* Question Parts */}
+                            {/* Question Parts: as printed in the original paper when
+                                we have its source regions, otherwise rebuilt from text */}
+                            {(() => {
+                            const partsList = (
                             <div className="p-4 space-y-4">
                               {groupQuestions.map((tq, partIndex) => {
                                 const question = tq.question;
@@ -1860,6 +1933,22 @@ export default function TestBuilderPage() {
                                 );
                               })}
                             </div>
+                            );
+                            const rows = groupQuestions.map(tq => tq.question).filter((q): q is Question => !!q);
+                            const source = sourceViewFor(rows);
+                            if (!source) return partsList;
+                            return (
+                              <div className="p-4 space-y-3">
+                                <SourceRegionView
+                                  pdfUrl={source.pdfUrl}
+                                  regions={source.regions}
+                                  label={source.label}
+                                  fallback={partsList}
+                                />
+                                {showAnswerKey && <SourceAnswers rows={rows} />}
+                              </div>
+                            );
+                            })()}
                           </div>
                         );
                       })}
@@ -2050,8 +2139,9 @@ export default function TestBuilderPage() {
                   (!p.parent_question_id && relatedParts.length > 1 && relatedParts.some(r => r.parent_question_id === p.id))
                 );
                 const answerableParts = relatedParts.filter(p => p.marks > 0 || p.part_label);
-                
-                return (
+                const source = sourceViewFor(relatedParts);
+
+                const textView = (
                   <>
                     {/* Context/Stem (if exists) */}
                     {contextPart && (
@@ -2141,7 +2231,22 @@ export default function TestBuilderPage() {
                         </div>
                       </div>
                     ))}
-                    
+                  </>
+                );
+
+                return (
+                  <>
+                    {source ? (
+                      <div className="border rounded-lg p-4 bg-white">
+                        <SourceRegionView
+                          pdfUrl={source.pdfUrl}
+                          regions={source.regions}
+                          label={source.label}
+                          fallback={textView}
+                        />
+                      </div>
+                    ) : textView}
+
                     {/* Answer Key */}
                     {answerableParts.some(p => p.correct_answer) && (
                       <div className="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">

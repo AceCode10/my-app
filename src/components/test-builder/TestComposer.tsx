@@ -193,6 +193,9 @@ function SortableQuestionItem({
 
   const question = assessmentQuestion.question;
   const marks = assessmentQuestion.custom_marks || question?.marks || 0;
+  // Past-paper questions print from the original paper, marks included, so
+  // changing them here would not change what students see.
+  const printsFromSource = ((question as { source_regions?: unknown[] | null } | undefined)?.source_regions?.length ?? 0) > 0;
 
   return (
     <div
@@ -248,6 +251,10 @@ function SortableQuestionItem({
                     Save
                   </Button>
                 </div>
+              ) : printsFromSource ? (
+                <Badge variant="secondary" title="Marks are printed in the original paper and cannot be changed">
+                  {marks} {marks === 1 ? 'mark' : 'marks'}
+                </Badge>
               ) : (
                 <Badge
                   variant="secondary"

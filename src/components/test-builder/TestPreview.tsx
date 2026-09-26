@@ -8,6 +8,9 @@ import { Clock, Calculator, Shuffle, Eye } from 'lucide-react';
 import type { Assessment, AssessmentQuestion, Question } from '@/types/assessment';
 import { cn } from '@/lib/utils';
 import { groupByTopLevelQuestion } from '@/lib/test-builder/question-groups';
+import { SourceRegionView, useSourcePaperUrls } from '@/components/questions/source-region-view';
+import { toSourceQuestion } from '@/lib/pdf/source-mode';
+import type { Label, Region } from '@/lib/pdf/compose-test-pdf';
 
 interface TestPreviewProps {
   assessment: Partial<Assessment>;
@@ -21,6 +24,9 @@ interface ExtendedQuestion extends Question {
   parent_question_id?: string | null;
   question_number?: string | number;
   part_label?: string | null;
+  paper_id?: string | null;
+  source_regions?: Region[] | null;
+  source_label?: Label | null;
 }
 
 // A top-level question with its parts, numbered by position in the test
@@ -65,6 +71,9 @@ function groupQuestionsByNumber(questions: (AssessmentQuestion & { question: Que
 
 export function TestPreview({ assessment, questions }: TestPreviewProps) {
   const questionGroups = groupQuestionsByNumber(questions);
+  const paperUrls = useSourcePaperUrls(
+    questions.map(aq => ((aq.question as ExtendedQuestion)?.source_regions?.length ? (aq.question as ExtendedQuestion).paper_id : null)),
+  );
   
   const totalMarks = questions.reduce((sum, q) => {
     return sum + (q.custom_marks || q.question?.marks || 0);
@@ -159,6 +168,7 @@ export function TestPreview({ assessment, questions }: TestPreviewProps) {
                     key={`group-${group.questionNumber}`}
                     group={group}
                     groupIndex={groupIndex}
+                    paperUrls={paperUrls}
                   />
                 ))
               )}
@@ -196,11 +206,43 @@ function getQuestionTypeLabel(type: string) {
 // Renders a group of related question parts together
 function QuestionGroupPreview({
   group,
-  groupIndex
+  groupIndex,
+  paperUrls
 }: {
   group: QuestionGroup;
   groupIndex: number;
+  paperUrls: Map<string, string> | null;
 }) {
+  // Show the question as printed in its original paper, unless a teacher has
+  // reworded a part (the original would no longer match).
+  const source =
+    paperUrls && !group.parts.some(aq => aq.custom_question_text)
+      ? toSourceQuestion(
+          groupIndex + 1,
+          group.parts.map(aq => ({
+            marks: aq.custom_marks || aq.question?.marks || 0,
+            stem: aq.question?.stem_markdown,
+            paper_id: aq.question?.paper_id,
+            exam_board_id: aq.question?.exam_board_id,
+            source_regions: aq.question?.source_regions,
+            source_label: aq.question?.source_label,
+          })),
+          { paperUrls, licensedBoards: () => true },
+        )
+      : null;
+
+  const partsList = (
+    <div className="divide-y">
+      {group.parts.map((aq, partIndex) => (
+        <QuestionPartPreview
+          key={aq.id || partIndex}
+          assessmentQuestion={aq}
+          isContext={!isAnswerablePart(aq)}
+        />
+      ))}
+    </div>
+  );
+
   return (
     <div className="border rounded-lg overflow-hidden">
       {/* Group Header */}
@@ -219,15 +261,16 @@ function QuestionGroupPreview({
       </div>
 
       {/* Question Parts */}
-      <div className="divide-y">
-        {group.parts.map((aq, partIndex) => (
-          <QuestionPartPreview
-            key={aq.id || partIndex}
-            assessmentQuestion={aq}
-            isContext={!isAnswerablePart(aq)}
+      {source ? (
+        <div className="p-4 bg-white">
+          <SourceRegionView
+            pdfUrl={source.pdfUrl}
+            regions={source.regions}
+            label={source.label}
+            fallback={partsList}
           />
-        ))}
-      </div>
+        </div>
+      ) : partsList}
     </div>
   );
 }
