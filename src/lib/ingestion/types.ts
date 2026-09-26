@@ -189,6 +189,8 @@ export interface SourceRegion {
 export interface SourceLabel {
   page: number;
   x: number;
+  /** Estimated right edge of the printed number (word boxes are not available). */
+  right: number;
   top: number;
   bottom: number;
 }

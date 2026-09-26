@@ -1,7 +1,7 @@
 import type { BoardProfile } from '../profiles/types';
 import { displayOrderFor, formatPartLabel, formatQuestionId, parentQuestionId } from '../question-id';
 import type { BBox, ExtractedQuestion, ParsedDocument, ParsedLine, ParsedPage, SourceLabel } from '../types';
-import { computeRegions, questionGutter } from './regions';
+import { computeRegions, labelRight, questionGutter } from './regions';
 
 /**
  * Deterministic question segmentation from line geometry.
@@ -412,7 +412,13 @@ export function segmentQuestions(
         .map((e) => e.line.x0);
       if (next && next.page === anchor.page && next.kind !== 'question') bodyStartXs.push(next.line.x0);
       currentGutter = questionGutter(anchor.line, numberText, bodyStartXs);
-      sourceLabel = { page: anchor.page, x: anchor.line.x0, top: anchor.line.top, bottom: anchor.line.bottom };
+      sourceLabel = {
+        page: anchor.page,
+        x: anchor.line.x0,
+        right: Math.round(labelRight(anchor.line, numberText) * 100) / 100,
+        top: anchor.line.top,
+        bottom: anchor.line.bottom,
+      };
     }
     const sourceRegions = computeRegions({
       block: blockEntries,

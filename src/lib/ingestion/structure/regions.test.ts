@@ -55,8 +55,8 @@ describe('source regions', () => {
 
     expect(q.get('1')!.sourceRegions).toHaveLength(1);
     const [x0, top, x1, bottom] = q.get('1')!.sourceRegions[0].bbox;
-    expect(top).toBeCloseTo(57);
-    expect(bottom).toBeCloseTo(189); // next anchor top (195) - 6
+    expect(top).toBeCloseTo(62.5);
+    expect(bottom).toBeCloseTo(193); // next anchor top (195) - 2
     expect(x1).toBeGreaterThanOrEqual(544);
     // Gutter: right of the printed "1", left of the body text at 72.3.
     expect(x0).toBeGreaterThan(55);
@@ -106,7 +106,7 @@ describe('source regions', () => {
     expect(regions.map((r) => r.page)).toEqual([0, 1]);
     expect(regions[0].bbox[3]).toBeLessThan(792); // above the footer
     expect(regions[1].bbox[1]).toBeGreaterThan(36); // below the "2" page header
-    expect(regions[1].bbox[3]).toBeCloseTo(194); // next anchor - 6
+    expect(regions[1].bbox[3]).toBeCloseTo(198); // next anchor - 2
   });
 
   it('skips a blank page and stops at the permissions notice', () => {
@@ -122,6 +122,22 @@ describe('source regions', () => {
     );
 
     expect(q.get('1')!.sourceRegions.map((r) => r.page)).toEqual([0]);
+  });
+
+  it('keeps a barcode-font header line out of a region at the top of a page', () => {
+    const q = byRef(
+      doc([
+        page(0, [line('1 First question.', 49.6, 63), line('[1]', 530, 100, 544)]),
+        page(1, [
+          { text: ',     ,', x0: 66, x1: 240, top: 54.1, bottom: 59.1 },
+          line('2 Teachers at a school store records.', 49.6, 63.8),
+          line('[2]', 530, 120, 544),
+        ]),
+      ]),
+    );
+    const top = q.get('2')!.sourceRegions[0].bbox[1];
+    expect(top).toBeGreaterThan(59.1);
+    expect(top).toBeLessThan(63.8);
   });
 
   it('pulls a figure below the last text line into the region', () => {

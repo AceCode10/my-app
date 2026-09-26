@@ -13,8 +13,19 @@ import type { BBox, ParsedLine, ParsedPage, SourceRegion } from '../types';
  * computed per page and inside the page's content frame instead.
  */
 
-/** Space kept above an anchor line, and left between consecutive rows. */
-const ANCHOR_PAD = 6;
+/** Space kept above an anchor line (rows still tile: the row above ends here). */
+const ANCHOR_PAD = 2;
+/**
+ * Near the top of a page the pad shrinks: Cambridge prints a page barcode
+ * (y 54-59) as little as 1.7pt above a question starting at the top, and
+ * pdfplumber drops the barcode glyphs, so nothing else marks where it ends.
+ */
+const TOP_OF_PAGE_ANCHOR_PAD = 0.5;
+const TOP_OF_PAGE = 100;
+
+function anchorPad(top: number): number {
+  return top < TOP_OF_PAGE ? TOP_OF_PAGE_ANCHOR_PAD : ANCHOR_PAD;
+}
 /** Padding around content-derived edges. */
 const EDGE_PAD = 4;
 /** Header and footer furniture only counts inside these bands. */
@@ -48,7 +59,9 @@ export function pageFrame(page: ParsedPage, isFurniture: (text: string) => boole
   let contentRight = 0;
 
   for (const line of page.lines) {
-    if (!isFurniture(line.text)) continue;
+    // Cambridge draws its page barcode in a barcode font, which extracts as
+    // punctuation (", ,"), so symbol-only lines at the edges count too.
+    if (!isFurniture(line.text) && /[A-Za-z0-9]/.test(line.text)) continue;
     if (line.bottom <= HEADER_BAND) contentTop = Math.max(contentTop, line.bottom + 2);
     else if (line.top >= page.height - FOOTER_BAND) contentBottom = Math.min(contentBottom, line.top - 2);
   }
@@ -75,16 +88,24 @@ function contentBoxes(page: ParsedPage): BBox[] {
 }
 
 /**
+ * Right edge of a printed question number. Line objects from /v2/extract carry
+ * no word boxes, so the width is estimated from the line height (digits are
+ * ~0.6 em wide in the sans faces boards use).
+ */
+export function labelRight(anchor: ParsedLine, numberText: string): number {
+  const lineHeight = Math.max(6, anchor.bottom - anchor.top);
+  return anchor.x0 + numberText.length * lineHeight * 0.6;
+}
+
+/**
  * Left edge of the regions for a question: just right of its printed number,
- * and never right of where its own text starts. Line objects from /v2/extract
- * carry no word boxes, so the number's width is estimated from the line height
- * (digits are ~0.6 em wide in the sans faces boards use).
+ * and never right of where its own content starts. When content (a wide table)
+ * starts left of the number's end, the number stays inside the region and
+ * renderers paint it out using the label box instead.
  */
 export function questionGutter(anchor: ParsedLine, numberText: string, bodyStartXs: number[]): number {
-  const lineHeight = Math.max(6, anchor.bottom - anchor.top);
-  const labelRight = anchor.x0 + numberText.length * lineHeight * 0.6;
   const bodyStart = bodyStartXs.length > 0 ? Math.min(...bodyStartXs) : Infinity;
-  return Math.min(labelRight + 4, bodyStart - 1);
+  return Math.min(labelRight(anchor, numberText) + 4, bodyStart - 1);
 }
 
 export interface RegionInput {
@@ -138,7 +159,7 @@ export function computeRegions(input: RegionInput): SourceRegion[] {
     const limit = Math.min(nextOnPage ?? Infinity, trailingOnPage ?? Infinity, frame.contentBottom);
 
     const firstTop = Math.min(...lines.map((l) => l.top));
-    let top = isAnchorPage ? anchorEntry.line.top - ANCHOR_PAD : firstTop - EDGE_PAD;
+    let top = isAnchorPage ? anchorEntry.line.top - anchorPad(anchorEntry.line.top) : firstTop - anchorPad(firstTop);
 
     // Figures and tables are not text lines; pull them in when they sit in
     // this row's vertical span on this page.
@@ -150,7 +171,7 @@ export function computeRegions(input: RegionInput): SourceRegion[] {
 
     let bottom: number;
     if (nextOnPage !== null) {
-      bottom = nextOnPage - ANCHOR_PAD;
+      bottom = nextOnPage - anchorPad(nextOnPage);
     } else {
       const contentBottom = Math.max(
         ...lines.map((l) => l.bottom),

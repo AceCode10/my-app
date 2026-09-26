@@ -31,6 +31,8 @@ export interface Region {
 export interface Label {
   page: number;
   x: number;
+  /** Right edge of the printed number; painted out when inside the region. */
+  right?: number;
   top: number;
   bottom: number;
 }
@@ -262,6 +264,22 @@ async function drawSourceRun(
 
     const label = question.label;
     if (label && label.page === region.page && label.top >= top - 1 && label.top <= bottom) {
+      // Content that starts left of the number's end keeps the number inside
+      // the region; cover it so only the test's number shows.
+      // The right edge is an estimate, so the mask runs a few points past it;
+      // on the label's own line the question text starts well to the right.
+      if (label.right !== undefined && label.right + 4 > x0) {
+        // Start left of the clip edge too: viewers anti-alias the clip, and a
+        // mask that stops exactly on it leaves a hairline of the old number.
+        const left = Math.min(x0, label.x) - 1;
+        target.drawRectangle({
+          x: placement.x + s * (left - x0),
+          y: targetTop - s * (label.bottom + 1.5 - top),
+          width: s * (label.right + 4 - left),
+          height: s * (label.bottom - label.top + 3),
+          color: rgb(1, 1, 1),
+        });
+      }
       const baseline = targetTop - s * (label.top - top) - s * (label.bottom - label.top) * 0.82;
       target.drawText(String(question.number), {
         x: Math.max(18, placement.x - s * (x0 - label.x)),
