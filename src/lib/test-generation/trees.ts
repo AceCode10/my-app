@@ -62,6 +62,24 @@ export function flattenTree(node: QuestionNode): QuestionNode[] {
 }
 
 /**
+ * Every node of a tree with the marks it contributes, parent before children.
+ *
+ * Mirrors computeTreeMarks so the rows always sum to the tree's marks: a
+ * parent whose children carry marks is a context row worth 0 (its own column
+ * is a denormalised total); a parent whose children carry none keeps its marks
+ * and the children become context rows worth 0.
+ */
+export function allocateRowMarks(node: QuestionNode): { node: QuestionNode; marks: number }[] {
+  if (node.children.length === 0) return [{ node, marks: node.marks }];
+
+  const childSum = node.children.reduce((sum, c) => sum + computeTreeMarks(c), 0);
+  if (childSum > 0) {
+    return [{ node, marks: 0 }, ...node.children.flatMap(allocateRowMarks)];
+  }
+  return flattenTree(node).map((n, i) => ({ node: n, marks: i === 0 ? node.marks : 0 }));
+}
+
+/**
  * Mark-weighted dominant difficulty. A tree whose marks sit mostly in a hard
  * final part is a hard question, even if it opens with two easy recall parts.
  */
@@ -136,10 +154,16 @@ export function buildTrees(
     }
   }
 
-  // Stable ordering everywhere: display order, then id. Postgres makes no row
+  // Stable ordering everywhere: display order, then part label (so (a) comes
+  // before (b) when display_order is missing), then id. Postgres makes no row
   // order guarantee, and the solver's determinism depends on this.
   const sortNodes = (list: QuestionNode[]) => {
-    list.sort((a, b) => a.displayOrder - b.displayOrder || a.id.localeCompare(b.id));
+    list.sort(
+      (a, b) =>
+        a.displayOrder - b.displayOrder ||
+        (a.partLabel ?? '').localeCompare(b.partLabel ?? '') ||
+        a.id.localeCompare(b.id),
+    );
     for (const n of list) sortNodes(n.children);
   };
   sortNodes(roots);

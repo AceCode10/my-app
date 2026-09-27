@@ -10,6 +10,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { GenerationError } from './errors';
+import { allocateRowMarks } from './trees';
 import type { SolverResult, TestSpec } from './types';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -103,6 +104,48 @@ export async function persistGeneratedTest(
 }
 
 /**
+ * assessment_questions rows for a solved test: every row of every selected
+ * tree (context stem, parts, sub-parts), parent before children, each with the
+ * marks it carries. This is what the manual builder stores, and what the
+ * editor, preview and PDF export read: they group rows by parent_question_id
+ * and do not fetch missing parts. Storing only the root, with the whole
+ * tree's marks, printed a stem with no parts.
+ */
+export function buildAssessmentQuestionRows(
+  assessmentId: string,
+  result: SolverResult,
+): Record<string, unknown>[] {
+  const rows: Record<string, unknown>[] = [];
+  const treesById = new Map(result.trees.map((t) => [t.root.id, t]));
+  let order = 1;
+
+  for (const section of result.sections) {
+    for (const treeId of section.treeIds) {
+      const tree = treesById.get(treeId);
+      // A tree id the solver did not return would be a solver bug; keep the
+      // root rather than lose the question.
+      const entries = tree
+        ? allocateRowMarks(tree.root).map(({ node, marks }) => ({ id: node.id, marks }))
+        : [{ id: treeId, marks: null }];
+
+      for (const entry of entries) {
+        rows.push({
+          assessment_id: assessmentId,
+          question_id: entry.id,
+          question_order: order,
+          section_name: section.name,
+          section_instructions: section.instructions,
+          custom_marks: entry.marks,
+        });
+        order += 1;
+      }
+    }
+  }
+
+  return rows;
+}
+
+/**
  * One insert for the whole paper.
  *
  * The per-question path in TestBuilderService recalculates the mark total on
@@ -114,26 +157,7 @@ async function insertQuestions(
   assessmentId: string,
   result: SolverResult,
 ): Promise<void> {
-  const rows: Record<string, unknown>[] = [];
-  let order = 1;
-
-  for (const section of result.sections) {
-    for (const treeId of section.treeIds) {
-      const tree = result.trees.find((t) => t.root.id === treeId);
-      rows.push({
-        assessment_id: assessmentId,
-        // Only roots are stored. Parts resolve through parent_question_id, the
-        // same way hand-built multi-part tests already work.
-        question_id: treeId,
-        question_order: order,
-        section_name: section.name,
-        section_instructions: section.instructions,
-        custom_marks: tree?.marks ?? null,
-      });
-      order += 1;
-    }
-  }
-
+  const rows = buildAssessmentQuestionRows(assessmentId, result);
   if (rows.length === 0) return;
 
   const { error } = await supabase.from('assessment_questions').insert(rows);
