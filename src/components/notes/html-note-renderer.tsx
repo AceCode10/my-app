@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { List, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { SectionCheckpoints } from './note-checkpoint';
 
 interface HtmlNoteRendererProps {
   html: string;
@@ -14,6 +15,14 @@ interface TocEntry {
   num: string;
   label: string;
 }
+
+/**
+ * The note body, cut into the `<div class="section">` cards it is built from so
+ * the exam-practice block for a section can be rendered straight after it.
+ */
+type NoteSegment =
+  | { kind: 'html'; key: string; html: string }
+  | { kind: 'section'; key: string; id: string; title: string; html: string };
 
 /**
  * Styles for teacher-authored note HTML (self-contained documents with their own
@@ -441,6 +450,200 @@ const NOTE_STYLES = `
 .ict-note svg [text-anchor="middle"] { text-anchor: middle; }
 .ict-note svg [text-anchor="end"] { text-anchor: end; }
 
+/* ------------------------------------------------- EXAM PRACTICE CHECKPOINTS */
+.ict-note .cp-block {
+  margin: -1.75rem 0 2.5rem;
+  border: 1px solid #c8d6e5;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #f7fafd;
+}
+.ict-note .cp-block-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1.1rem;
+  background: #eaf1f9;
+  border: none;
+  border-bottom: 1px solid #c8d6e5;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: var(--note-h1);
+}
+.ict-note .cp-block-head:hover { background: #e1ebf6; }
+.ict-note .cp-block-title { display: flex; flex-direction: column; gap: 0.15rem; font-weight: 700; font-size: 0.95rem; }
+.ict-note .cp-block-kicker {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--note-accent);
+}
+.ict-note .cp-block-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--note-text-light);
+  white-space: nowrap;
+}
+.ict-note .cp-chev { transition: transform 0.15s ease; display: inline-block; }
+.ict-note .cp-chev.is-open { transform: rotate(180deg); }
+.ict-note .cp-block-body { padding: 1rem 1.1rem 1.25rem; }
+.ict-note .cp-block-note {
+  font-size: 0.76rem;
+  color: var(--note-text-light);
+  background: #fff;
+  border-left: 3px solid var(--note-h3);
+  border-radius: 0 6px 6px 0;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 1rem;
+}
+.ict-note .cp-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 1rem; }
+.ict-note .cp-card {
+  background: var(--note-card);
+  border: 1px solid var(--note-border);
+  border-radius: 8px;
+  padding: 0.9rem 1rem 1rem;
+}
+.ict-note .cp-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+.ict-note .cp-source { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.03em; color: var(--note-h3); }
+.ict-note .cp-marks {
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: #eef2f7;
+  color: var(--note-h1);
+  border-radius: 100px;
+  padding: 0.15rem 0.55rem;
+}
+.ict-note .cp-stem { font-size: 0.88rem; font-weight: 600; color: var(--note-h1); margin-bottom: 0.6rem; }
+.ict-note .cp-options {
+  background: var(--note-bg-page);
+  border: 1px dashed var(--note-border);
+  border-radius: 6px;
+  padding: 0.6rem 0.85rem;
+  margin-bottom: 0.75rem;
+}
+.ict-note .cp-options .label {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--note-text-light);
+}
+.ict-note .cp-options ul { list-style: none; padding: 0; margin: 0.35rem 0 0; display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.ict-note .cp-options li {
+  background: #fff;
+  border: 1px solid var(--note-border);
+  border-radius: 100px;
+  padding: 0.15rem 0.6rem;
+  font-size: 0.78rem;
+  margin: 0;
+}
+.ict-note .cp-parts { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.9rem; }
+.ict-note .cp-part { margin: 0; }
+.ict-note .cp-prompt { font-size: 0.86rem; margin-bottom: 0.4rem; }
+.ict-note .cp-part-label { font-weight: 800; margin-right: 0.35rem; color: var(--note-h1); }
+.ict-note .cp-part-marks { font-weight: 700; color: var(--note-text-light); margin-left: 0.4rem; }
+.ict-note .cp-answer { display: flex; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.35rem; }
+.ict-note .cp-slot-num { font-size: 0.8rem; font-weight: 700; color: var(--note-text-light); padding-top: 0.5rem; }
+.ict-note .cp-answer textarea {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--note-text);
+  background: #fff;
+  border: 1px solid var(--note-border);
+  border-radius: 6px;
+  padding: 0.45rem 0.6rem;
+  resize: vertical;
+}
+.ict-note .cp-answer textarea:focus {
+  outline: 2px solid var(--note-h3);
+  outline-offset: -1px;
+  border-color: var(--note-h3);
+}
+.ict-note .cp-scheme {
+  margin-top: 0.6rem;
+  background: var(--note-adv-bg);
+  border-left: 3px solid var(--note-adv-border);
+  border-radius: 0 6px 6px 0;
+  padding: 0.6rem 0.85rem;
+}
+.ict-note .cp-scheme .label {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--note-adv-text);
+  margin-bottom: 0.35rem;
+}
+.ict-note .cp-scheme ul { margin: 0; padding-left: 1.1rem; }
+.ict-note .cp-scheme li { font-size: 0.82rem; margin-bottom: 0.25rem; }
+.ict-note .cp-tip {
+  font-size: 0.78rem;
+  background: var(--note-tip-bg);
+  border-left: 3px solid var(--note-tip-border);
+  border-radius: 0 4px 4px 0;
+  padding: 0.4rem 0.6rem;
+  margin: 0.5rem 0 0;
+}
+.ict-note .cp-tip strong { color: #92400e; }
+.ict-note .cp-selfmark { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; margin-top: 0.6rem; font-size: 0.75rem; font-weight: 700; color: var(--note-adv-text); }
+.ict-note .cp-selfmark button {
+  font: inherit;
+  font-size: 0.8rem;
+  min-width: 1.9rem;
+  padding: 0.15rem 0.4rem;
+  border: 1px solid var(--note-adv-border);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--note-adv-text);
+  cursor: pointer;
+}
+.ict-note .cp-selfmark button:hover { background: #e3f3e3; }
+.ict-note .cp-selfmark button.is-selected { background: var(--note-adv-border); border-color: var(--note-adv-border); color: #fff; }
+.ict-note .cp-outof { font-weight: 600; opacity: 0.75; }
+.ict-note .cp-actions { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.9rem; }
+.ict-note .cp-btn {
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.4rem 0.9rem;
+  border-radius: 6px;
+  border: 1px solid var(--note-border);
+  background: #fff;
+  color: var(--note-h1);
+  cursor: pointer;
+}
+.ict-note .cp-btn:hover { background: var(--note-bg-page); }
+.ict-note .cp-btn-primary { background: var(--note-h2); border-color: var(--note-h2); color: #fff; }
+.ict-note .cp-btn-primary:hover { background: var(--note-h3); }
+.ict-note .cp-nudge { font-size: 0.76rem; color: var(--note-accent); font-weight: 600; }
+.ict-note .cp-score { font-size: 0.85rem; font-weight: 800; padding: 0.2rem 0.65rem; border-radius: 100px; }
+.ict-note .cp-score.is-full { background: var(--note-adv-bg); color: var(--note-adv-text); }
+.ict-note .cp-score.is-ok { background: var(--note-tip-bg); color: #92400e; }
+.ict-note .cp-score.is-low { background: var(--note-dis-bg); color: var(--note-dis-text); }
+@media print {
+  .ict-note .cp-block-body { display: block !important; }
+  .ict-note .cp-answer textarea { min-height: 3rem; }
+}
+
 @media (max-width: 900px) {
   .ict-note .grid-3 { grid-template-columns: 1fr 1fr; }
 }
@@ -477,12 +680,69 @@ function extractToc(html: string): TocEntry[] {
   return entries;
 }
 
+/**
+ * Index just past the `</div>` closing the `<div>` that opens at `openIndex`,
+ * or -1 when the markup never closes it.
+ */
+function findDivClose(html: string, openIndex: number): number {
+  const tagRe = /<div\b|<\/div>/gi;
+  tagRe.lastIndex = openIndex;
+  let depth = 0;
+  let match: RegExpExecArray | null;
+  while ((match = tagRe.exec(html)) !== null) {
+    if (match[0].toLowerCase() === '</div>') {
+      depth -= 1;
+      if (depth === 0) return tagRe.lastIndex;
+    } else {
+      depth += 1;
+    }
+  }
+  return -1;
+}
+
+/** Split the note into its section cards and the markup around them. */
+function splitSections(html: string, toc: TocEntry[]): NoteSegment[] {
+  if (toc.length === 0) return [{ kind: 'html', key: 'all', html }];
+
+  const segments: NoteSegment[] = [];
+  const openRe = /<div class="section" id="([^"]+)">/g;
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = openRe.exec(html)) !== null) {
+    const end = findDivClose(html, match.index);
+    if (end === -1) break;
+
+    if (match.index > cursor) {
+      segments.push({ kind: 'html', key: `pre-${match.index}`, html: html.slice(cursor, match.index) });
+    }
+
+    const entry = toc.find((item) => item.id === match![1]);
+    segments.push({
+      kind: 'section',
+      key: match[1],
+      id: match[1],
+      title: entry ? `${entry.num} ${entry.label}`.trim() : match[1],
+      html: html.slice(match.index, end),
+    });
+
+    cursor = end;
+    openRe.lastIndex = end;
+  }
+
+  if (cursor < html.length) {
+    segments.push({ kind: 'html', key: `post-${cursor}`, html: html.slice(cursor) });
+  }
+  return segments;
+}
+
 export function HtmlNoteRenderer({ html, className }: HtmlNoteRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [tocOpen, setTocOpen] = useState(false);
 
   const toc = useMemo(() => extractToc(html), [html]);
+  const segments = useMemo(() => splitSections(html, toc), [html, toc]);
 
   // Highlight the section currently in view
   useEffect(() => {
@@ -558,11 +818,18 @@ export function HtmlNoteRenderer({ html, className }: HtmlNoteRendererProps) {
         </nav>
       )}
 
-      <div
-        ref={containerRef}
-        className="ict-note min-w-0 flex-1 xl:order-1"
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
+      <div ref={containerRef} className="ict-note min-w-0 flex-1 xl:order-1">
+        {segments.map((segment) =>
+          segment.kind === 'html' ? (
+            <div key={segment.key} dangerouslySetInnerHTML={{ __html: segment.html }} />
+          ) : (
+            <React.Fragment key={segment.key}>
+              <div dangerouslySetInnerHTML={{ __html: segment.html }} />
+              <SectionCheckpoints sectionId={segment.id} sectionTitle={segment.title} />
+            </React.Fragment>
+          )
+        )}
+      </div>
     </div>
   );
 }
