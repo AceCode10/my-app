@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { gradeNumericAnswer } from '@/lib/assessment/numeric-answer';
 
 interface SubmitRequest {
   answers?: {
@@ -371,20 +372,24 @@ function gradeAnswer(
 
   // Calculation/Numeric - with tolerance
   if (questionType === 'calculation' && answer.answer && question.correct_answer) {
-    const studentNum = parseFloat(answer.answer.replace(/[^\d.-]/g, ''));
-    const correctNum = parseFloat(question.correct_answer.replace(/[^\d.-]/g, ''));
+    const grade = gradeNumericAnswer(answer.answer, question.correct_answer);
 
-    if (!isNaN(studentNum) && !isNaN(correctNum)) {
-      const tolerance = 0.01; // 1% tolerance
-      const isCorrect = Math.abs(studentNum - correctNum) <= Math.abs(correctNum * tolerance);
-
+    if (grade.kind === 'review') {
       return {
-        isCorrect,
-        marksAwarded: isCorrect ? marks : 0,
-        needsManualGrading: false,
-        feedback: isCorrect ? 'Correct!' : `Expected: ${correctNum}`
+        isCorrect: false,
+        marksAwarded: 0,
+        needsManualGrading: true,
+        feedback: `Needs teacher review - ${grade.reason}`
       };
     }
+
+    const isCorrect = grade.kind === 'correct';
+    return {
+      isCorrect,
+      marksAwarded: isCorrect ? marks : 0,
+      needsManualGrading: false,
+      feedback: isCorrect ? 'Correct!' : `Expected: ${grade.expected}`
+    };
   }
 
   // Short answer - fuzzy matching

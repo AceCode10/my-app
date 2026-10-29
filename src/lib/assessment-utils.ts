@@ -4,6 +4,7 @@
 // ============================================
 
 import { createClient } from '@/lib/supabase/client';
+import { gradeNumericAnswer } from '@/lib/assessment/numeric-answer';
 import {
   Question,
   QuestionFilters,
@@ -254,23 +255,28 @@ export function autoGradeAnswer({
 
   // Calculation - try numeric comparison
   if (question.question_type === 'calculation' && answer && question.correct_answer) {
-    const studentNum = parseFloat(answer.replace(/[^\d.-]/g, ''));
-    const correctNum = parseFloat(question.correct_answer.replace(/[^\d.-]/g, ''));
+    const grade = gradeNumericAnswer(answer, question.correct_answer);
 
-    if (!isNaN(studentNum) && !isNaN(correctNum)) {
-      // Allow small tolerance for rounding
-      const tolerance = 0.01;
-      const isCorrect = Math.abs(studentNum - correctNum) <= tolerance;
-
+    if (grade.kind === 'review') {
       return {
-        is_correct: isCorrect,
-        marks_awarded: isCorrect ? question.marks : 0,
-        auto_graded: true,
-        needs_manual_grading: false,
-        needs_review: !isCorrect,
-        confidence: isCorrect ? 1.0 : 0.0
+        is_correct: null,
+        marks_awarded: null,
+        auto_graded: false,
+        needs_manual_grading: true,
+        needs_review: true,
+        confidence: 0.0
       };
     }
+
+    const isCorrect = grade.kind === 'correct';
+    return {
+      is_correct: isCorrect,
+      marks_awarded: isCorrect ? question.marks : 0,
+      auto_graded: true,
+      needs_manual_grading: false,
+      needs_review: !isCorrect,
+      confidence: isCorrect ? 1.0 : 0.0
+    };
   }
 
   // Essay, fill-in-blank, or anything else - needs manual grading

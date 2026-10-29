@@ -10,6 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { gradeNumericAnswer } from '@/lib/assessment/numeric-answer';
 
 // Use service role key for admin operations
 const supabaseAdmin = createClient(
@@ -265,11 +266,9 @@ function gradeAnswer(question: any, answer: any): {
 
   // Calculation
   if (questionType === 'calculation' && answer.answer && question.correct_answer) {
-    const studentNum = parseFloat(answer.answer.replace(/[^\d.-]/g, ''));
-    const correctNum = parseFloat(question.correct_answer.replace(/[^\d.-]/g, ''));
-    
-    if (!isNaN(studentNum) && !isNaN(correctNum)) {
-      const isCorrect = Math.abs(studentNum - correctNum) <= Math.abs(correctNum * 0.01);
+    const grade = gradeNumericAnswer(answer.answer, question.correct_answer);
+    if (grade.kind !== 'review') {
+      const isCorrect = grade.kind === 'correct';
       return { isCorrect, marksAwarded: isCorrect ? marks : 0, needsManualGrading: false };
     }
   }
