@@ -129,7 +129,7 @@ describe('ICT 0417 note content', () => {
         'badge-storage', 'badge-direct', 'adv-dis', 'full', 'adv-box',
         'dis-box', 'label', 'note', 'table-wrap', 'comp-table', 'uses-box',
         'def-box', 'divider', 'grid-2', 'grid-3', 'mini-card', 'syllabus-tag',
-        'term-list', 'term', 'check', 'q', 'answer', 'recap', 'note-figure',
+        'term-list', 'term', 'check', 'q', 'answer', 'recap', 'note-figure', 'figure-row',
       ]);
       // Code samples quote markup as text, so their class= is not a real one.
       const markup = html.replace(/<code>[\s\S]*?<\/code>/g, '');

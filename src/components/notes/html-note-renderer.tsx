@@ -442,6 +442,29 @@ const NOTE_STYLES = `
   border-top: 1px solid var(--note-border);
 }
 
+/* ROW OF DEVICE PICTURES AT THE TOP OF A DEVICE CARD */
+.ict-note .figure-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.6rem;
+  margin: 0.25rem 0 0.75rem;
+}
+.ict-note .figure-row figure {
+  border: 1px solid var(--note-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--note-bg-page);
+}
+.ict-note .figure-row img { display: block; width: 100%; height: auto; }
+.ict-note .figure-row figcaption {
+  padding: 0.3rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+  color: var(--note-h1);
+  border-top: 1px solid var(--note-border);
+}
+
 .ict-note svg { max-width: 100%; height: auto; }
 /* A note's own <style> block beats its presentation attributes, so a class like
    .mem-text { text-anchor: middle } silently re-centres text the markup asked to
@@ -651,11 +674,12 @@ const NOTE_STYLES = `
   .ict-note .adv-dis,
   .ict-note .grid-2,
   .ict-note .grid-3 { grid-template-columns: 1fr; }
+  .ict-note .figure-row { grid-template-columns: repeat(2, 1fr); }
   .ict-note .section-body { padding: 1rem; }
   .ict-note .page-header h1 { font-size: 1.6rem; }
 }
 @media print {
-  .ict-note .device-card, .ict-note .section, .ict-note .mini-card, .ict-note .note-figure { break-inside: avoid; }
+  .ict-note .device-card, .ict-note .section, .ict-note .mini-card, .ict-note .note-figure, .ict-note .figure-row figure { break-inside: avoid; }
   /* A printed or exported note has no one to click the reveals, so show the
      answers. Browsers hide a closed <details>' content through the shadow tree,
      which only ::details-content can reach; the display rule covers the rest. */
