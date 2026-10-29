@@ -12,6 +12,7 @@ import path from 'node:path';
  */
 
 const NOTES_DIR = path.resolve(__dirname, '../../../../content/ict-0417/notes');
+const PUBLIC_DIR = path.resolve(__dirname, '../../../../public');
 
 const EXPECTED_FILES = [
   '01-types-and-components.html',
@@ -99,7 +100,7 @@ describe('ICT 0417 note content', () => {
     });
 
     it('balances its div, details and table tags', () => {
-      for (const tag of ['div', 'details', 'table', 'ul', 'ol', 'li', 'summary']) {
+      for (const tag of ['div', 'details', 'table', 'ul', 'ol', 'li', 'summary', 'figure']) {
         const { open, close } = tagBalance(html, tag);
         expect({ tag, open, close }).toEqual({ tag, open, close: open });
       }
@@ -128,7 +129,7 @@ describe('ICT 0417 note content', () => {
         'badge-storage', 'badge-direct', 'adv-dis', 'full', 'adv-box',
         'dis-box', 'label', 'note', 'table-wrap', 'comp-table', 'uses-box',
         'def-box', 'divider', 'grid-2', 'grid-3', 'mini-card', 'syllabus-tag',
-        'term-list', 'term', 'check', 'q', 'answer', 'recap',
+        'term-list', 'term', 'check', 'q', 'answer', 'recap', 'note-figure',
       ]);
       // Code samples quote markup as text, so their class= is not a real one.
       const markup = html.replace(/<code>[\s\S]*?<\/code>/g, '');
@@ -136,6 +137,16 @@ describe('ICT 0417 note content', () => {
         [...markup.matchAll(/class="([^"]+)"/g)].flatMap((m) => m[1].split(/\s+/))
       );
       expect([...used].filter((name) => !known.has(name))).toEqual([]);
+    });
+
+    it('describes every image and points it at a file in public/', () => {
+      for (const [img] of html.matchAll(/<img\b[^>]*>/g)) {
+        expect(img).toMatch(/\salt="[^"]+"/);
+        const src = img.match(/\ssrc="([^"]+)"/)?.[1] ?? '';
+        // Notes are served from the site root, so a src is a path under public/.
+        expect(src).toMatch(/^\//);
+        expect(fs.existsSync(path.join(PUBLIC_DIR, src))).toBe(true);
+      }
     });
   });
 });

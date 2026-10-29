@@ -417,6 +417,22 @@ const NOTE_STYLES = `
   font-weight: 800;
 }
 
+/* ILLUSTRATION WITH CAPTION */
+.ict-note .note-figure {
+  border: 1px solid var(--note-border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 0 0 1.5rem;
+  background: var(--note-bg-page);
+}
+.ict-note .note-figure img { display: block; width: 100%; height: auto; }
+.ict-note .note-figure figcaption {
+  padding: 0.6rem 0.85rem;
+  font-size: 0.84rem;
+  color: var(--note-text-light);
+  border-top: 1px solid var(--note-border);
+}
+
 .ict-note svg { max-width: 100%; height: auto; }
 /* A note's own <style> block beats its presentation attributes, so a class like
    .mem-text { text-anchor: middle } silently re-centres text the markup asked to
@@ -436,7 +452,7 @@ const NOTE_STYLES = `
   .ict-note .page-header h1 { font-size: 1.6rem; }
 }
 @media print {
-  .ict-note .device-card, .ict-note .section, .ict-note .mini-card { break-inside: avoid; }
+  .ict-note .device-card, .ict-note .section, .ict-note .mini-card, .ict-note .note-figure { break-inside: avoid; }
   /* A printed or exported note has no one to click the reveals, so show the
      answers. Browsers hide a closed <details>' content through the shadow tree,
      which only ::details-content can reach; the display rule covers the rest. */
